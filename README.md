@@ -1,91 +1,117 @@
 # GFD Recruit Testing
 
-A native iPhone/iPad app for Greensboro Fire Department to run practical skills tests on
-new recruits: build reusable test templates (instructions, graded pass/fail steps, and
-timers with pass/fail cutoffs), run them live against a recruit, capture photo/note
-evidence on any failed step, and export results to a spreadsheet — all with **zero
-ongoing cost** (no server, no subscriptions; syncing between department devices uses
-Apple's free CloudKit).
+A web app for Greensboro Fire Department to run practical skills tests on new recruits:
+build reusable test templates (instructions, graded pass/fail steps, and timers with
+pass/fail cutoffs), run them live against a recruit, capture photo evidence on any failed
+step, and export results to a spreadsheet.
 
-This is a real Xcode project's source code, written without access to a Mac — **you'll
-need a Mac with Xcode to build, run, and submit it.** These steps get you from this
-folder to a running app in the Simulator.
+**Runs entirely free, forever** — no Apple/app store fee, no server to pay for or
+maintain. It's a normal website that works from Safari/Chrome on any iPhone, iPad,
+Android phone, or computer, and can be "installed" to a phone's Home Screen so it opens
+full-screen like a real app. The trade-off from the original native-app plan: it needs an
+internet connection to work (no offline mode) — camera photo capture for failed steps is
+still fully supported.
 
-## 1. One-time tools setup (on your Mac)
+This was built without access to a Mac, but that's no longer a constraint here — this
+runs from any computer (Windows, Mac, Linux, Chromebook).
 
-1. Install **Xcode** from the Mac App Store (free), and open it once to accept the
-   license and let it install additional components.
-2. Install **[XcodeGen](https://github.com/yonaskolb/XcodeGen)** — this project's actual
-   `.xcodeproj` file isn't checked in; XcodeGen generates it from `project.yml` so the
-   project stays easy to review and diff in Git. With [Homebrew](https://brew.sh)
-   installed:
-   ```
-   brew install xcodegen
-   ```
+## What you need
 
-## 2. Generate and open the project
+- **Node.js** (free) — download from [nodejs.org](https://nodejs.org) if you don't have it.
+- **A free Google account** — to create a Firebase project. Firebase is Google's
+  free-tier backend service; it's what stores the recruits, tests, and results, and syncs
+  them across every device, with no server for anyone to run or pay for.
+- No credit card is required for the free ("Spark") plan this app uses.
 
-From this folder in Terminal:
+## 1. Create your Firebase project
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com) and create a
+   new project (any name, e.g. "gfd-recruit-testing").
+2. In the project, go to **Build → Authentication → Sign-in method** and enable the
+   **Email/Password** provider.
+3. Go to **Build → Firestore Database → Create database**. Choose **Production mode**
+   and any nearby region.
+4. Go to **Build → Storage → Get started**. Choose **Production mode** (same region).
+5. Go to **Project settings** (gear icon) → scroll to **Your apps** → click the **Web**
+   icon (`</>`) → register an app (any nickname) → copy the `firebaseConfig` values shown.
+
+## 2. Configure this project
+
 ```
-xcodegen generate
-open GFDTrainingPracticals.xcodeproj
+cd web
+npm install
+cp .env.example .env
 ```
-Re-run `xcodegen generate` any time `project.yml` changes (e.g. after pulling new
-changes that touch project settings).
+Paste the values you copied into `.env` (one per line, matching the variable names).
 
-## 3. Sign the app with your Apple Developer account
+## 3. Try it locally
 
-In Xcode, select the project in the navigator, then the **GFDTrainingPracticals**
-target, then the **Signing & Capabilities** tab:
-1. Choose the department's Apple Developer team from the **Team** dropdown.
-2. Xcode will offer to create the iCloud container (`iCloud.com.greensborofd.trainingpracticals`)
-   automatically the first time you build — accept that.
+```
+npm run dev
+```
+Open the URL it prints (usually `http://localhost:5173`). The very first time you open
+it, you'll see a **Create the first administrator account** screen — there's no server
+to seed one from. After that, sign in with the account you just created.
 
-See `GFDTrainingPracticals/Persistence/CloudKitSchemaNotes.md` for the full CloudKit
-setup checklist (this only needs doing once).
+## 4. Deploy it for real (free, permanent hosting)
 
-## 4. Run it
+Install the Firebase command-line tool once:
+```
+npm install -g firebase-tools
+firebase login
+```
+Then, from the `web` folder:
+```
+firebase use --add
+```
+Pick the Firebase project you created in Step 1. Then, whenever you want to publish (this
+first time, and any time you make changes later):
+```
+npm run deploy
+```
+This builds the app and uploads it, along with the security rules in `firestore.rules`
+and `storage.rules` (these are what keep the data private to logged-in admins only —
+make sure the first `firebase deploy` includes them, which `npm run deploy` does
+automatically).
 
-Pick an iPhone or iPad Simulator from the scheme selector at the top of the Xcode window
-and press the ▶ button (or `Cmd+R`). The very first launch shows a one-time **Create the
-first administrator account** screen (there's no server to seed one from) — after that,
-sign in with the account you just created.
+Firebase will print a URL like `https://gfd-recruit-testing.web.app` — that's the real,
+permanent address for the app. Share that with your evaluators.
 
-Note: the iOS Simulator has no camera, so the photo-attachment feature automatically
-falls back to picking a photo from the Simulator's photo library instead of taking one —
-this only matters for testing; a real device uses the actual camera.
+## 5. Put it on department iPhones/iPads
 
-## 5. Try the real multi-device / offline sync
+Open the URL in Safari, tap the **Share** button, then **Add to Home Screen**. It gets a
+GFD badge icon and opens full-screen, just like an installed app — no App Store needed.
 
-Every department device needs to be **signed into the same shared department iCloud
-account** (Settings → [Apple ID] → iCloud) for test results to sync between evaluators —
-this is a one-time step per device, not something the app can do for you. To verify it
-end-to-end: run the app on two devices/simulators signed into that same iCloud account,
-put one in Airplane Mode, complete a test, then reconnect and confirm the other device
-sees it.
+## Notes
 
-## 6. App Store submission
-
-See the **"App Store Submission Checklist"** section of the project plan for the full
-list (Apple Developer Program enrollment, privacy nutrition label, screenshots, a demo
-login for Apple's reviewer, TestFlight beta, etc.).
+- **Camera capture** needs a secure connection, which Firebase Hosting provides
+  automatically (the deployed URL is always `https://`) — no extra setup needed.
+- **No offline mode**: every screen needs a live connection to load and save data. If
+  that becomes a problem later, it's a bigger rework (a different, paid architecture),
+  not a quick toggle.
+- **Security rules**: `firestore.rules` and `storage.rules` restrict all reads/writes to
+  signed-in, active admin accounts — nobody can see or change recruit data without
+  logging in, even though the app's URL is public.
 
 ## Project layout
 
 ```
-project.yml                          XcodeGen project spec (edit this, not the .xcodeproj)
-GFDTrainingPracticals/
-  App/                                App entry point + root navigation
-  Persistence/                        Core Data + CloudKit model and setup
-  Domain/                             Typed helpers/extensions over the Core Data entities
-  Features/
-    Auth/                             Login, first-run admin setup, admin management
-    Home/                             Home Screen (test list)
-    Recruits/                         Add/edit recruits
-    Templates/                        Build test templates (instruction/graded/timer steps)
-    TestRunner/                       Recruit confirmation → live test → results
-    Export/                           CSV (Excel) export
-    Reporting/                        Recruit history, pass rates, cohort dashboard
-  Shared/                             Branding/theme, reusable UI bits, small utilities
-  Resources/                          Assets.xcassets (branding), Info.plist, entitlements
+web/
+  firebase.json, firestore.rules, storage.rules   Firebase config + security rules
+  .env.example                                     Copy to .env with your Firebase project's values
+  src/
+    firebase.js                                    Firebase SDK setup
+    context/AuthContext.jsx                         Login/session state
+    lib/                                            Shared constants, CSV export, timer logic
+    components/                                     Shared UI (top bar, etc.)
+    pages/
+      LoginPage, SetupAdminPage, AdminsPage          Auth + admin account management
+      HomePage                                       Test list (Home Screen)
+      RecruitConfirmPage                             Pick + confirm the recruit being tested
+      LiveTestRunnerPage                              The live test itself
+      ResultsPage                                     Pass/Fail summary after a test
+      RecruitsAdminPage, TemplatesAdminPage,
+      TemplateEditorPage                              Build recruits and test templates
+      reporting/                                      Recruit history, pass rates, cohort
+                                                        dashboard, CSV export
 ```

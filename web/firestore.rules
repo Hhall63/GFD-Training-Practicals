@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // True once this admin's own Firestore doc says they're an active admin.
+    function isActiveAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isActive == true;
+    }
+
+    // There's no server here, so the very first admin account has to bootstrap itself the
+    // first time the app is ever opened. Once meta/appState.firstAdminCreated is true, this
+    // door closes and every admin after that must be created by an existing active admin.
+    function noAdminExistsYet() {
+      return !exists(/databases/$(database)/documents/meta/appState)
+        || get(/databases/$(database)/documents/meta/appState).data.firstAdminCreated != true;
+    }
+
+    match /meta/appState {
+      allow get: if true;
+      allow create, update: if noAdminExistsYet() || isActiveAdmin();
+    }
+
+    match /admins/{adminId} {
+      // Any signed-in user may read admin docs (needed for the isActiveAdmin() checks above
+      // and the admin-management screen); only active admins may list/write.
+      allow get: if isSignedIn();
+      allow list: if isActiveAdmin();
+      allow create: if isActiveAdmin() || (request.auth.uid == adminId && noAdminExistsYet());
+      allow update, delete: if isActiveAdmin();
+    }
+
+    match /recruits/{recruitId} {
+      allow read, write: if isActiveAdmin();
+    }
+
+    match /templates/{templateId} {
+      allow read, write: if isActiveAdmin();
+
+      match /lines/{lineId} {
+        allow read, write: if isActiveAdmin();
+      }
+    }
+
+    match /sessions/{sessionId} {
+      allow read, write: if isActiveAdmin();
+
+      match /lineResults/{lineResultId} {
+        allow read, write: if isActiveAdmin();
+      }
+    }
+  }
+}
