@@ -25,13 +25,23 @@ function FullScreenLoading() {
   return <div className="screen center-column" style={{ paddingTop: 80 }}>Loading…</div>;
 }
 
-/** Gate for every screen except /login and /setup. */
-function RequireAdmin({ children }) {
+/** Gate for every screen except /login and /setup — lets in any active account,
+ * Administrator or Evaluator alike. */
+function RequireAuth({ children }) {
   const { loading, adminDoc, anyAdminExists } = useAuth();
   if (loading) return <FullScreenLoading />;
   if (!adminDoc) {
     return <Navigate to={anyAdminExists ? "/login" : "/setup"} replace />;
   }
+  return children;
+}
+
+/** Additional gate for Administrator-only screens (managing recruits, tests, other
+ * accounts, and reporting) — Evaluators get bounced back to the Home Screen. Combine
+ * with RequireAuth, which handles the logged-out case first. */
+function RequireAdminRole({ children }) {
+  const { isAdmin } = useAuth();
+  if (!isAdmin) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -69,25 +79,25 @@ export default function App() {
         }
       />
 
-      <Route path="/" element={<RequireAdmin><HomePage /></RequireAdmin>} />
-      <Route path="/test/:templateId" element={<RequireAdmin><RecruitConfirmPage /></RequireAdmin>} />
-      <Route path="/session/:sessionId/run" element={<RequireAdmin><LiveTestRunnerPage /></RequireAdmin>} />
-      <Route path="/session/:sessionId/results" element={<RequireAdmin><ResultsPage /></RequireAdmin>} />
+      <Route path="/" element={<RequireAuth><HomePage /></RequireAuth>} />
+      <Route path="/test/:templateId" element={<RequireAuth><RecruitConfirmPage /></RequireAuth>} />
+      <Route path="/session/:sessionId/run" element={<RequireAuth><LiveTestRunnerPage /></RequireAuth>} />
+      <Route path="/session/:sessionId/results" element={<RequireAuth><ResultsPage /></RequireAuth>} />
 
-      <Route path="/recruits" element={<RequireAdmin><RecruitsAdminPage /></RequireAdmin>} />
-      <Route path="/templates" element={<RequireAdmin><TemplatesAdminPage /></RequireAdmin>} />
-      <Route path="/templates/:templateId" element={<RequireAdmin><TemplateEditorPage /></RequireAdmin>} />
-      <Route path="/admins" element={<RequireAdmin><AdminsPage /></RequireAdmin>} />
+      <Route path="/recruits" element={<RequireAuth><RequireAdminRole><RecruitsAdminPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/templates" element={<RequireAuth><RequireAdminRole><TemplatesAdminPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/templates/:templateId" element={<RequireAuth><RequireAdminRole><TemplateEditorPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/admins" element={<RequireAuth><RequireAdminRole><AdminsPage /></RequireAdminRole></RequireAuth>} />
 
-      <Route path="/reports" element={<RequireAdmin><ReportingHomePage /></RequireAdmin>} />
-      <Route path="/reports/recruits" element={<RequireAdmin><RecruitHistoryListPage /></RequireAdmin>} />
-      <Route path="/reports/recruits/:recruitId" element={<RequireAdmin><RecruitHistoryDetailPage /></RequireAdmin>} />
-      <Route path="/reports/sessions/:sessionId" element={<RequireAdmin><SessionDetailPage /></RequireAdmin>} />
-      <Route path="/reports/templates" element={<RequireAdmin><TemplateReportListPage /></RequireAdmin>} />
-      <Route path="/reports/templates/:templateId" element={<RequireAdmin><TemplateAggregateReportPage /></RequireAdmin>} />
-      <Route path="/reports/cohorts" element={<RequireAdmin><CohortDashboardListPage /></RequireAdmin>} />
-      <Route path="/reports/cohorts/:cohort" element={<RequireAdmin><CohortDashboardPage /></RequireAdmin>} />
-      <Route path="/reports/export" element={<RequireAdmin><ExportPage /></RequireAdmin>} />
+      <Route path="/reports" element={<RequireAuth><RequireAdminRole><ReportingHomePage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/recruits" element={<RequireAuth><RequireAdminRole><RecruitHistoryListPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/recruits/:recruitId" element={<RequireAuth><RequireAdminRole><RecruitHistoryDetailPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/sessions/:sessionId" element={<RequireAuth><RequireAdminRole><SessionDetailPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/templates" element={<RequireAuth><RequireAdminRole><TemplateReportListPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/templates/:templateId" element={<RequireAuth><RequireAdminRole><TemplateAggregateReportPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/cohorts" element={<RequireAuth><RequireAdminRole><CohortDashboardListPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/cohorts/:cohort" element={<RequireAuth><RequireAdminRole><CohortDashboardPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/export" element={<RequireAuth><RequireAdminRole><ExportPage /></RequireAdminRole></RequireAuth>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

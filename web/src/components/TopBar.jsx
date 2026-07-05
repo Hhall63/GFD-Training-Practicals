@@ -5,8 +5,19 @@ import { useAuth } from "../context/AuthContext";
 
 export default function TopBar({ title = "GFD Recruit Testing", showMenu = true, onBack }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { logout } = useAuth();
+  const { logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+
+  // Evaluators can only run tests — the management/reporting screens aren't even shown
+  // in the menu for them (the routes are also gated server-side via RequireAdminRole).
+  const menuItems = isAdmin
+    ? [
+        ["Manage Recruits", "/recruits"],
+        ["Manage Tests", "/templates"],
+        ["Reports", "/reports"],
+        ["Users", "/admins"],
+      ]
+    : [];
 
   return (
     <div className="top-bar">
@@ -37,12 +48,7 @@ export default function TopBar({ title = "GFD Recruit Testing", showMenu = true,
                 zIndex: 20,
               }}
             >
-              {[
-                ["Manage Recruits", "/recruits"],
-                ["Manage Tests", "/templates"],
-                ["Reports", "/reports"],
-                ["Administrators", "/admins"],
-              ].map(([label, path]) => (
+              {menuItems.map(([label, path]) => (
                 <button
                   key={path}
                   className="list-row"

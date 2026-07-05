@@ -7,16 +7,29 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // True once this admin's own Firestore doc says they're an active admin.
-    function isActiveAdmin() {
+    function myAdminDoc() {
+      return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data;
+    }
+
+    // True for any signed-in, active account — Administrators and Evaluators alike.
+    // This is the bar for "can use the app at all" (see the test list, run a live test).
+    function isActiveUser() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isActive == true;
+        && myAdminDoc().isActive == true;
+    }
+
+    // Administrators can build/edit tests, manage recruits, and manage other accounts.
+    // Evaluators cannot — they can only run tests and submit results. Accounts created
+    // before roles existed have no `role` field at all, which is treated as "admin" so
+    // nobody's access silently changed when this was introduced.
+    function isAdminRole() {
+      return isActiveUser() && (!('role' in myAdminDoc()) || myAdminDoc().role == 'admin');
     }
 
     // There's no server here, so the very first admin account has to bootstrap itself the
     // first time the app is ever opened. Once meta/appState.firstAdminCreated is true, this
-    // door closes and every admin after that must be created by an existing active admin.
+    // door closes and every account after that must be created by an existing administrator.
     function noAdminExistsYet() {
       return !exists(/databases/$(database)/documents/meta/appState)
         || get(/databases/$(database)/documents/meta/appState).data.firstAdminCreated != true;
@@ -24,35 +37,45 @@ service cloud.firestore {
 
     match /meta/appState {
       allow get: if true;
-      allow create, update: if noAdminExistsYet() || isActiveAdmin();
+      allow create, update: if noAdminExistsYet() || isAdminRole();
     }
 
     match /admins/{adminId} {
-      // Any signed-in user may read admin docs (needed for the isActiveAdmin() checks above
-      // and the admin-management screen); only active admins may list/write.
+      // Any signed-in user may read admin docs (needed for the isActiveUser()/isAdminRole()
+      // checks above and the user-management screen); only administrators may list/write —
+      // an Evaluator cannot see or change other accounts.
       allow get: if isSignedIn();
-      allow list: if isActiveAdmin();
-      allow create: if isActiveAdmin() || (request.auth.uid == adminId && noAdminExistsYet());
-      allow update, delete: if isActiveAdmin();
+      allow list: if isAdminRole();
+      allow create: if isAdminRole() || (request.auth.uid == adminId && noAdminExistsYet());
+      allow update, delete: if isAdminRole();
     }
 
     match /recruits/{recruitId} {
-      allow read, write: if isActiveAdmin();
+      // Evaluators need to read the recruit list to pick who they're testing, but only
+      // administrators can add/edit/deactivate recruits.
+      allow read: if isActiveUser();
+      allow write: if isAdminRole();
     }
 
     match /templates/{templateId} {
-      allow read, write: if isActiveAdmin();
+      // Evaluators need to read test templates to run them, but only administrators can
+      // build or edit test templates.
+      allow read: if isActiveUser();
+      allow write: if isAdminRole();
 
       match /lines/{lineId} {
-        allow read, write: if isActiveAdmin();
+        allow read: if isActiveUser();
+        allow write: if isAdminRole();
       }
     }
 
     match /sessions/{sessionId} {
-      allow read, write: if isActiveAdmin();
+      // Both roles run tests and record results — this is the "grade and submit" part of
+      // an Evaluator's job.
+      allow read, write: if isActiveUser();
 
       match /lineResults/{lineResultId} {
-        allow read, write: if isActiveAdmin();
+        allow read, write: if isActiveUser();
       }
     }
   }

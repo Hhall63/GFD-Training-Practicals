@@ -75,6 +75,7 @@ export function AuthProvider({ children }) {
     await setDoc(doc(db, "admins", uid), {
       email: email.trim().toLowerCase(),
       displayName,
+      role: "admin",
       isActive: true,
       createdAt: serverTimestamp(),
       lastLoginAt: serverTimestamp(),
@@ -83,6 +84,9 @@ export function AuthProvider({ children }) {
   }
 
   const loading = firebaseUser === undefined || !appStateChecked;
+  // Accounts created before roles existed have no `role` field — treated as "admin" so
+  // nobody's access silently changed when Evaluator accounts were introduced.
+  const isAdmin = !adminDoc || !adminDoc.role || adminDoc.role === "admin";
 
   return (
     <AuthContext.Provider
@@ -90,6 +94,7 @@ export function AuthProvider({ children }) {
         loading,
         firebaseUser: firebaseUser ?? null,
         adminDoc,
+        isAdmin,
         anyAdminExists,
         login,
         logout,
