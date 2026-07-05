@@ -60,6 +60,13 @@ export default function RecruitConfirmPage() {
       );
       const lines = linesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
+      // Snapshot the template's scoring rules onto the session at start time, so editing
+      // the template later (points, passing %) never rewrites the history of past tests.
+      const totalPointsPossible = lines.reduce(
+        (sum, line) => sum + (line.lineType !== LINE_TYPES.INSTRUCTION ? Number(line.points ?? 0) : 0),
+        0
+      );
+
       const sessionRef = await addDoc(collection(db, "sessions"), {
         recruitId: selected.id,
         recruitName: `${selected.firstName} ${selected.lastName}`,
@@ -70,6 +77,9 @@ export default function RecruitConfirmPage() {
         completedAt: null,
         status: SESSION_STATUS.IN_PROGRESS,
         overallResult: null,
+        passingPercentageSnapshot: template.passingPercentage ?? 70,
+        totalPointsPossible,
+        totalPointsEarned: null,
       });
 
       const batch = writeBatch(db);
@@ -80,7 +90,9 @@ export default function RecruitConfirmPage() {
           lineTypeSnapshot: line.lineType,
           lineTextSnapshot: line.lineText,
           passThresholdSecondsSnapshot: line.passThresholdSeconds ?? null,
+          pointsSnapshot: line.lineType !== LINE_TYPES.INSTRUCTION ? Number(line.points ?? 0) : null,
           result: line.lineType === LINE_TYPES.INSTRUCTION ? RESULT.NOT_APPLICABLE : null,
+          pointsEarned: null,
           timerElapsedSeconds: null,
           note: null,
           photoURLs: [],

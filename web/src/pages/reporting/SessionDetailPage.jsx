@@ -34,6 +34,13 @@ export default function SessionDetailPage() {
             {session.startedAt?.toDate?.().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) ?? ""}
           </div>
           <div className="muted">Evaluator: {session.evaluatorName}</div>
+          {session.totalPointsPossible > 0 && (
+            <div style={{ fontWeight: 600, marginTop: 6 }}>
+              {session.totalPointsEarned ?? 0} / {session.totalPointsPossible} points (
+              {Math.round(((session.totalPointsEarned ?? 0) / session.totalPointsPossible) * 100)}% — needed{" "}
+              {session.passingPercentageSnapshot}% to pass)
+            </div>
+          )}
         </div>
 
         {lineResults.map((line) => (
@@ -47,6 +54,9 @@ export default function SessionDetailPage() {
               </span>
             </div>
             {line.timerElapsedSeconds != null && <div className="muted">{formatSeconds(line.timerElapsedSeconds)}s</div>}
+            {line.pointsSnapshot != null && (
+              <div className="muted">{line.pointsEarned ?? 0} / {line.pointsSnapshot} pts</div>
+            )}
             {(line.photoURLs ?? []).map((url) => (
               <img key={url} src={url} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, marginTop: 6, marginRight: 6 }} />
             ))}

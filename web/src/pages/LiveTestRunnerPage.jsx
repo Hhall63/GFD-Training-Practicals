@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -17,6 +18,7 @@ export default function LiveTestRunnerPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
 
+  const [sessionData, setSessionData] = useState(null);
   const [lineResults, setLineResults] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -25,6 +27,7 @@ export default function LiveTestRunnerPage() {
   const intervalRef = useRef(null);
 
   useEffect(() => {
+    getDoc(doc(db, "sessions", sessionId)).then((snap) => setSessionData(snap.data()));
     getDocs(query(collection(db, "sessions", sessionId, "lineResults"), orderBy("sortOrder"))).then(
       (snap) => setLineResults(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
@@ -58,7 +61,14 @@ export default function LiveTestRunnerPage() {
     setIsTimerRunning(false);
     const finalElapsed = (Date.now() - timerStartRef.current) / 1000;
     const result = computeTimerResult(finalElapsed, current.passThresholdSecondsSnapshot);
-    await patchCurrent({ timerElapsedSeconds: finalElapsed, result });
+    // All-or-nothing: full points for finishing within the time limit, zero otherwise.
+    const pointsEarned = result === RESULT.PASS ? (current.pointsSnapshot ?? 0) : 0;
+    await patchCurrent({ timerElapsedSeconds: finalElapsed, result, pointsEarned });
+  }
+
+  function setGradedResult(result) {
+    const pointsEarned = result === RESULT.PASS ? (current.pointsSnapshot ?? 0) : 0;
+    return patchCurrent({ result, pointsEarned });
   }
 
   function canAdvance() {
@@ -73,11 +83,17 @@ export default function LiveTestRunnerPage() {
 
   async function finishSession() {
     const graded = lineResults.filter((l) => l.lineTypeSnapshot !== LINE_TYPES.INSTRUCTION);
-    const overallResult = graded.some((l) => l.result === RESULT.FAIL) ? RESULT.FAIL : RESULT.PASS;
+    const totalPointsEarned = graded.reduce((sum, l) => sum + (l.pointsEarned ?? 0), 0);
+    const totalPointsPossible = graded.reduce((sum, l) => sum + (l.pointsSnapshot ?? 0), 0);
+    // No points defined on this test at all (e.g. an all-instruction template) — treat as
+    // an automatic pass rather than dividing by zero.
+    const percentageEarned = totalPointsPossible > 0 ? (totalPointsEarned / totalPointsPossible) * 100 : 100;
+    const overallResult = percentageEarned >= sessionData.passingPercentageSnapshot ? RESULT.PASS : RESULT.FAIL;
     await updateDoc(doc(db, "sessions", sessionId), {
       status: SESSION_STATUS.COMPLETED,
       completedAt: serverTimestamp(),
       overallResult,
+      totalPointsEarned,
     });
   }
 
@@ -90,7 +106,7 @@ export default function LiveTestRunnerPage() {
     }
   }
 
-  if (!lineResults) {
+  if (!lineResults || !sessionData) {
     return <div className="screen center-column" style={{ paddingTop: 80 }}>Loading test…</div>;
   }
 
@@ -119,7 +135,15 @@ export default function LiveTestRunnerPage() {
       </div>
 
       <div className="screen" style={{ flex: 1 }}>
-        <LineCard current={current} isTimerRunning={isTimerRunning} elapsed={elapsed} startTimer={startTimer} stopTimer={stopTimer} patchCurrent={patchCurrent} />
+        <LineCard
+          current={current}
+          isTimerRunning={isTimerRunning}
+          elapsed={elapsed}
+          startTimer={startTimer}
+          stopTimer={stopTimer}
+          patchCurrent={patchCurrent}
+          setGradedResult={setGradedResult}
+        />
       </div>
 
       <div
@@ -145,7 +169,7 @@ export default function LiveTestRunnerPage() {
   );
 }
 
-function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, patchCurrent }) {
+function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, patchCurrent, setGradedResult }) {
   if (current.lineTypeSnapshot === LINE_TYPES.INSTRUCTION) {
     return (
       <div className="center-column" style={{ paddingTop: 32 }}>
@@ -161,7 +185,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
         <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
         {current.passThresholdSecondsSnapshot != null && (
           <p className="muted" style={{ fontWeight: 600 }}>
-            Pass: ≤ {current.passThresholdSecondsSnapshot}s
+            Pass: ≤ {current.passThresholdSecondsSnapshot}s · Worth {current.pointsSnapshot ?? 0} pts
           </p>
         )}
         <div
@@ -193,7 +217,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
               <button className="secondary" onClick={startTimer}>Retry</button>
               <button
                 className="secondary"
-                onClick={() => patchCurrent({ result: current.result === RESULT.PASS ? RESULT.FAIL : RESULT.PASS })}
+                onClick={() => setGradedResult(current.result === RESULT.PASS ? RESULT.FAIL : RESULT.PASS)}
               >
                 Mark {current.result === RESULT.PASS ? "Fail" : "Pass"} Instead
               </button>
@@ -211,24 +235,25 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
   return (
     <div className="center-column" style={{ paddingTop: 16 }}>
       <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
+      <p className="muted" style={{ fontWeight: 600 }}>Worth {current.pointsSnapshot ?? 0} pts</p>
       <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 400, marginTop: 16 }}>
         <button
           className={`primary ${current.result === RESULT.PASS ? "success" : ""}`}
           style={{ background: current.result === RESULT.PASS ? undefined : "#c7c7cc" }}
-          onClick={() => patchCurrent({ result: RESULT.PASS })}
+          onClick={() => setGradedResult(RESULT.PASS)}
         >
           Pass
         </button>
         <button
           className={`primary ${current.result === RESULT.FAIL ? "danger" : ""}`}
           style={{ background: current.result === RESULT.FAIL ? undefined : "#c7c7cc" }}
-          onClick={() => patchCurrent({ result: RESULT.FAIL })}
+          onClick={() => setGradedResult(RESULT.FAIL)}
         >
           Fail
         </button>
       </div>
       {current.result && (
-        <AttachmentCapture current={current} patchCurrent={patchCurrent} sessionId={sessionId} isRequired={current.result === RESULT.FAIL} />
+        <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={current.result === RESULT.FAIL} />
       )}
     </div>
   );

@@ -1,8 +1,9 @@
 const COLUMNS = [
   "Recruit Name", "Cohort", "Badge/ID", "Template Name",
   "Evaluator", "Session Date", "Overall Result",
+  "Points Earned", "Points Possible", "Score %", "Passing %",
   "Line Order", "Line Text", "Line Type", "Result", "Timer Seconds",
-  "Pass Threshold Seconds", "Note", "Has Photo",
+  "Pass Threshold Seconds", "Line Points Earned", "Line Points Possible", "Note", "Has Photo",
 ];
 
 function escape(field) {
@@ -29,6 +30,10 @@ export function buildResultsCsv(sessions) {
   const rows = [COLUMNS];
 
   for (const session of sessions) {
+    const pointsPossible = session.totalPointsPossible ?? 0;
+    const pointsEarned = session.totalPointsEarned ?? 0;
+    const scorePercent = pointsPossible > 0 ? Math.round((pointsEarned / pointsPossible) * 100) : "";
+
     const base = [
       session.recruitName,
       session.recruitCohort ?? "",
@@ -37,11 +42,15 @@ export function buildResultsCsv(sessions) {
       session.evaluatorName,
       formatDate(session.startedAt),
       (session.overallResult ?? "incomplete").toUpperCase(),
+      pointsPossible > 0 ? pointsEarned : "",
+      pointsPossible > 0 ? pointsPossible : "",
+      scorePercent,
+      session.passingPercentageSnapshot ?? "",
     ];
 
     const lines = session.lineResults ?? [];
     if (lines.length === 0) {
-      rows.push([...base, "", "", "", "", "", "", "", ""]);
+      rows.push([...base, "", "", "", "", "", "", "", "", "", ""]);
       continue;
     }
 
@@ -54,6 +63,8 @@ export function buildResultsCsv(sessions) {
         (line.result ?? "").toUpperCase(),
         line.timerElapsedSeconds != null ? line.timerElapsedSeconds.toFixed(1) : "",
         line.passThresholdSecondsSnapshot ?? "",
+        line.pointsEarned ?? "",
+        line.pointsSnapshot ?? "",
         line.note ?? "",
         line.photoURLs?.length > 0 ? "Y" : "N",
       ]);

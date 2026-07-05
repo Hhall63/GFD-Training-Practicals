@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   addDoc,
@@ -16,6 +16,8 @@ import { db } from "../firebase";
 import TopBar from "../components/TopBar";
 import { LINE_TYPE_LABELS, LINE_TYPES } from "../lib/constants";
 
+const DEFAULT_PASSING_PERCENTAGE = 70;
+
 export default function TemplateEditorPage() {
   const { templateId } = useParams();
   const navigate = useNavigate();
@@ -31,6 +33,15 @@ export default function TemplateEditorPage() {
     const q = query(collection(db, "templates", templateId, "lines"), orderBy("sortOrder"));
     return onSnapshot(q, (snap) => setLines(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
   }, [templateId]);
+
+  // Total points possible is always derived live from the current steps, rather than
+  // stored, so it can never drift out of sync as steps are added/edited/removed.
+  const totalPointsPossible = useMemo(
+    () => lines.reduce((sum, line) => sum + (line.lineType !== LINE_TYPES.INSTRUCTION ? Number(line.points ?? 0) : 0), 0),
+    [lines]
+  );
+  const passingPercentage = template?.passingPercentage ?? DEFAULT_PASSING_PERCENTAGE;
+  const pointsNeededToPass = Math.ceil((passingPercentage / 100) * totalPointsPossible);
 
   async function saveDetails(field, value) {
     setTemplate((t) => ({ ...t, [field]: value }));
@@ -71,6 +82,24 @@ export default function TemplateEditorPage() {
             <label>Description</label>
             <textarea rows={2} value={template.description ?? ""} onChange={(e) => saveDetails("description", e.target.value)} />
           </div>
+
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Passing Score</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                style={{ width: 90, marginBottom: 0 }}
+                value={passingPercentage}
+                onChange={(e) => saveDetails("passingPercentage", Number(e.target.value))}
+              />
+              <span>%</span>
+              <span className="muted">
+                = {pointsNeededToPass} of <strong>{totalPointsPossible}</strong> total points
+              </span>
+            </div>
+          </div>
         </div>
 
         <h4>Test Steps, In Order</h4>
@@ -83,6 +112,7 @@ export default function TemplateEditorPage() {
               <div className="muted">
                 {LINE_TYPE_LABELS[line.lineType]}
                 {line.lineType === LINE_TYPES.TIMER && line.passThresholdSeconds != null && ` — pass at ≤ ${line.passThresholdSeconds}s`}
+                {line.lineType !== LINE_TYPES.INSTRUCTION && ` — ${line.points ?? 0} pts`}
               </div>
             </div>
             <div style={{ display: "flex", gap: 4 }}>
@@ -115,6 +145,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
   const [lineType, setLineType] = useState(line.lineType ?? LINE_TYPES.INSTRUCTION);
   const [lineText, setLineText] = useState(line.lineText ?? "");
   const [passThresholdSeconds, setPassThresholdSeconds] = useState(line.passThresholdSeconds ?? 30);
+  const [points, setPoints] = useState(line.points ?? 10);
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
@@ -125,6 +156,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
         lineText,
         isScored: lineType === LINE_TYPES.GRADED,
         passThresholdSeconds: lineType === LINE_TYPES.TIMER ? Number(passThresholdSeconds) : null,
+        points: lineType !== LINE_TYPES.INSTRUCTION ? Number(points) : null,
       };
       if (isNew) {
         data.sortOrder = nextSortOrder;
@@ -185,6 +217,16 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
               value={passThresholdSeconds}
               onChange={(e) => setPassThresholdSeconds(e.target.value)}
             />
+          </div>
+        )}
+
+        {lineType !== LINE_TYPES.INSTRUCTION && (
+          <div className="field">
+            <label>Points</label>
+            <input type="number" min={0} value={points} onChange={(e) => setPoints(e.target.value)} />
+            <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
+              Full points are earned on a Pass{lineType === LINE_TYPES.TIMER ? " (finishing within the time limit)" : ""}, zero on a Fail.
+            </p>
           </div>
         )}
 

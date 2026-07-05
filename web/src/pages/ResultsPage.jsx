@@ -30,6 +30,13 @@ export default function ResultsPage() {
         </h1>
         <p style={{ fontWeight: 600, fontSize: 18, margin: "8px 0 2px" }}>{session.recruitName}</p>
         <p className="muted" style={{ margin: 0 }}>{session.templateName}</p>
+        {session.totalPointsPossible > 0 && (
+          <p style={{ fontWeight: 600, marginTop: 8 }}>
+            {session.totalPointsEarned ?? 0} / {session.totalPointsPossible} points (
+            {Math.round(((session.totalPointsEarned ?? 0) / session.totalPointsPossible) * 100)}% —
+            needed {session.passingPercentageSnapshot}% to pass)
+          </p>
+        )}
 
         <div style={{ width: "100%", marginTop: 24 }}>
           {lineResults.map((line) => (
@@ -44,6 +51,9 @@ export default function ResultsPage() {
               </div>
               {line.timerElapsedSeconds != null && (
                 <div className="muted">{formatSeconds(line.timerElapsedSeconds)}s</div>
+              )}
+              {line.pointsSnapshot != null && (
+                <div className="muted">{line.pointsEarned ?? 0} / {line.pointsSnapshot} pts</div>
               )}
               {line.photoURLs?.length > 0 && (
                 <div className="muted">{line.photoURLs.length} photo(s) attached</div>
