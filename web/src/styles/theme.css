@@ -51,7 +51,10 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px;
+  /* env(safe-area-inset-top) clears the iPhone status bar/notch/Dynamic Island when this
+     app is installed to the Home Screen (standalone mode) — without it, the bar sits at
+     the very top of the screen and the clock/battery/signal icons overlap it. */
+  padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
   background: var(--brand-navy);
   color: white;
 }
@@ -223,12 +226,14 @@ a:visited {
 
 .timer-banner {
   position: sticky;
-  top: 56px;
+  top: 0;
   z-index: 9;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
+  /* Same safe-area clearance as .top-bar — the live test runner has no header above this
+     banner, so it needs its own clearance from the iPhone status bar/notch. */
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
   background: var(--brand-navy);
   color: white;
 }

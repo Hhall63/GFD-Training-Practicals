@@ -122,7 +122,16 @@ export default function LiveTestRunnerPage() {
         <LineCard current={current} isTimerRunning={isTimerRunning} elapsed={elapsed} startTimer={startTimer} stopTimer={stopTimer} patchCurrent={patchCurrent} />
       </div>
 
-      <div style={{ position: "sticky", bottom: 0, background: "var(--bg)", padding: 16, display: "flex", gap: 12 }}>
+      <div
+        style={{
+          position: "sticky",
+          bottom: 0,
+          background: "var(--bg)",
+          padding: "16px 16px calc(16px + env(safe-area-inset-bottom))",
+          display: "flex",
+          gap: 12,
+        }}
+      >
         {currentIndex > 0 && (
           <button className="secondary" style={{ maxWidth: 120 }} onClick={() => setCurrentIndex((i) => i - 1)}>
             Back

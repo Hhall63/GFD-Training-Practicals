@@ -1,16 +1,24 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { collection, doc, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { createUserAccountWithoutSigningIn } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
 
+const ROLE_FILTERS = [
+  ["all", "All"],
+  ["admin", "Administrators"],
+  ["evaluator", "Evaluators"],
+];
+
 export default function AdminsPage() {
   const navigate = useNavigate();
   const { requestPasswordReset } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
-  const [showNewUser, setShowNewUser] = useState(false);
+  const [showNewUser, setShowNewUser] = useState(searchParams.get("new") === "1");
+  const [roleFilter, setRoleFilter] = useState("all");
 
   useEffect(() => {
     const q = query(collection(db, "admins"), where("isActive", "==", true));
@@ -18,6 +26,11 @@ export default function AdminsPage() {
       setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
   }, []);
+
+  const filteredUsers = useMemo(() => {
+    if (roleFilter === "all") return users;
+    return users.filter((u) => (u.role ?? "admin") === roleFilter);
+  }, [users, roleFilter]);
 
   async function deactivate(user) {
     await updateDoc(doc(db, "admins", user.id), { isActive: false });
@@ -28,11 +41,43 @@ export default function AdminsPage() {
     updateDoc(doc(db, "admins", user.id), { role: nextRole });
   }
 
+  function closeNewUserModal() {
+    setShowNewUser(false);
+    if (searchParams.get("new")) {
+      searchParams.delete("new");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }
+
   return (
     <div className="app-shell">
       <TopBar title="Users" onBack={() => navigate("/")} showMenu={false} />
       <div className="screen">
-        {users.map((user) => {
+        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+          {ROLE_FILTERS.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setRoleFilter(value)}
+              style={{
+                flex: 1,
+                padding: "8px 4px",
+                fontSize: 13,
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: roleFilter === value ? "var(--brand-navy)" : "white",
+                color: roleFilter === value ? "white" : "var(--text)",
+                cursor: "pointer",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {filteredUsers.length === 0 && <p className="muted">No users match this filter.</p>}
+
+        {filteredUsers.map((user) => {
           const role = user.role ?? "admin";
           return (
             <div key={user.id} className="card">
@@ -79,7 +124,7 @@ export default function AdminsPage() {
         </button>
       </div>
 
-      {showNewUser && <NewUserModal onClose={() => setShowNewUser(false)} />}
+      {showNewUser && <NewUserModal onClose={closeNewUserModal} />}
     </div>
   );
 }

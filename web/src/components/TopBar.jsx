@@ -15,7 +15,8 @@ export default function TopBar({ title = "GFD Recruit Testing", showMenu = true,
         ["Manage Recruits", "/recruits"],
         ["Manage Tests", "/templates"],
         ["Reports", "/reports"],
-        ["Users", "/admins"],
+        ["Add User", "/admins?new=1"],
+        ["See All Users", "/admins"],
       ]
     : [];
 
