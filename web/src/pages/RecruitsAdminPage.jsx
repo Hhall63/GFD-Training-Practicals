@@ -9,10 +9,10 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "../firebase";
+import { db } from "../firebase";
 import TopBar from "../components/TopBar";
 import { initials } from "../lib/constants";
+import { compressImageToDataUrl } from "../lib/image";
 
 export default function RecruitsAdminPage() {
   const navigate = useNavigate();
@@ -120,10 +120,8 @@ function RecruitFormModal({ recruit, onClose }) {
       }
 
       if (photoFile) {
-        const storageRef = ref(storage, `recruits/${recruitId}/photo-${Date.now()}`);
-        await uploadBytes(storageRef, photoFile);
-        const url = await getDownloadURL(storageRef);
-        await updateDoc(doc(db, "recruits", recruitId), { photoURL: url });
+        const dataUrl = await compressImageToDataUrl(photoFile);
+        await updateDoc(doc(db, "recruits", recruitId), { photoURL: dataUrl });
       }
 
       onClose();

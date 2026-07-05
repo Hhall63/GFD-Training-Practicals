@@ -9,8 +9,8 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "../firebase";
+import { db } from "../firebase";
+import { compressImageToDataUrl } from "../lib/image";
 import { computeTimerResult, formatSeconds, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
 
 export default function LiveTestRunnerPage() {
@@ -119,7 +119,7 @@ export default function LiveTestRunnerPage() {
       </div>
 
       <div className="screen" style={{ flex: 1 }}>
-        <LineCard current={current} isTimerRunning={isTimerRunning} elapsed={elapsed} startTimer={startTimer} stopTimer={stopTimer} patchCurrent={patchCurrent} sessionId={sessionId} />
+        <LineCard current={current} isTimerRunning={isTimerRunning} elapsed={elapsed} startTimer={startTimer} stopTimer={stopTimer} patchCurrent={patchCurrent} />
       </div>
 
       <div style={{ position: "sticky", bottom: 0, background: "var(--bg)", padding: 16, display: "flex", gap: 12 }}>
@@ -136,7 +136,7 @@ export default function LiveTestRunnerPage() {
   );
 }
 
-function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, patchCurrent, sessionId }) {
+function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, patchCurrent }) {
   if (current.lineTypeSnapshot === LINE_TYPES.INSTRUCTION) {
     return (
       <div className="center-column" style={{ paddingTop: 32 }}>
@@ -190,7 +190,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
               </button>
             </div>
             {current.result && (
-              <AttachmentCapture current={current} patchCurrent={patchCurrent} sessionId={sessionId} isRequired={current.result === RESULT.FAIL} />
+              <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={current.result === RESULT.FAIL} />
             )}
           </>
         )}
@@ -225,7 +225,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
   );
 }
 
-function AttachmentCapture({ current, patchCurrent, sessionId, isRequired }) {
+function AttachmentCapture({ current, patchCurrent, isRequired }) {
   const [note, setNote] = useState(current.note ?? "");
   const [uploading, setUploading] = useState(false);
   const [expanded, setExpanded] = useState(isRequired);
@@ -235,11 +235,8 @@ function AttachmentCapture({ current, patchCurrent, sessionId, isRequired }) {
     if (!file) return;
     setUploading(true);
     try {
-      const path = `attachments/${sessionId}/${current.id}/${Date.now()}-${file.name}`;
-      const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      await patchCurrent({ photoURLs: [...(current.photoURLs ?? []), url] });
+      const dataUrl = await compressImageToDataUrl(file);
+      await patchCurrent({ photoURLs: [...(current.photoURLs ?? []), dataUrl] });
     } finally {
       setUploading(false);
       e.target.value = "";

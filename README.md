@@ -31,9 +31,14 @@ runs from any computer (Windows, Mac, Linux, Chromebook).
    **Email/Password** provider.
 3. Go to **Build → Firestore Database → Create database**. Choose **Production mode**
    and any nearby region.
-4. Go to **Build → Storage → Get started**. Choose **Production mode** (same region).
-5. Go to **Project settings** (gear icon) → scroll to **Your apps** → click the **Web**
+4. Go to **Project settings** (gear icon) → scroll to **Your apps** → click the **Web**
    icon (`</>`) → register an app (any nickname) → copy the `firebaseConfig` values shown.
+
+There's no Storage step — Google now requires the paid Blaze plan just to turn on
+Firebase Storage, even though its usage quotas didn't change. To keep this app fully free
+with no credit card, photos are compressed in the browser and stored directly in
+Firestore instead (see `src/lib/image.js`). The trade-off is photos are downscaled rather
+than full camera resolution — still clear enough to document a failed step.
 
 ## 2. Configure this project
 
@@ -70,9 +75,8 @@ first time, and any time you make changes later):
 npm run deploy
 ```
 This builds the app and uploads it, along with the security rules in `firestore.rules`
-and `storage.rules` (these are what keep the data private to logged-in admins only —
-make sure the first `firebase deploy` includes them, which `npm run deploy` does
-automatically).
+(these are what keep the data private to logged-in admins only — make sure the first
+`firebase deploy` includes them, which `npm run deploy` does automatically).
 
 Firebase will print a URL like `https://gfd-recruit-testing.web.app` — that's the real,
 permanent address for the app. Share that with your evaluators.
@@ -89,20 +93,25 @@ GFD badge icon and opens full-screen, just like an installed app — no App Stor
 - **No offline mode**: every screen needs a live connection to load and save data. If
   that becomes a problem later, it's a bigger rework (a different, paid architecture),
   not a quick toggle.
-- **Security rules**: `firestore.rules` and `storage.rules` restrict all reads/writes to
-  signed-in, active admin accounts — nobody can see or change recruit data without
-  logging in, even though the app's URL is public.
+- **Photos live in Firestore, not Firebase Storage**: Storage now requires the paid
+  Blaze plan to enable at all, so photos are downscaled/compressed to JPEG in the
+  browser and stored as data URLs directly on the relevant Firestore document. This
+  keeps everything on the free Spark plan with no credit card, at the cost of
+  lower-resolution photos than the original camera capture.
+- **Security rules**: `firestore.rules` restricts all reads/writes to signed-in, active
+  admin accounts — nobody can see or change recruit data without logging in, even though
+  the app's URL is public.
 
 ## Project layout
 
 ```
 web/
-  firebase.json, firestore.rules, storage.rules   Firebase config + security rules
+  firebase.json, firestore.rules                   Firebase config + security rules
   .env.example                                     Copy to .env with your Firebase project's values
   src/
     firebase.js                                    Firebase SDK setup
     context/AuthContext.jsx                         Login/session state
-    lib/                                            Shared constants, CSV export, timer logic
+    lib/                                            Shared constants, CSV export, timer logic, image compression
     components/                                     Shared UI (top bar, etc.)
     pages/
       LoginPage, SetupAdminPage, AdminsPage          Auth + admin account management
