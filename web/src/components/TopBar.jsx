@@ -8,8 +8,8 @@ export default function TopBar({ title = "GFD Recruit Testing", showMenu = true,
   const { logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  // Evaluators can only run tests — the management/reporting screens aren't even shown
-  // in the menu for them (the routes are also gated server-side via RequireAdminRole).
+  // Only administrators get management/reporting links — evaluators and recruits see just
+  // Sign Out (the routes are also gated in App.jsx and by the security rules).
   const menuItems = isAdmin
     ? [
         ["Manage Recruits", "/recruits"],

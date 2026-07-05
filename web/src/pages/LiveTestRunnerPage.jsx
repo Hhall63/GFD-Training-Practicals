@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { compressImageToDataUrl } from "../lib/image";
+import { sendFailureEmail } from "../lib/notify";
 import { computeTimerResult, formatSeconds, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
 
 export default function LiveTestRunnerPage() {
@@ -88,12 +89,36 @@ export default function LiveTestRunnerPage() {
     // No points defined on this test at all (e.g. an all-instruction template) — treat as
     // an automatic pass rather than dividing by zero.
     const percentageEarned = totalPointsPossible > 0 ? (totalPointsEarned / totalPointsPossible) * 100 : 100;
-    const overallResult = percentageEarned >= sessionData.passingPercentageSnapshot ? RESULT.PASS : RESULT.FAIL;
+    // A failed critical step fails the whole test outright, no matter the point total.
+    const criticalFailure = graded.some((l) => l.isCriticalSnapshot && l.result === RESULT.FAIL);
+    const overallResult =
+      !criticalFailure && percentageEarned >= sessionData.passingPercentageSnapshot
+        ? RESULT.PASS
+        : RESULT.FAIL;
+
+    const finishedSession = {
+      ...sessionData,
+      overallResult,
+      criticalFailure,
+      totalPointsEarned,
+      totalPointsPossible,
+    };
+
+    // On a failure, email the admins who opted into failure notifications. Best-effort:
+    // a failed/unconfigured send never blocks the evaluator — the Results screen shows
+    // the outcome and offers a manual compose button as backup.
+    let failureEmailStatus = null;
+    if (overallResult === RESULT.FAIL) {
+      failureEmailStatus = await sendFailureEmail(finishedSession, lineResults);
+    }
+
     await updateDoc(doc(db, "sessions", sessionId), {
       status: SESSION_STATUS.COMPLETED,
       completedAt: serverTimestamp(),
       overallResult,
+      criticalFailure,
       totalPointsEarned,
+      failureEmailStatus,
     });
   }
 
@@ -186,6 +211,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
         {current.passThresholdSecondsSnapshot != null && (
           <p className="muted" style={{ fontWeight: 600 }}>
             Pass: ≤ {current.passThresholdSecondsSnapshot}s · Worth {current.pointsSnapshot ?? 0} pts
+            {current.isCriticalSnapshot && <span style={{ color: "var(--brand-red)" }}> · CRITICAL</span>}
           </p>
         )}
         <div
@@ -235,7 +261,10 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
   return (
     <div className="center-column" style={{ paddingTop: 16 }}>
       <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
-      <p className="muted" style={{ fontWeight: 600 }}>Worth {current.pointsSnapshot ?? 0} pts</p>
+      <p className="muted" style={{ fontWeight: 600 }}>
+        Worth {current.pointsSnapshot ?? 0} pts
+        {current.isCriticalSnapshot && <span style={{ color: "var(--brand-red)" }}> · CRITICAL</span>}
+      </p>
       <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 400, marginTop: 16 }}>
         <button
           className={`primary ${current.result === RESULT.PASS ? "success" : ""}`}

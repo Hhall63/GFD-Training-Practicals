@@ -1,6 +1,6 @@
 const COLUMNS = [
   "Recruit Name", "Cohort", "Badge/ID", "Template Name",
-  "Evaluator", "Session Date", "Overall Result",
+  "Evaluator", "Session Date", "Attempt", "Overall Result", "Critical Failure",
   "Points Earned", "Points Possible", "Score %", "Passing %",
   "Line Order", "Line Text", "Line Type", "Result", "Timer Seconds",
   "Pass Threshold Seconds", "Line Points Earned", "Line Points Possible", "Note", "Has Photo",
@@ -41,7 +41,9 @@ export function buildResultsCsv(sessions) {
       session.templateName,
       session.evaluatorName,
       formatDate(session.startedAt),
+      session.attemptType === "retake" ? "Retake" : "1st Attempt",
       (session.overallResult ?? "incomplete").toUpperCase(),
+      session.criticalFailure ? "Y" : "",
       pointsPossible > 0 ? pointsEarned : "",
       pointsPossible > 0 ? pointsPossible : "",
       scorePercent,
@@ -50,7 +52,7 @@ export function buildResultsCsv(sessions) {
 
     const lines = session.lineResults ?? [];
     if (lines.length === 0) {
-      rows.push([...base, "", "", "", "", "", "", "", "", "", ""]);
+      rows.push([...base, ...Array(COLUMNS.length - base.length).fill("")]);
       continue;
     }
 

@@ -28,6 +28,10 @@ export default function SessionDetailPage() {
           <h2 style={{ margin: "0 0 4px", color: session.overallResult === "pass" ? "var(--success)" : "var(--brand-red)" }}>
             {session.overallResult === "pass" ? "PASS" : "FAIL"}
           </h2>
+          {session.criticalFailure && (
+            <div style={{ color: "var(--brand-red)", fontWeight: 700 }}>Critical step failed — automatic failure</div>
+          )}
+          {session.attemptType === "retake" && <span className="badge neutral">Retake</span>}
           <div style={{ fontWeight: 600 }}>{session.recruitName}</div>
           <div className="muted">
             {session.templateName} ·{" "}

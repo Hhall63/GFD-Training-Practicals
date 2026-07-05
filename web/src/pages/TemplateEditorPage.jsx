@@ -113,6 +113,7 @@ export default function TemplateEditorPage() {
                 {LINE_TYPE_LABELS[line.lineType]}
                 {line.lineType === LINE_TYPES.TIMER && line.passThresholdSeconds != null && ` — pass at ≤ ${line.passThresholdSeconds}s`}
                 {line.lineType !== LINE_TYPES.INSTRUCTION && ` — ${line.points ?? 0} pts`}
+                {line.isCritical && <span style={{ color: "var(--brand-red)", fontWeight: 600 }}> — CRITICAL</span>}
               </div>
             </div>
             <div style={{ display: "flex", gap: 4 }}>
@@ -146,6 +147,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
   const [lineText, setLineText] = useState(line.lineText ?? "");
   const [passThresholdSeconds, setPassThresholdSeconds] = useState(line.passThresholdSeconds ?? 30);
   const [points, setPoints] = useState(line.points ?? 10);
+  const [isCritical, setIsCritical] = useState(line.isCritical ?? false);
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
@@ -157,6 +159,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
         isScored: lineType === LINE_TYPES.GRADED,
         passThresholdSeconds: lineType === LINE_TYPES.TIMER ? Number(passThresholdSeconds) : null,
         points: lineType !== LINE_TYPES.INSTRUCTION ? Number(points) : null,
+        isCritical: lineType !== LINE_TYPES.INSTRUCTION ? isCritical : false,
       };
       if (isNew) {
         data.sortOrder = nextSortOrder;
@@ -226,6 +229,23 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
             <input type="number" min={0} value={points} onChange={(e) => setPoints(e.target.value)} />
             <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
               Full points are earned on a Pass{lineType === LINE_TYPES.TIMER ? " (finishing within the time limit)" : ""}, zero on a Fail.
+            </p>
+          </div>
+        )}
+
+        {lineType !== LINE_TYPES.INSTRUCTION && (
+          <div className="field">
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "var(--text)" }}>
+              <input
+                type="checkbox"
+                checked={isCritical}
+                onChange={(e) => setIsCritical(e.target.checked)}
+                style={{ width: "auto", margin: 0 }}
+              />
+              Critical failure
+            </label>
+            <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
+              Failing this step fails the entire test automatically, no matter the point total.
             </p>
           </div>
         )}

@@ -7,24 +7,34 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function myAdminDoc() {
+    function myUserDoc() {
       return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data;
     }
 
-    // True for any signed-in, active account — Administrators and Evaluators alike.
-    // This is the bar for "can use the app at all" (see the test list, run a live test).
+    // Any signed-in, active account of any role (Administrator, Evaluator, or Recruit).
     function isActiveUser() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-        && myAdminDoc().isActive == true;
+        && myUserDoc().isActive == true;
     }
 
-    // Administrators can build/edit tests, manage recruits, and manage other accounts.
-    // Evaluators cannot — they can only run tests and submit results. Accounts created
-    // before roles existed have no `role` field at all, which is treated as "admin" so
-    // nobody's access silently changed when this was introduced.
+    // Accounts created before roles existed have no `role` field — treated as "admin" so
+    // nobody's access silently changed when roles were introduced.
+    function myRole() {
+      return !('role' in myUserDoc()) ? 'admin' : myUserDoc().role;
+    }
+
+    // Staff = Administrators + Evaluators: the people who run tests on recruits.
+    function isStaff() {
+      return isActiveUser() && (myRole() == 'admin' || myRole() == 'evaluator');
+    }
+
     function isAdminRole() {
-      return isActiveUser() && (!('role' in myAdminDoc()) || myAdminDoc().role == 'admin');
+      return isActiveUser() && myRole() == 'admin';
+    }
+
+    function isRecruitRole() {
+      return isActiveUser() && myRole() == 'recruit';
     }
 
     // There's no server here, so the very first admin account has to bootstrap itself the
@@ -41,41 +51,48 @@ service cloud.firestore {
     }
 
     match /admins/{adminId} {
-      // Any signed-in user may read admin docs (needed for the isActiveUser()/isAdminRole()
-      // checks above and the user-management screen); only administrators may list/write —
-      // an Evaluator cannot see or change other accounts.
+      // `get` for any signed-in user (needed for the role checks above and to load one's
+      // own account). `list` for staff: evaluators need to query the notify-on-failure
+      // admin list when a recruit fails a test. Recruits cannot browse accounts.
       allow get: if isSignedIn();
-      allow list: if isAdminRole();
+      allow list: if isStaff();
       allow create: if isAdminRole() || (request.auth.uid == adminId && noAdminExistsYet());
       allow update, delete: if isAdminRole();
     }
 
     match /recruits/{recruitId} {
-      // Evaluators need to read the recruit list to pick who they're testing, but only
-      // administrators can add/edit/deactivate recruits.
-      allow read: if isActiveUser();
+      // Staff read the roster to pick who they're testing; a Recruit may read only their
+      // own linked record. Only administrators write.
+      allow get: if isStaff() || (isRecruitRole() && myUserDoc().recruitId == recruitId);
+      allow list: if isStaff();
       allow write: if isAdminRole();
     }
 
     match /templates/{templateId} {
-      // Evaluators need to read test templates to run them, but only administrators can
-      // build or edit test templates.
-      allow read: if isActiveUser();
+      // Drafts are visible to administrators only. Published tests are visible to
+      // everyone active (evaluators run them; recruits see them on their status list).
+      // Templates created before the draft feature have no `status` field — treated as
+      // published, since they were already live.
+      allow read: if isAdminRole()
+        || (isActiveUser() && (!('status' in resource.data) || resource.data.status == 'published'));
       allow write: if isAdminRole();
 
       match /lines/{lineId} {
-        allow read: if isActiveUser();
+        // Line-level reads don't re-check the parent's draft status (rules can't cheaply
+        // join): staff-only is fine because only staff run tests. Recruits never need
+        // individual lines — their view is session results, not template content.
+        allow read: if isStaff();
         allow write: if isAdminRole();
       }
     }
 
     match /sessions/{sessionId} {
-      // Both roles run tests and record results — this is the "grade and submit" part of
-      // an Evaluator's job.
-      allow read, write: if isActiveUser();
+      // Staff run tests and record results. A Recruit may read only their own sessions.
+      allow read: if isStaff() || (isRecruitRole() && resource.data.recruitId == myUserDoc().recruitId);
+      allow write: if isStaff();
 
       match /lineResults/{lineResultId} {
-        allow read, write: if isActiveUser();
+        allow read, write: if isStaff();
       }
     }
   }

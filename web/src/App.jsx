@@ -3,7 +3,9 @@ import { useAuth } from "./context/AuthContext";
 
 import LoginPage from "./pages/LoginPage";
 import SetupAdminPage from "./pages/SetupAdminPage";
+import ConnectionErrorPage from "./pages/ConnectionErrorPage";
 import HomePage from "./pages/HomePage";
+import RecruitHomePage from "./pages/RecruitHomePage";
 import RecruitConfirmPage from "./pages/RecruitConfirmPage";
 import LiveTestRunnerPage from "./pages/LiveTestRunnerPage";
 import ResultsPage from "./pages/ResultsPage";
@@ -25,10 +27,10 @@ function FullScreenLoading() {
   return <div className="screen center-column" style={{ paddingTop: 80 }}>Loading…</div>;
 }
 
-/** Gate for every screen except /login and /setup — lets in any active account,
- * Administrator or Evaluator alike. */
+/** Gate for every screen except /login and /setup — any active account of any role. */
 function RequireAuth({ children }) {
-  const { loading, adminDoc, anyAdminExists } = useAuth();
+  const { loading, adminDoc, anyAdminExists, connectionError } = useAuth();
+  if (connectionError) return <ConnectionErrorPage />;
   if (loading) return <FullScreenLoading />;
   if (!adminDoc) {
     return <Navigate to={anyAdminExists ? "/login" : "/setup"} replace />;
@@ -36,24 +38,31 @@ function RequireAuth({ children }) {
   return children;
 }
 
-/** Additional gate for Administrator-only screens (managing recruits, tests, other
- * accounts, and reporting) — Evaluators get bounced back to the Home Screen. Combine
- * with RequireAuth, which handles the logged-out case first. */
+/** Staff only (Administrators + Evaluators): the test-running screens. */
+function RequireStaff({ children }) {
+  const { isStaff } = useAuth();
+  if (!isStaff) return <Navigate to="/" replace />;
+  return children;
+}
+
+/** Administrator-only screens (managing recruits, tests, accounts, reporting). */
 function RequireAdminRole({ children }) {
-  const { isAdmin } = useAuth();
-  if (!isAdmin) return <Navigate to="/" replace />;
+  const { role } = useAuth();
+  if (role !== "admin") return <Navigate to="/" replace />;
   return children;
 }
 
 export default function App() {
-  const { loading, adminDoc, anyAdminExists } = useAuth();
+  const { loading, adminDoc, anyAdminExists, connectionError, isRecruit } = useAuth();
 
   return (
     <Routes>
       <Route
         path="/login"
         element={
-          loading ? (
+          connectionError ? (
+            <ConnectionErrorPage />
+          ) : loading ? (
             <FullScreenLoading />
           ) : adminDoc ? (
             <Navigate to="/" replace />
@@ -67,7 +76,9 @@ export default function App() {
       <Route
         path="/setup"
         element={
-          loading ? (
+          connectionError ? (
+            <ConnectionErrorPage />
+          ) : loading ? (
             <FullScreenLoading />
           ) : adminDoc ? (
             <Navigate to="/" replace />
@@ -79,10 +90,10 @@ export default function App() {
         }
       />
 
-      <Route path="/" element={<RequireAuth><HomePage /></RequireAuth>} />
-      <Route path="/test/:templateId" element={<RequireAuth><RecruitConfirmPage /></RequireAuth>} />
-      <Route path="/session/:sessionId/run" element={<RequireAuth><LiveTestRunnerPage /></RequireAuth>} />
-      <Route path="/session/:sessionId/results" element={<RequireAuth><ResultsPage /></RequireAuth>} />
+      <Route path="/" element={<RequireAuth>{isRecruit ? <RecruitHomePage /> : <HomePage />}</RequireAuth>} />
+      <Route path="/test/:templateId" element={<RequireAuth><RequireStaff><RecruitConfirmPage /></RequireStaff></RequireAuth>} />
+      <Route path="/session/:sessionId/run" element={<RequireAuth><RequireStaff><LiveTestRunnerPage /></RequireStaff></RequireAuth>} />
+      <Route path="/session/:sessionId/results" element={<RequireAuth><RequireStaff><ResultsPage /></RequireStaff></RequireAuth>} />
 
       <Route path="/recruits" element={<RequireAuth><RequireAdminRole><RecruitsAdminPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/templates" element={<RequireAuth><RequireAdminRole><TemplatesAdminPage /></RequireAdminRole></RequireAuth>} />

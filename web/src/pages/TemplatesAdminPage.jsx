@@ -22,27 +22,71 @@ export default function TemplatesAdminPage() {
     await updateDoc(doc(db, "templates", template.id), { isActive: false });
   }
 
+  async function setStatus(template, status) {
+    await updateDoc(doc(db, "templates", template.id), { status, updatedAt: new Date() });
+  }
+
   return (
     <div className="app-shell">
       <TopBar title="Test Templates" onBack={() => navigate("/")} showMenu={false} />
       <div className="screen">
+        <p className="muted">
+          Drafts are visible to administrators only. Publish a test to make it available to
+          evaluators (and visible on recruits' status lists).
+        </p>
         {templates.length === 0 && (
           <p className="muted">No test templates yet. Build your first one to start evaluating recruits.</p>
         )}
-        {templates.map((template) => (
-          <div key={template.id} className="list-row">
-            <div style={{ flex: 1 }} onClick={() => navigate(`/templates/${template.id}`)}>
-              <div style={{ fontWeight: 600 }}>{template.name}</div>
+        {templates.map((template) => {
+          // Templates created before the draft feature have no status — they were already
+          // live, so they count as published.
+          const status = template.status ?? "published";
+          return (
+            <div key={template.id} className="card">
+              <div className="list-row" style={{ padding: 0, border: "none" }}>
+                <div style={{ flex: 1 }} onClick={() => navigate(`/templates/${template.id}`)}>
+                  <div style={{ fontWeight: 600 }}>
+                    {template.name}{" "}
+                    <span className={`badge ${status === "published" ? "pass" : "neutral"}`}>
+                      {status === "published" ? "Published" : "Draft"}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  className="secondary"
+                  style={{ width: "auto", padding: "6px 12px", color: "var(--brand-red)" }}
+                  onClick={() => retire(template)}
+                >
+                  Retire
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                {[
+                  ["draft", "Draft"],
+                  ["published", "Published"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setStatus(template, value)}
+                    style={{
+                      flex: 1,
+                      padding: "8px 4px",
+                      fontSize: 13,
+                      borderRadius: 8,
+                      border: "1px solid var(--border)",
+                      background: status === value ? "var(--brand-navy)" : "white",
+                      color: status === value ? "white" : "var(--text)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <button
-              className="secondary"
-              style={{ width: "auto", padding: "6px 12px", color: "var(--brand-red)" }}
-              onClick={() => retire(template)}
-            >
-              Retire
-            </button>
-          </div>
-        ))}
+          );
+        })}
 
         <button className="primary" style={{ marginTop: 16 }} onClick={() => setShowNew(true)}>
           + New Test Template
@@ -76,6 +120,7 @@ function NewTemplateModal({ onClose, onCreated }) {
         description: description || null,
         version: 1,
         isActive: true,
+        status: "draft",
         createdAt: now,
         updatedAt: now,
       });
@@ -98,6 +143,9 @@ function NewTemplateModal({ onClose, onCreated }) {
         <div className="field">
           <textarea placeholder="Description (optional)" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
+        <p className="muted" style={{ marginTop: 0 }}>
+          New tests start as <strong>Draft</strong> — publish from the test list when ready.
+        </p>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="secondary" onClick={onClose}>Cancel</button>
           <button className="primary" disabled={!name || saving} onClick={handleCreate}>

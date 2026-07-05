@@ -21,12 +21,13 @@ import { initials, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
 export default function RecruitConfirmPage() {
   const { templateId } = useParams();
   const navigate = useNavigate();
-  const { adminDoc } = useAuth();
+  const { adminDoc, isAdmin } = useAuth();
 
   const [template, setTemplate] = useState(null);
   const [recruits, setRecruits] = useState([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
+  const [attemptType, setAttemptType] = useState("first");
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
@@ -73,13 +74,16 @@ export default function RecruitConfirmPage() {
         templateId: template.id,
         templateName: template.name,
         evaluatorName: adminDoc.displayName,
+        attemptType, // "first" | "retake" (retake is admin-only, enforced in the UI below)
         startedAt: serverTimestamp(),
         completedAt: null,
         status: SESSION_STATUS.IN_PROGRESS,
         overallResult: null,
+        criticalFailure: false,
         passingPercentageSnapshot: template.passingPercentage ?? 70,
         totalPointsPossible,
         totalPointsEarned: null,
+        failureEmailStatus: null,
       });
 
       const batch = writeBatch(db);
@@ -91,6 +95,7 @@ export default function RecruitConfirmPage() {
           lineTextSnapshot: line.lineText,
           passThresholdSecondsSnapshot: line.passThresholdSeconds ?? null,
           pointsSnapshot: line.lineType !== LINE_TYPES.INSTRUCTION ? Number(line.points ?? 0) : null,
+          isCriticalSnapshot: line.isCritical ?? false,
           result: line.lineType === LINE_TYPES.INSTRUCTION ? RESULT.NOT_APPLICABLE : null,
           pointsEarned: null,
           timerElapsedSeconds: null,
@@ -161,8 +166,16 @@ export default function RecruitConfirmPage() {
               Confirm this is the recruit being tested on "{template.name}".
             </p>
             <div style={{ width: "100%", maxWidth: 320 }}>
+              <div className="field" style={{ textAlign: "left" }}>
+                <label>Attempt</label>
+                <select value={attemptType} onChange={(e) => setAttemptType(e.target.value)}>
+                  <option value="first">1st Attempt</option>
+                  {/* Retakes are only administrators' call — evaluators don't see the option. */}
+                  {isAdmin && <option value="retake">Retake</option>}
+                </select>
+              </div>
               <button className="primary" onClick={beginTest} disabled={starting}>
-                {starting ? "Starting…" : "Begin Test"}
+                {starting ? "Starting…" : attemptType === "retake" ? "Begin Retake" : "Begin Test"}
               </button>
               <button className="secondary" style={{ marginTop: 10 }} onClick={() => setSelected(null)}>
                 Choose a Different Recruit
