@@ -17,7 +17,7 @@ import { db } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
 import { initials, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
-import { seedObstacleTallies } from "../lib/obstacleCourse";
+import { defaultObstacleCourseConfig, seedObstacleTallies } from "../lib/obstacleCourse";
 
 export default function RecruitConfirmPage() {
   const { templateId } = useParams();
@@ -98,8 +98,10 @@ export default function RecruitConfirmPage() {
           passThresholdSecondsSnapshot: line.passThresholdSeconds ?? null,
           pointsSnapshot: line.lineType !== LINE_TYPES.INSTRUCTION ? Number(line.points ?? 0) : null,
           isCriticalSnapshot: line.isCritical ?? false,
-          obstacleCourseConfigSnapshot: isObstacleCourse ? line.obstacleCourseConfig : null,
-          obstacleTallies: isObstacleCourse ? seedObstacleTallies(line.obstacleCourseConfig) : null,
+          // The course is a fixed department form, so snapshot the baked-in scoring rules
+          // rather than anything stored on the template line.
+          obstacleCourseConfigSnapshot: isObstacleCourse ? defaultObstacleCourseConfig() : null,
+          obstacleTallies: isObstacleCourse ? seedObstacleTallies() : null,
           result: line.lineType === LINE_TYPES.INSTRUCTION ? RESULT.NOT_APPLICABLE : null,
           pointsEarned: null,
           timerElapsedSeconds: null,

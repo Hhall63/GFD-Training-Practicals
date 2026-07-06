@@ -14,9 +14,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
-import ObstacleCourseConfigFields from "../components/ObstacleCourseConfigFields";
 import { LINE_TYPE_LABELS, LINE_TYPES } from "../lib/constants";
-import { defaultObstacleCourseConfig } from "../lib/obstacleCourse";
 
 const DEFAULT_PASSING_PERCENTAGE = 70;
 
@@ -150,7 +148,6 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
   const [passThresholdSeconds, setPassThresholdSeconds] = useState(line.passThresholdSeconds ?? 30);
   const [points, setPoints] = useState(line.points ?? 10);
   const [isCritical, setIsCritical] = useState(line.isCritical ?? false);
-  const [obstacleCourseConfig, setObstacleCourseConfig] = useState(line.obstacleCourseConfig ?? defaultObstacleCourseConfig());
   const [saving, setSaving] = useState(false);
 
   const isObstacleCourse = lineType === LINE_TYPES.OBSTACLE_COURSE;
@@ -165,7 +162,6 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
         passThresholdSeconds: lineType === LINE_TYPES.TIMER ? Number(passThresholdSeconds) : null,
         points: isObstacleCourse ? 100 : lineType !== LINE_TYPES.INSTRUCTION ? Number(points) : null,
         isCritical: isObstacleCourse ? true : lineType !== LINE_TYPES.INSTRUCTION ? isCritical : false,
-        obstacleCourseConfig: isObstacleCourse ? obstacleCourseConfig : null,
       };
       if (isNew) {
         data.sortOrder = nextSortOrder;
@@ -230,7 +226,14 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
         )}
 
         {isObstacleCourse && (
-          <ObstacleCourseConfigFields config={obstacleCourseConfig} onChange={setObstacleCourseConfig} />
+          <div className="field">
+            <p className="muted" style={{ marginTop: 0, marginBottom: 0 }}>
+              This is the fixed GFD SRFF driving/EVD obstacle course. Scoring (time tiers,
+              cone/line/stop penalties, and the 6-cone / 6:30 automatic-failure rules) is
+              built in — nothing to configure. During a test the evaluator taps the course
+              diagram to mark penalties. Worth 100 pts and always critical.
+            </p>
+          </div>
         )}
 
         {!isObstacleCourse && lineType !== LINE_TYPES.INSTRUCTION && (

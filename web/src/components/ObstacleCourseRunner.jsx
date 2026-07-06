@@ -1,17 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { RESULT } from "../lib/constants";
-import { computeObstacleCourseScore, formatClock, seedObstacleTallies } from "../lib/obstacleCourse";
+import CourseMap from "./CourseMap";
+import {
+  computeObstacleCourseScore,
+  defaultObstacleCourseConfig,
+  formatClock,
+  MARKER_TYPES,
+  seedObstacleTallies,
+} from "../lib/obstacleCourse";
 
 /**
- * The live dashboard for a single continuous drive: one stopwatch for the whole course,
- * plus all enabled obstacles' penalty tallies visible and editable at once (not
- * one-at-a-time), matching how an evaluator actually rides along and marks penalties as
- * they happen. Every change recomputes the score through computeObstacleCourseScore, the
- * same function results/reporting/CSV use, so there's one source of truth for the math.
+ * Live dashboard for the driving/EVD obstacle course. One continuous stopwatch for the
+ * whole drive, plus the actual course diagram: the evaluator picks a penalty type and taps
+ * the map where it happened (a cone hit, a line crossing, a stop-line hit, a stopping-
+ * distance measurement). Taps become scored markers; tapping a marker removes it. Every
+ * change recomputes the score through computeObstacleCourseScore — the same function
+ * results/reporting/CSV use — so there is one source of truth for the math.
  */
 export default function ObstacleCourseRunner({ current, patchCurrent }) {
-  const config = current.obstacleCourseConfigSnapshot;
-  const [tallies, setTallies] = useState(current.obstacleTallies ?? seedObstacleTallies(config));
+  // The course is a fixed department form; fall back to the baked-in config so a missing
+  // snapshot can never blank the screen.
+  const config = current.obstacleCourseConfigSnapshot ?? defaultObstacleCourseConfig();
+  const [tallies, setTallies] = useState(current.obstacleTallies ?? seedObstacleTallies());
+  const [mode, setMode] = useState("cone");
   const [isRunning, setIsRunning] = useState(false);
   const [liveElapsed, setLiveElapsed] = useState(0);
   const startRef = useRef(null);
@@ -19,8 +30,24 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
 
   useEffect(() => () => clearInterval(intervalRef.current), []);
 
+  const markers = tallies.markers ?? [];
   const displaySeconds = isRunning ? liveElapsed : tallies.totalSeconds ?? 0;
   const scoring = computeObstacleCourseScore(config, { ...tallies, totalSeconds: displaySeconds });
+  const started = tallies.totalSeconds != null || isRunning;
+
+  async function commit(next) {
+    const hasTime = next.totalSeconds != null;
+    const finalScoring = computeObstacleCourseScore(config, next);
+    setTallies(next);
+    await patchCurrent({
+      obstacleTallies: next,
+      timerElapsedSeconds: next.totalSeconds ?? null,
+      pointsEarned: hasTime ? finalScoring.score : null,
+      // The step is critical: only an automatic-failure trigger sets a FAIL result. A low
+      // (but non-auto-fail) score still passes the step and just lowers the test total.
+      result: hasTime ? (finalScoring.autoFail ? RESULT.FAIL : RESULT.PASS) : null,
+    });
+  }
 
   function start() {
     startRef.current = Date.now();
@@ -29,43 +56,30 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
     intervalRef.current = setInterval(() => setLiveElapsed((Date.now() - startRef.current) / 1000), 100);
   }
 
-  async function stop() {
+  function stop() {
     clearInterval(intervalRef.current);
     setIsRunning(false);
     const finalSeconds = (Date.now() - startRef.current) / 1000;
-    const nextTallies = { ...tallies, totalSeconds: finalSeconds };
-    setTallies(nextTallies);
-    await commit(nextTallies);
+    commit({ ...tallies, totalSeconds: finalSeconds });
   }
 
-  async function commit(nextTallies) {
-    const finalScoring = computeObstacleCourseScore(config, nextTallies);
-    await patchCurrent({
-      obstacleTallies: nextTallies,
-      timerElapsedSeconds: nextTallies.totalSeconds,
-      pointsEarned: finalScoring.score,
-      result: finalScoring.autoFail ? RESULT.FAIL : RESULT.PASS,
-    });
+  function addMarker(pos) {
+    commit({ ...tallies, markers: [...markers, { x: pos.x, y: pos.y, type: mode }] });
   }
 
-  function updateObstacle(index, patch) {
-    const obstacles = tallies.obstacles.map((o, i) => (i === index ? { ...o, ...patch } : o));
-    const next = { ...tallies, obstacles };
-    setTallies(next);
-    if (next.totalSeconds != null) commit(next);
+  function removeMarker(index) {
+    commit({ ...tallies, markers: markers.filter((_, i) => i !== index) });
   }
-
-  const started = tallies.totalSeconds != null || isRunning;
 
   return (
-    <div style={{ width: "100%", maxWidth: 420 }}>
+    <div style={{ width: "100%", maxWidth: 480 }}>
       <div
         style={{
           fontSize: 48,
           fontWeight: 700,
           fontVariantNumeric: "tabular-nums",
           textAlign: "center",
-          margin: "8px 0",
+          margin: "4px 0",
         }}
       >
         {formatClock(displaySeconds)}
@@ -84,7 +98,10 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
       </div>
 
       {!isRunning && tallies.totalSeconds != null && (
-        <div className={`badge ${scoring.autoFail ? "fail" : "pass"}`} style={{ fontSize: 16, marginBottom: 12, display: "block", textAlign: "center" }}>
+        <div
+          className={`badge ${scoring.autoFail ? "fail" : "pass"}`}
+          style={{ fontSize: 16, marginBottom: 12, display: "block", textAlign: "center" }}
+        >
           {scoring.autoFail ? "FAIL" : "PASS"}
         </div>
       )}
@@ -112,87 +129,55 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
           <span>{scoring.score} / 100</span>
         </div>
         <div className="muted" style={{ fontSize: 13 }}>
-          Base {scoring.baseScore} − {scoring.deductions} deductions
+          Base {scoring.baseScore} − {scoring.deductions} deductions · {scoring.markerCount} penalt{scoring.markerCount === 1 ? "y" : "ies"}
         </div>
       </div>
 
-      {config.obstacles.map((obstacle, i) => (
-        <ObstacleRow
-          key={i}
-          obstacle={obstacle}
-          tally={tallies.obstacles[i]}
-          onChange={(patch) => updateObstacle(i, patch)}
-        />
-      ))}
-    </div>
-  );
-}
+      <p className="muted" style={{ fontSize: 13, margin: "0 0 8px", textAlign: "left" }}>
+        Pick a penalty, then tap the course where it happened. Tap a marker to remove it.
+      </p>
 
-function ObstacleRow({ obstacle, tally, onChange }) {
-  return (
-    <div className="card" style={{ textAlign: "left", marginBottom: 8 }}>
-      <div style={{ fontWeight: 600, marginBottom: 6 }}>{obstacle.label}</div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-        {obstacle.penalties.cones && (
-          <Counter label="Cones" value={tally.cones} onChange={(v) => onChange({ cones: v })} />
-        )}
-        {obstacle.penalties.lineCrossings && (
-          <Counter label="Line Crossings" value={tally.lineCrossings} onChange={(v) => onChange({ lineCrossings: v })} />
-        )}
-        {obstacle.penalties.stopLine && (
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-            <input
-              type="checkbox"
-              checked={Boolean(tally.stopLine)}
-              onChange={(e) => onChange({ stopLine: e.target.checked })}
-              style={{ width: "auto", margin: 0 }}
-            />
-            Stop Line Missed
-          </label>
-        )}
-        {obstacle.penalties.stoppingDistance && (
-          <label style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 13 }}>
-            Stopping Distance
-            <select
-              value={tally.stoppingDistanceTier ?? 0}
-              onChange={(e) => onChange({ stoppingDistanceTier: Number(e.target.value) })}
-              style={{ width: 130 }}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+        {MARKER_TYPES.map((mt) => (
+          <button
+            key={mt.key}
+            type="button"
+            onClick={() => setMode(mt.key)}
+            style={{
+              padding: "6px 10px",
+              fontSize: 13,
+              borderRadius: 8,
+              border: `1px solid ${mode === mt.key ? mt.color : "var(--border)"}`,
+              background: mode === mt.key ? mt.color : "white",
+              color: mode === mt.key ? "white" : "var(--text)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                background: mt.color,
+                color: "#fff",
+                fontSize: 10,
+                fontWeight: 700,
+                lineHeight: "16px",
+                textAlign: "center",
+              }}
             >
-              <option value={0}>None</option>
-              <option value={1}>Tier 1</option>
-              <option value={2}>Tier 2</option>
-              <option value={3}>Tier 3</option>
-            </select>
-          </label>
-        )}
+              {mt.short}
+            </span>
+            {mt.label} −{mt.points}
+          </button>
+        ))}
       </div>
-    </div>
-  );
-}
 
-function Counter({ label, value, onChange }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 13 }}>
-      {label}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <button
-          type="button"
-          className="secondary"
-          style={{ width: 32, height: 32, padding: 0 }}
-          onClick={() => onChange(Math.max(0, (value ?? 0) - 1))}
-        >
-          −
-        </button>
-        <span style={{ minWidth: 20, textAlign: "center", fontWeight: 600 }}>{value ?? 0}</span>
-        <button
-          type="button"
-          className="secondary"
-          style={{ width: 32, height: 32, padding: 0 }}
-          onClick={() => onChange((value ?? 0) + 1)}
-        >
-          +
-        </button>
-      </div>
+      <CourseMap markers={markers} onTap={addMarker} onMarkerClick={removeMarker} />
     </div>
   );
 }
