@@ -17,6 +17,7 @@ import { db } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
 import { initials, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
+import { seedObstacleTallies } from "../lib/obstacleCourse";
 
 export default function RecruitConfirmPage() {
   const { templateId } = useParams();
@@ -89,6 +90,7 @@ export default function RecruitConfirmPage() {
       const batch = writeBatch(db);
       lines.forEach((line) => {
         const lineResultRef = doc(collection(db, "sessions", sessionRef.id, "lineResults"));
+        const isObstacleCourse = line.lineType === LINE_TYPES.OBSTACLE_COURSE;
         batch.set(lineResultRef, {
           sortOrder: line.sortOrder,
           lineTypeSnapshot: line.lineType,
@@ -96,6 +98,8 @@ export default function RecruitConfirmPage() {
           passThresholdSecondsSnapshot: line.passThresholdSeconds ?? null,
           pointsSnapshot: line.lineType !== LINE_TYPES.INSTRUCTION ? Number(line.points ?? 0) : null,
           isCriticalSnapshot: line.isCritical ?? false,
+          obstacleCourseConfigSnapshot: isObstacleCourse ? line.obstacleCourseConfig : null,
+          obstacleTallies: isObstacleCourse ? seedObstacleTallies(line.obstacleCourseConfig) : null,
           result: line.lineType === LINE_TYPES.INSTRUCTION ? RESULT.NOT_APPLICABLE : null,
           pointsEarned: null,
           timerElapsedSeconds: null,

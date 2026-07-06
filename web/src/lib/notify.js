@@ -1,6 +1,7 @@
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { formatSeconds, LINE_TYPES, RESULT } from "./constants";
+import { summarizeObstacleCourseLines } from "./obstacleCourse";
 
 /**
  * Failure-notification emails, kept free of charge two ways:
@@ -73,9 +74,15 @@ export function buildFailureBody(session, lineResults) {
     const critical = line.isCriticalSnapshot && line.result === RESULT.FAIL ? " (CRITICAL)" : "";
     lines.push(`[${result}${critical}] ${line.lineTextSnapshot}`);
     if (line.timerElapsedSeconds != null) {
-      lines.push(`    Time: ${formatSeconds(line.timerElapsedSeconds)}s (pass at ≤ ${line.passThresholdSecondsSnapshot}s)`);
+      const threshold = line.passThresholdSecondsSnapshot != null ? ` (pass at ≤ ${line.passThresholdSecondsSnapshot}s)` : "";
+      lines.push(`    Time: ${formatSeconds(line.timerElapsedSeconds)}s${threshold}`);
     }
     lines.push(`    Points: ${line.pointsEarned ?? 0} / ${line.pointsSnapshot ?? 0}`);
+    if (line.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE && line.obstacleCourseConfigSnapshot) {
+      for (const detail of summarizeObstacleCourseLines(line.obstacleCourseConfigSnapshot, line.obstacleTallies)) {
+        lines.push(`    ${detail}`);
+      }
+    }
     if (line.note) {
       lines.push(`    Evaluator comments: ${line.note}`);
     }

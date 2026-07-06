@@ -3,7 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { collection, doc, getDoc, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "../../firebase";
 import TopBar from "../../components/TopBar";
-import { formatSeconds, RESULT } from "../../lib/constants";
+import { formatSeconds, LINE_TYPES, RESULT } from "../../lib/constants";
+import ObstacleCourseSummary from "../../components/ObstacleCourseSummary";
 
 export default function SessionDetailPage() {
   const { sessionId } = useParams();
@@ -65,6 +66,9 @@ export default function SessionDetailPage() {
               <img key={url} src={url} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, marginTop: 6, marginRight: 6 }} />
             ))}
             {line.note && <div className="muted" style={{ marginTop: 4 }}>{line.note}</div>}
+            {line.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE && (
+              <ObstacleCourseSummary config={line.obstacleCourseConfigSnapshot} tallies={line.obstacleTallies} />
+            )}
           </div>
         ))}
       </div>

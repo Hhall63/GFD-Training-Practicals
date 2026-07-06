@@ -14,7 +14,9 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
+import ObstacleCourseConfigFields from "../components/ObstacleCourseConfigFields";
 import { LINE_TYPE_LABELS, LINE_TYPES } from "../lib/constants";
+import { defaultObstacleCourseConfig } from "../lib/obstacleCourse";
 
 const DEFAULT_PASSING_PERCENTAGE = 70;
 
@@ -148,7 +150,10 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
   const [passThresholdSeconds, setPassThresholdSeconds] = useState(line.passThresholdSeconds ?? 30);
   const [points, setPoints] = useState(line.points ?? 10);
   const [isCritical, setIsCritical] = useState(line.isCritical ?? false);
+  const [obstacleCourseConfig, setObstacleCourseConfig] = useState(line.obstacleCourseConfig ?? defaultObstacleCourseConfig());
   const [saving, setSaving] = useState(false);
+
+  const isObstacleCourse = lineType === LINE_TYPES.OBSTACLE_COURSE;
 
   async function handleSave() {
     setSaving(true);
@@ -158,8 +163,9 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
         lineText,
         isScored: lineType === LINE_TYPES.GRADED,
         passThresholdSeconds: lineType === LINE_TYPES.TIMER ? Number(passThresholdSeconds) : null,
-        points: lineType !== LINE_TYPES.INSTRUCTION ? Number(points) : null,
-        isCritical: lineType !== LINE_TYPES.INSTRUCTION ? isCritical : false,
+        points: isObstacleCourse ? 100 : lineType !== LINE_TYPES.INSTRUCTION ? Number(points) : null,
+        isCritical: isObstacleCourse ? true : lineType !== LINE_TYPES.INSTRUCTION ? isCritical : false,
+        obstacleCourseConfig: isObstacleCourse ? obstacleCourseConfig : null,
       };
       if (isNew) {
         data.sortOrder = nextSortOrder;
@@ -178,7 +184,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30 }}
       onClick={onClose}
     >
-      <div className="card" style={{ width: 340, background: "white" }} onClick={(e) => e.stopPropagation()}>
+      <div className="card" style={{ width: 340, background: "white", maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginTop: 0 }}>{isNew ? "New Step" : "Edit Step"}</h3>
 
         <div className="field">
@@ -223,7 +229,11 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
           </div>
         )}
 
-        {lineType !== LINE_TYPES.INSTRUCTION && (
+        {isObstacleCourse && (
+          <ObstacleCourseConfigFields config={obstacleCourseConfig} onChange={setObstacleCourseConfig} />
+        )}
+
+        {!isObstacleCourse && lineType !== LINE_TYPES.INSTRUCTION && (
           <div className="field">
             <label>Points</label>
             <input type="number" min={0} value={points} onChange={(e) => setPoints(e.target.value)} />
@@ -233,7 +243,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
           </div>
         )}
 
-        {lineType !== LINE_TYPES.INSTRUCTION && (
+        {!isObstacleCourse && lineType !== LINE_TYPES.INSTRUCTION && (
           <div className="field">
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "var(--text)" }}>
               <input

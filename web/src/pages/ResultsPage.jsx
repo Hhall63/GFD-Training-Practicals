@@ -3,7 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { collection, doc, getDoc, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "../firebase";
 import { buildFailureMailto, fetchNotifyRecipients } from "../lib/notify";
-import { formatSeconds, RESULT } from "../lib/constants";
+import { formatSeconds, LINE_TYPES, RESULT } from "../lib/constants";
+import ObstacleCourseSummary from "../components/ObstacleCourseSummary";
 
 export default function ResultsPage() {
   const { sessionId } = useParams();
@@ -121,6 +122,9 @@ export default function ResultsPage() {
               )}
               {line.photoURLs?.length > 0 && (
                 <div className="muted">{line.photoURLs.length} photo(s) attached</div>
+              )}
+              {line.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE && (
+                <ObstacleCourseSummary config={line.obstacleCourseConfigSnapshot} tallies={line.obstacleTallies} />
               )}
             </div>
           ))}

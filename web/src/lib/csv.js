@@ -1,9 +1,13 @@
+import { LINE_TYPES } from "./constants";
+import { summarizeObstacleCourseOneLine } from "./obstacleCourse";
+
 const COLUMNS = [
   "Recruit Name", "Cohort", "Badge/ID", "Template Name",
   "Evaluator", "Session Date", "Attempt", "Overall Result", "Critical Failure",
   "Points Earned", "Points Possible", "Score %", "Passing %",
   "Line Order", "Line Text", "Line Type", "Result", "Timer Seconds",
   "Pass Threshold Seconds", "Line Points Earned", "Line Points Possible", "Note", "Has Photo",
+  "Obstacle Course Detail",
 ];
 
 function escape(field) {
@@ -69,6 +73,9 @@ export function buildResultsCsv(sessions) {
         line.pointsSnapshot ?? "",
         line.note ?? "",
         line.photoURLs?.length > 0 ? "Y" : "N",
+        line.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE && line.obstacleCourseConfigSnapshot
+          ? summarizeObstacleCourseOneLine(line.obstacleCourseConfigSnapshot, line.obstacleTallies)
+          : "",
       ]);
     }
   }

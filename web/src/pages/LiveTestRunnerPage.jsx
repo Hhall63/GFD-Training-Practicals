@@ -14,6 +14,7 @@ import { db } from "../firebase";
 import { compressImageToDataUrl } from "../lib/image";
 import { sendFailureEmail } from "../lib/notify";
 import { computeTimerResult, formatSeconds, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
+import ObstacleCourseRunner from "../components/ObstacleCourseRunner";
 
 export default function LiveTestRunnerPage() {
   const { sessionId } = useParams();
@@ -252,6 +253,18 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
               <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={current.result === RESULT.FAIL} />
             )}
           </>
+        )}
+      </div>
+    );
+  }
+
+  if (current.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE) {
+    return (
+      <div className="center-column" style={{ paddingTop: 16 }}>
+        <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
+        <ObstacleCourseRunner current={current} patchCurrent={patchCurrent} />
+        {current.result && (
+          <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={current.result === RESULT.FAIL} />
         )}
       </div>
     );

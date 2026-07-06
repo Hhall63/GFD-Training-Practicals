@@ -2,12 +2,14 @@ export const LINE_TYPES = {
   INSTRUCTION: "instruction",
   GRADED: "graded",
   TIMER: "timer",
+  OBSTACLE_COURSE: "obstacleCourse",
 };
 
 export const LINE_TYPE_LABELS = {
   [LINE_TYPES.INSTRUCTION]: "Instruction",
   [LINE_TYPES.GRADED]: "Graded Step",
   [LINE_TYPES.TIMER]: "Timer",
+  [LINE_TYPES.OBSTACLE_COURSE]: "Obstacle Course",
 };
 
 export const RESULT = {
