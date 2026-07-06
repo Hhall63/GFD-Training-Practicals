@@ -25,6 +25,7 @@ export default function LiveTestRunnerPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const timerStartRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -132,6 +133,13 @@ export default function LiveTestRunnerPage() {
     }
   }
 
+  function returnToHome() {
+    if (isTimerRunning) {
+      stopTimer();
+    }
+    navigate("/", { replace: true });
+  }
+
   if (!lineResults || !sessionData) {
     return <div className="screen center-column" style={{ paddingTop: 80 }}>Loading test…</div>;
   }
@@ -182,15 +190,68 @@ export default function LiveTestRunnerPage() {
           gap: 12,
         }}
       >
-        {currentIndex > 0 && (
-          <button className="secondary" style={{ maxWidth: 120 }} onClick={() => setCurrentIndex((i) => i - 1)}>
-            Back
-          </button>
-        )}
-        <button className="primary" onClick={advance} disabled={!canAdvance()}>
+        <button className="secondary" style={{ maxWidth: 140 }} onClick={() => setShowReturnConfirm(true)}>
+          Return to Home
+        </button>
+        <button className="primary" onClick={advance} disabled={!canAdvance()} style={{ flex: 1 }}>
           {isLastLine ? "Finish" : "Next"}
         </button>
       </div>
+
+      {showReturnConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowReturnConfirm(false)}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: 320,
+              padding: "24px",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ marginBottom: 12 }}>Return to Home?</h3>
+            <p className="muted" style={{ marginBottom: 20 }}>
+              Any unsaved progress on the current step will be lost.
+              {isTimerRunning && (
+                <>
+                  <br />
+                  <br />
+                  The timer will stop when you confirm.
+                </>
+              )}
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                className="secondary"
+                style={{ flex: 1 }}
+                onClick={() => setShowReturnConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="primary danger"
+                style={{ flex: 1 }}
+                onClick={returnToHome}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

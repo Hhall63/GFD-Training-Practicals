@@ -81,8 +81,8 @@ export default function CourseDiagram() {
       {CONES.map((c, i) => (
         <rect key={i} x={c.x - S / 2} y={c.y - S / 2} width={S} height={S} rx={3} fill={BLOCK} />
       ))}
-      <Penalty cx={186} cy={372} />
-      <Penalty cx={348} cy={548} />
+      <Penalty cx={120} cy={550} />
+      <Penalty cx={420} cy={580} />
       <Arrow x={618} yTail={214} yHead={80} />
       <Arrow x={720} yTail={415} yHead={281} />
       {LABELS.map((l) => (
