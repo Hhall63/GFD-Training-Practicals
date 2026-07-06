@@ -1,4 +1,4 @@
-import courseImg from "../assets/obstacle-course.jpg";
+import CourseDiagram from "./CourseDiagram";
 import { MARKER_TYPES } from "../lib/obstacleCourse";
 
 const META_BY_TYPE = Object.fromEntries(MARKER_TYPES.map((m) => [m.key, m]));
@@ -36,7 +36,7 @@ export default function CourseMap({ markers = [], onTap, onMarkerClick }) {
         background: "#fff",
       }}
     >
-      <img src={courseImg} alt="GFD obstacle course diagram" style={{ width: "100%", display: "block" }} />
+      <CourseDiagram />
       {markers.map((m, i) => {
         if (m.x == null || m.y == null) return null;
         const meta = META_BY_TYPE[m.type];

@@ -20,7 +20,7 @@ export default function ObstacleCourseSummary({ config, tallies }) {
   return (
     <div style={{ marginTop: 8 }}>
       {markers.some((m) => m.x != null) && (
-        <div style={{ maxWidth: 480, marginBottom: 8 }}>
+        <div style={{ maxWidth: 720, marginBottom: 8 }}>
           <CourseMap markers={markers} />
         </div>
       )}

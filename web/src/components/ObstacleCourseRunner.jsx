@@ -25,10 +25,20 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   const [mode, setMode] = useState("cone");
   const [isRunning, setIsRunning] = useState(false);
   const [liveElapsed, setLiveElapsed] = useState(0);
+  const [portrait, setPortrait] = useState(
+    typeof window !== "undefined" ? window.matchMedia("(orientation: portrait)").matches : true
+  );
   const startRef = useRef(null);
   const intervalRef = useRef(null);
 
   useEffect(() => () => clearInterval(intervalRef.current), []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(orientation: portrait)");
+    const onChange = (e) => setPortrait(e.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
 
   const markers = tallies.markers ?? [];
   const displaySeconds = isRunning ? liveElapsed : tallies.totalSeconds ?? 0;
@@ -72,7 +82,7 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   }
 
   return (
-    <div style={{ width: "100%", maxWidth: 480 }}>
+    <div style={{ width: "100%", maxWidth: 720 }}>
       <div
         style={{
           fontSize: 48,
@@ -176,6 +186,23 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
           </button>
         ))}
       </div>
+
+      {portrait && (
+        <div
+          style={{
+            background: "var(--brand-navy)",
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: 13,
+            padding: "8px 10px",
+            borderRadius: 8,
+            marginBottom: 8,
+            textAlign: "center",
+          }}
+        >
+          ↻ Turn your device sideways (landscape) for a bigger course.
+        </div>
+      )}
 
       <CourseMap markers={markers} onTap={addMarker} onMarkerClick={removeMarker} />
     </div>
