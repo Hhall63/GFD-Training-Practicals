@@ -6,39 +6,31 @@ import { createUserAccountWithoutSigningIn } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
 
+// This page only ever manages staff (Administrator/Evaluator) accounts. Recruit accounts
+// are created and managed from Manage Recruits instead, alongside the recruit's roster
+// record and photo — see RecruitsAdminPage.jsx.
 const ROLE_FILTERS = [
   ["all", "All"],
   ["admin", "Admins"],
   ["evaluator", "Evaluators"],
-  ["recruit", "Recruits"],
 ];
 
-const ROLE_LABELS = { admin: "Administrator", evaluator: "Evaluator", recruit: "Recruit" };
+const ROLE_LABELS = { admin: "Administrator", evaluator: "Evaluator" };
 
 export default function AdminsPage() {
   const navigate = useNavigate();
   const { requestPasswordReset, adminDoc } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
-  const [recruits, setRecruits] = useState([]);
   const [showNewUser, setShowNewUser] = useState(searchParams.get("new") === "1");
   const [roleFilter, setRoleFilter] = useState("all");
 
   useEffect(() => {
     const q = query(collection(db, "admins"), where("isActive", "==", true));
     return onSnapshot(q, (snap) => {
-      setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
-  }, []);
-
-  useEffect(() => {
-    const q = query(collection(db, "recruits"), where("isActive", "==", true));
-    return onSnapshot(q, (snap) => {
-      setRecruits(
-        snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => a.lastName.localeCompare(b.lastName))
-      );
+      // Recruit-role accounts live here too (same collection), but this page never shows
+      // or creates them.
+      setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => (u.role ?? "admin") !== "recruit"));
     });
   }, []);
 
@@ -46,11 +38,6 @@ export default function AdminsPage() {
     if (roleFilter === "all") return users;
     return users.filter((u) => (u.role ?? "admin") === roleFilter);
   }, [users, roleFilter]);
-
-  const recruitName = (recruitId) => {
-    const r = recruits.find((x) => x.id === recruitId);
-    return r ? `${r.firstName} ${r.lastName}` : "(recruit record missing)";
-  };
 
   async function deactivate(user) {
     await updateDoc(doc(db, "admins", user.id), { isActive: false });
@@ -77,6 +64,10 @@ export default function AdminsPage() {
     <div className="app-shell">
       <TopBar title="Users" onBack={() => navigate("/")} showMenu={false} />
       <div className="screen">
+        <p className="muted">
+          Administrators and Evaluators only. To create a recruit's login, use Manage
+          Recruits instead.
+        </p>
         <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
           {ROLE_FILTERS.map(([value, label]) => (
             <button
@@ -111,9 +102,6 @@ export default function AdminsPage() {
                 <span className={`badge ${role === "admin" ? "pass" : "neutral"}`}>{ROLE_LABELS[role]}</span>
               </div>
               <div className="muted">{user.email}</div>
-              {role === "recruit" && (
-                <div className="muted">Linked to recruit: {recruitName(user.recruitId)}</div>
-              )}
 
               {role === "admin" && (
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "var(--text)", margin: "10px 0 0" }}>
@@ -128,15 +116,13 @@ export default function AdminsPage() {
               )}
 
               <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                {role !== "recruit" && (
-                  <button
-                    className="secondary"
-                    style={{ width: "auto", padding: "8px 12px" }}
-                    onClick={() => toggleStaffRole(user)}
-                  >
-                    Make {role === "admin" ? "Evaluator" : "Administrator"}
-                  </button>
-                )}
+                <button
+                  className="secondary"
+                  style={{ width: "auto", padding: "8px 12px" }}
+                  onClick={() => toggleStaffRole(user)}
+                >
+                  Make {role === "admin" ? "Evaluator" : "Administrator"}
+                </button>
                 <button
                   className="secondary"
                   style={{ width: "auto", padding: "8px 12px" }}
@@ -163,27 +149,21 @@ export default function AdminsPage() {
         </button>
       </div>
 
-      {showNewUser && <NewUserModal recruits={recruits} users={users} onClose={closeNewUserModal} />}
+      {showNewUser && <NewUserModal onClose={closeNewUserModal} />}
     </div>
   );
 }
 
-function NewUserModal({ recruits, users, onClose }) {
+function NewUserModal({ onClose }) {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("evaluator");
   const [notifyOnFailures, setNotifyOnFailures] = useState(false);
-  const [recruitId, setRecruitId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Recruits that don't already have a login.
-  const linkedIds = new Set(users.filter((u) => u.recruitId).map((u) => u.recruitId));
-  const unlinkedRecruits = recruits.filter((r) => !linkedIds.has(r.id));
-
-  const canSubmit =
-    displayName && email && password.length >= 6 && (role !== "recruit" || recruitId);
+  const canSubmit = displayName && email && password.length >= 6;
 
   async function handleCreate() {
     setSubmitting(true);
@@ -196,7 +176,6 @@ function NewUserModal({ recruits, users, onClose }) {
         role,
         isActive: true,
         notifyOnFailures: role === "admin" ? notifyOnFailures : false,
-        recruitId: role === "recruit" ? recruitId : null,
         createdAt: new Date(),
       });
       onClose();
@@ -221,7 +200,6 @@ function NewUserModal({ recruits, users, onClose }) {
             {[
               ["evaluator", "Evaluator"],
               ["admin", "Admin"],
-              ["recruit", "Recruit"],
             ].map(([value, label]) => (
               <button
                 key={value}
@@ -243,31 +221,11 @@ function NewUserModal({ recruits, users, onClose }) {
             ))}
           </div>
           <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>
-            {role === "evaluator" && "Can run tests and submit results. Cannot edit recruits, tests, or other users."}
-            {role === "admin" && "Full access: can build tests, manage recruits, run reports, and manage users."}
-            {role === "recruit" && "Sees only their own list of published tests with pass/fail status. Cannot run or edit anything."}
+            {role === "evaluator"
+              ? "Can run tests and submit results. Cannot edit recruits, tests, or other users."
+              : "Full access: can build tests, manage recruits, run reports, and manage users."}
           </p>
         </div>
-
-        {role === "recruit" && (
-          <div className="field">
-            <label>Which recruit is this login for?</label>
-            <select value={recruitId} onChange={(e) => setRecruitId(e.target.value)}>
-              <option value="">Select a recruit…</option>
-              {unlinkedRecruits.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.lastName}, {r.firstName} — {r.recruitClassOrCohort}
-                </option>
-              ))}
-            </select>
-            {unlinkedRecruits.length === 0 && (
-              <p className="muted" style={{ marginTop: 4 }}>
-                Every recruit already has a login (or none exist yet — add recruits under
-                Manage Recruits first).
-              </p>
-            )}
-          </div>
-        )}
 
         <div className="field">
           <label>Full Name</label>
