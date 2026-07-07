@@ -27,6 +27,10 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [liveElapsed, setLiveElapsed] = useState(0);
+  // Set by Stop when obstacle 5's distance hasn't been picked yet — holds the clock's final
+  // time until that's filled in, instead of finalizing the score without it.
+  const [pendingSeconds, setPendingSeconds] = useState(null);
+  const [showDistanceWarning, setShowDistanceWarning] = useState(false);
   const [portrait, setPortrait] = useState(
     typeof window !== "undefined" ? window.matchMedia("(orientation: portrait)").matches : true
   );
@@ -44,9 +48,11 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   }, []);
 
   const markers = tallies.markers ?? [];
-  const displaySeconds = isRunning || isPaused ? liveElapsed : tallies.totalSeconds ?? 0;
+  const displaySeconds = isRunning || isPaused || pendingSeconds != null ? liveElapsed : tallies.totalSeconds ?? 0;
   const scoring = computeObstacleCourseScore(config, { ...tallies, totalSeconds: displaySeconds });
-  const started = tallies.totalSeconds != null || isRunning || isPaused;
+  const started = tallies.totalSeconds != null || isRunning || isPaused || pendingSeconds != null;
+  const obstacle5Slot = DISTANCE_SLOTS[1];
+  const hasObstacle5Distance = markers.some((m) => m.x === obstacle5Slot.x && m.y === obstacle5Slot.y);
 
   async function commit(next) {
     const hasTime = next.totalSeconds != null;
@@ -70,6 +76,8 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
     accumulatedRef.current = 0;
     startRef.current = Date.now();
     setLiveElapsed(0);
+    setPendingSeconds(null);
+    setShowDistanceWarning(false);
     setIsRunning(true);
     setIsPaused(false);
     intervalRef.current = setInterval(tick, 100);
@@ -95,6 +103,15 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
     const finalSeconds = isRunning ? accumulatedRef.current + (Date.now() - startRef.current) / 1000 : accumulatedRef.current;
     setIsRunning(false);
     setIsPaused(false);
+    if (!hasObstacle5Distance) {
+      // Hold the clock at its final time and withhold scoring until the missing distance is
+      // picked — canAdvance() in the runner page already blocks Finish while result is null,
+      // so this naturally keeps the evaluator from moving on with an incomplete score.
+      setLiveElapsed(finalSeconds);
+      setPendingSeconds(finalSeconds);
+      setShowDistanceWarning(true);
+      return;
+    }
     commit({ ...tallies, totalSeconds: finalSeconds });
   }
 
@@ -109,7 +126,15 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   function setDistance(slot, value) {
     const others = markers.filter((m) => !(m.x === slot.x && m.y === slot.y));
     const next = value ? [...others, { x: slot.x, y: slot.y, type: value }] : others;
-    commit({ ...tallies, markers: next });
+    const isObstacle5Slot = slot.x === obstacle5Slot.x && slot.y === obstacle5Slot.y;
+    if (pendingSeconds != null && isObstacle5Slot && value) {
+      // The missing piece Stop was waiting on just got filled in — finalize now.
+      commit({ ...tallies, markers: next, totalSeconds: pendingSeconds });
+      setPendingSeconds(null);
+      setShowDistanceWarning(false);
+    } else {
+      commit({ ...tallies, markers: next });
+    }
   }
 
   const distanceSlots = DISTANCE_SLOTS.map((slot) => ({
@@ -189,9 +214,6 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
           <span>Projected Score</span>
           <span>{scoring.score} / 100</span>
         </div>
-        <div className="muted" style={{ fontSize: 13 }}>
-          Base {scoring.baseScore} − {scoring.deductions} deductions · {scoring.markerCount} penalt{scoring.markerCount === 1 ? "y" : "ies"}
-        </div>
       </div>
 
       <p className="muted" style={{ fontSize: 13, margin: "0 0 8px", textAlign: "left" }}>
@@ -257,6 +279,34 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
       )}
 
       <CourseMap markers={markers} onTap={addMarker} onMarkerClick={removeMarker} distanceSlots={distanceSlots} />
+
+      {showDistanceWarning && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div className="card" style={{ maxWidth: 320, padding: 24, textAlign: "center" }}>
+            <h3 style={{ marginBottom: 12 }}>Distance Needed</h3>
+            <p className="muted" style={{ marginBottom: 20 }}>
+              Select a stopping distance for Obstacle 5 on the map before the score can be
+              finalized.
+            </p>
+            <button className="primary" onClick={() => setShowDistanceWarning(false)}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

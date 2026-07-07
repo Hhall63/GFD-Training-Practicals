@@ -22,7 +22,7 @@ function row(y, x0, x1, n) {
 // Cone blocks, per obstacle (positions traced from the department form).
 const CONES = [
   // 5 — left straight alley + penalty stop
-  ...col(300, 42, 457, 9), ...col(372, 42, 457, 9), ...row(498, 300, 396, 3),
+  ...col(300, 42, 457, 9), ...col(372, 42, 457, 9), ...row(498, 300, 372, 3),
   // 1 — long straight alley (top cap + two legs)
   ...row(42, 456, 528, 3), ...col(456, 90, 540, 10), ...col(528, 90, 540, 10),
   // 2 — chicane

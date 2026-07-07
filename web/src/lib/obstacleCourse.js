@@ -37,8 +37,8 @@ const LABEL_BY_TYPE = Object.fromEntries(MARKER_TYPES.map((m) => [m.key, m.label
 // free-tap markers — the evaluator reads the measured inches off a tape and picks the
 // matching tier from a dropdown anchored right on the map, which grades it automatically.
 export const DISTANCE_SLOTS = [
-  { key: "a", x: 0.1, y: 0.85 },
-  { key: "b", x: 0.45, y: 0.9 },
+  { key: "a", x: 0.1, y: 0.795 },
+  { key: "b", x: 0.35, y: 0.838 },
 ];
 
 // The mode buttons on the live runner only cover penalties placed by a free tap anywhere
