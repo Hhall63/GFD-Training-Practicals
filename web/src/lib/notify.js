@@ -25,15 +25,18 @@ export function isEmailConfigured() {
 
 /** Active administrators who checked "Notify with failures" on their account. Sends to the
  * admin's `notificationEmail` when set (so failures can go to a work address that differs
- * from their login), otherwise their login `email`. */
+ * from their login), otherwise their login `email`.
+ *
+ * Uses a single-field equality query (no composite index, always permitted by the admins
+ * `list` rule for staff) and applies the isActive check client-side — this avoids any
+ * production-only "query requires an index" failure that a two-filter query could hit. */
 export async function fetchNotifyRecipients() {
-  const q = query(
-    collection(db, "admins"),
-    where("isActive", "==", true),
-    where("notifyOnFailures", "==", true)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => d.data().notificationEmail || d.data().email).filter(Boolean);
+  const snap = await getDocs(query(collection(db, "admins"), where("notifyOnFailures", "==", true)));
+  return snap.docs
+    .map((d) => d.data())
+    .filter((a) => a.isActive)
+    .map((a) => a.notificationEmail || a.email)
+    .filter(Boolean);
 }
 
 export function buildFailureSubject(session) {
@@ -104,22 +107,26 @@ export function buildFailureMailto(recipients, session, lineResults) {
 }
 
 /**
- * Attempts automatic delivery via EmailJS. Returns a status string that gets stored on
- * the session and surfaced on the Results screen:
- *   "sent:<n>"        emailed n admins automatically
- *   "not-configured"  EmailJS not set up — Results screen offers the mailto button
- *   "no-recipients"   no admin has "Notify with failures" checked
- *   "failed"          the send call errored — Results screen offers the mailto button
+ * Attempts automatic delivery via EmailJS. Returns `{ status, recipients, error }` which
+ * gets stored on the session so the Results screen can reflect exactly what happened
+ * without re-querying (a second query that could fail even when the first found recipients
+ * — the cause of the misleading "no administrators" message). Status values:
+ *   "sent"             emailed the recipients automatically
+ *   "not-configured"   EmailJS not set up — Results screen offers the mailto button
+ *   "no-recipients"    no admin has "Notify with failures" checked
+ *   "recipients-error" the recipient lookup itself failed (permissions/connection)
+ *   "failed"           the send call errored — Results screen offers the mailto button
  */
 export async function sendFailureEmail(session, lineResults) {
   let recipients;
   try {
     recipients = await fetchNotifyRecipients();
-  } catch {
-    return "failed";
+  } catch (err) {
+    console.error("Failed to look up failure-notification recipients", err);
+    return { status: "recipients-error", recipients: [], error: err?.message ?? "recipient lookup failed" };
   }
-  if (recipients.length === 0) return "no-recipients";
-  if (!isEmailConfigured()) return "not-configured";
+  if (recipients.length === 0) return { status: "no-recipients", recipients: [], error: null };
+  if (!isEmailConfigured()) return { status: "not-configured", recipients, error: null };
 
   try {
     const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
@@ -136,8 +143,12 @@ export async function sendFailureEmail(session, lineResults) {
         },
       }),
     });
-    return res.ok ? `sent:${recipients.length}` : "failed";
-  } catch {
-    return "failed";
+    if (res.ok) return { status: "sent", recipients, error: null };
+    const detail = await res.text().catch(() => "");
+    console.error("EmailJS send failed", res.status, detail);
+    return { status: "failed", recipients, error: `EmailJS ${res.status}${detail ? `: ${detail}` : ""}` };
+  } catch (err) {
+    console.error("EmailJS send threw", err);
+    return { status: "failed", recipients, error: err?.message ?? "network error" };
   }
 }

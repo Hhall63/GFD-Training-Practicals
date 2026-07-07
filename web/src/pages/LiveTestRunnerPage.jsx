@@ -114,10 +114,12 @@ export default function LiveTestRunnerPage() {
 
     // On a failure, email the admins who opted into failure notifications. Best-effort:
     // a failed/unconfigured send never blocks the evaluator — the Results screen shows
-    // the outcome and offers a manual compose button as backup.
-    let failureEmailStatus = null;
+    // the outcome and offers a manual compose button as backup. Recipients are resolved
+    // once here and stored, so the Results screen never re-queries them (a second query
+    // could come back empty and wrongly claim no one is subscribed).
+    let failureEmail = { status: null, recipients: [], error: null };
     if (overallResult === RESULT.FAIL) {
-      failureEmailStatus = await sendFailureEmail(finishedSession, lineResults);
+      failureEmail = await sendFailureEmail(finishedSession, lineResults);
     }
 
     await updateDoc(doc(db, "sessions", sessionId), {
@@ -126,7 +128,9 @@ export default function LiveTestRunnerPage() {
       overallResult,
       criticalFailure,
       totalPointsEarned,
-      failureEmailStatus,
+      failureEmailStatus: failureEmail.status,
+      failureEmailRecipients: failureEmail.recipients,
+      failureEmailError: failureEmail.error,
     });
   }
 

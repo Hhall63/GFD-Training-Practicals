@@ -11,7 +11,7 @@ export default function ResultsPage() {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
   const [lineResults, setLineResults] = useState([]);
-  const [mailtoHref, setMailtoHref] = useState(null);
+  const [legacyMailto, setLegacyMailto] = useState(null);
 
   useEffect(() => {
     getDoc(doc(db, "sessions", sessionId)).then((snap) => setSession({ id: snap.id, ...snap.data() }));
@@ -20,14 +20,15 @@ export default function ResultsPage() {
     );
   }, [sessionId]);
 
-  // For failed tests where the automatic email didn't go out, prepare a prefilled
-  // compose link to the notify-list admins as a zero-setup fallback.
+  // Legacy sessions (recorded before recipients were stored on the session) fall back to a
+  // one-time re-query so their compose button still works. New sessions never need this.
   useEffect(() => {
     if (!session || session.overallResult !== RESULT.FAIL || lineResults.length === 0) return;
+    if (Array.isArray(session.failureEmailRecipients)) return; // new session: use stored list
     if (session.failureEmailStatus?.startsWith("sent")) return;
     fetchNotifyRecipients()
       .then((recipients) => {
-        if (recipients.length > 0) setMailtoHref(buildFailureMailto(recipients, session, lineResults));
+        if (recipients.length > 0) setLegacyMailto(buildFailureMailto(recipients, session, lineResults));
       })
       .catch(() => {});
   }, [session, lineResults]);
@@ -36,6 +37,14 @@ export default function ResultsPage() {
 
   const passed = session.overallResult === RESULT.PASS;
   const emailStatus = session.failureEmailStatus;
+  // Recipients resolved at send time and stored on the session — the source of truth for
+  // both the "emailed N admins" count and the manual compose button.
+  const recipients = Array.isArray(session.failureEmailRecipients) ? session.failureEmailRecipients : null;
+  const recipientCount = recipients ? recipients.length : Number(emailStatus?.split(":")[1]) || null;
+  const mailtoHref =
+    recipients && recipients.length > 0 && lineResults.length > 0
+      ? buildFailureMailto(recipients, session, lineResults)
+      : legacyMailto;
 
   return (
     <div className="app-shell">
@@ -64,10 +73,11 @@ export default function ResultsPage() {
 
         {!passed && (
           <div className="card" style={{ width: "100%", maxWidth: 400, marginTop: 8 }}>
-            {emailStatus?.startsWith("sent") && (
+            {(emailStatus === "sent" || emailStatus?.startsWith("sent")) && (
               <p style={{ margin: 0 }}>
-                📧 Failure report emailed to {emailStatus.split(":")[1]} administrator
-                {emailStatus.split(":")[1] === "1" ? "" : "s"} automatically.
+                📧 Failure report emailed to {recipientCount ?? ""} administrator
+                {recipientCount === 1 ? "" : "s"} automatically
+                {recipients?.length ? ` (${recipients.join(", ")})` : ""}.
               </p>
             )}
             {emailStatus === "no-recipients" && (
@@ -76,11 +86,13 @@ export default function ResultsPage() {
                 was sent.
               </p>
             )}
-            {(emailStatus === "not-configured" || emailStatus === "failed") && (
+            {(emailStatus === "not-configured" || emailStatus === "failed" || emailStatus === "recipients-error") && (
               <>
                 <p className="muted" style={{ marginTop: 0 }}>
                   {emailStatus === "failed"
                     ? "Automatic email failed to send."
+                    : emailStatus === "recipients-error"
+                    ? "Couldn't look up who to notify."
                     : "Automatic email isn't set up yet."}{" "}
                   Send the failure report from your own mail app instead:
                 </p>
@@ -90,7 +102,13 @@ export default function ResultsPage() {
                   </a>
                 ) : (
                   <p className="muted" style={{ margin: 0 }}>
-                    (No administrators have "Notify with failures" turned on.)
+                    No notification recipients are set — turn on "Notify with failures" for an
+                    admin in Manage Users.
+                  </p>
+                )}
+                {session.failureEmailError && (
+                  <p className="muted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+                    Details: {session.failureEmailError}
                   </p>
                 )}
               </>
