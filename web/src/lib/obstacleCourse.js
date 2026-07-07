@@ -28,6 +28,10 @@ export const MARKER_TYPES = [
   { key: "dist1", label: 'Stopped 12"–24"', short: "①", points: 2, color: "#d98200" },
   { key: "dist2", label: 'Stopped 25"–36"', short: "②", points: 4, color: "#d98200" },
   { key: "dist3", label: 'Stopped 37"+', short: "③", points: 6, color: "#d98200" },
+  // Recruits who wash out before reaching the obstacle-5 stop never get a measured
+  // distance. "Did not finish" satisfies the required-distance gate (its key starts with
+  // "dist") but carries no penalty, so no score is associated with a stop they never made.
+  { key: "distDNF", label: "Did not finish", short: "DNF", points: 0, color: "#6b7280" },
 ];
 
 const POINTS_BY_TYPE = Object.fromEntries(MARKER_TYPES.map((m) => [m.key, m.points]));

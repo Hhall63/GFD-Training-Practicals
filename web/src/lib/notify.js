@@ -1,6 +1,6 @@
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebase";
-import { formatSeconds, LINE_TYPES, RESULT } from "./constants";
+import { formatSeconds, lineDisplayLabel, LINE_TYPES, RESULT } from "./constants";
 import { summarizeObstacleCourseLines } from "./obstacleCourse";
 
 /**
@@ -23,7 +23,9 @@ export function isEmailConfigured() {
   return Boolean(EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY);
 }
 
-/** Active administrators who checked "Notify with failures" on their account. */
+/** Active administrators who checked "Notify with failures" on their account. Sends to the
+ * admin's `notificationEmail` when set (so failures can go to a work address that differs
+ * from their login), otherwise their login `email`. */
 export async function fetchNotifyRecipients() {
   const q = query(
     collection(db, "admins"),
@@ -31,7 +33,7 @@ export async function fetchNotifyRecipients() {
     where("notifyOnFailures", "==", true)
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => d.data().email).filter(Boolean);
+  return snap.docs.map((d) => d.data().notificationEmail || d.data().email).filter(Boolean);
 }
 
 export function buildFailureSubject(session) {
@@ -67,12 +69,12 @@ export function buildFailureBody(session, lineResults) {
   for (const line of lineResults) {
     lines.push("");
     if (line.lineTypeSnapshot === LINE_TYPES.INSTRUCTION) {
-      lines.push(`[Instruction] ${line.lineTextSnapshot}`);
+      lines.push(`[Instruction] ${lineDisplayLabel(line)}`);
       continue;
     }
     const result = line.result === RESULT.PASS ? "PASS" : line.result === RESULT.FAIL ? "FAIL" : "—";
     const critical = line.isCriticalSnapshot && line.result === RESULT.FAIL ? " (CRITICAL)" : "";
-    lines.push(`[${result}${critical}] ${line.lineTextSnapshot}`);
+    lines.push(`[${result}${critical}] ${lineDisplayLabel(line)}`);
     if (line.timerElapsedSeconds != null) {
       const threshold = line.passThresholdSecondsSnapshot != null ? ` (pass at ≤ ${line.passThresholdSecondsSnapshot}s)` : "";
       lines.push(`    Time: ${formatSeconds(line.timerElapsedSeconds)}s${threshold}`);

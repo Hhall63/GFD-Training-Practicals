@@ -24,6 +24,7 @@ export default function AdminsPage() {
   const [users, setUsers] = useState([]);
   const [showNewUser, setShowNewUser] = useState(searchParams.get("new") === "1");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [resetMsgByUser, setResetMsgByUser] = useState({});
 
   useEffect(() => {
     const q = query(collection(db, "admins"), where("isActive", "==", true));
@@ -50,6 +51,18 @@ export default function AdminsPage() {
 
   function toggleNotify(user) {
     updateDoc(doc(db, "admins", user.id), { notifyOnFailures: !user.notifyOnFailures });
+  }
+
+  // Previously fire-and-forget (no await, no feedback); now confirms success or surfaces
+  // a failure so an admin knows whether the reset email actually went out.
+  async function handleReset(user) {
+    setResetMsgByUser((m) => ({ ...m, [user.id]: { text: "Sending…", ok: null } }));
+    try {
+      await requestPasswordReset(user.email);
+      setResetMsgByUser((m) => ({ ...m, [user.id]: { text: `Reset email sent to ${user.email}.`, ok: true } }));
+    } catch {
+      setResetMsgByUser((m) => ({ ...m, [user.id]: { text: "Couldn't send the reset email. Try again.", ok: false } }));
+    }
   }
 
   function closeNewUserModal() {
@@ -115,6 +128,8 @@ export default function AdminsPage() {
                 </label>
               )}
 
+              {role === "admin" && user.notifyOnFailures && <NotifyEmailEditor user={user} />}
+
               <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                 <button
                   className="secondary"
@@ -126,7 +141,7 @@ export default function AdminsPage() {
                 <button
                   className="secondary"
                   style={{ width: "auto", padding: "8px 12px" }}
-                  onClick={() => requestPasswordReset(user.email)}
+                  onClick={() => handleReset(user)}
                 >
                   Reset Password
                 </button>
@@ -140,6 +155,17 @@ export default function AdminsPage() {
                   </button>
                 )}
               </div>
+              {resetMsgByUser[user.id] && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontSize: 13,
+                    color: resetMsgByUser[user.id].ok === false ? "var(--brand-red)" : "var(--success)",
+                  }}
+                >
+                  {resetMsgByUser[user.id].text}
+                </div>
+              )}
             </div>
           );
         })}
@@ -150,6 +176,57 @@ export default function AdminsPage() {
       </div>
 
       {showNewUser && <NewUserModal onClose={closeNewUserModal} />}
+    </div>
+  );
+}
+
+/** Lets an admin route their failure-notification emails to a different address (e.g. a
+ * work inbox) than the one they log in with, without changing their login. Empty = fall
+ * back to the login email. */
+function NotifyEmailEditor({ user }) {
+  const [value, setValue] = useState(user.notificationEmail ?? "");
+  const [status, setStatus] = useState(null); // null | "saving" | "saved"
+
+  const trimmed = value.trim().toLowerCase();
+  const current = user.notificationEmail ?? "";
+  const dirty = trimmed !== current;
+
+  async function save() {
+    setStatus("saving");
+    await updateDoc(doc(db, "admins", user.id), { notificationEmail: trimmed || null });
+    setStatus("saved");
+  }
+
+  return (
+    <div className="field" style={{ margin: "10px 0 0" }}>
+      <label style={{ fontSize: 13 }}>Send failure emails to</label>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input
+          type="email"
+          placeholder={user.email}
+          autoCapitalize="none"
+          autoCorrect="off"
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setStatus(null);
+          }}
+          style={{ marginBottom: 0 }}
+        />
+        <button
+          className="secondary"
+          style={{ width: "auto", padding: "8px 12px" }}
+          disabled={!dirty || status === "saving"}
+          onClick={save}
+        >
+          {status === "saving" ? "Saving…" : "Save"}
+        </button>
+      </div>
+      <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
+        {status === "saved"
+          ? "Saved."
+          : `Leave blank to use the login email (${user.email}).`}
+      </p>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { LINE_TYPES } from "./constants";
+import { lineDisplayLabel, LINE_TYPES } from "./constants";
 import { summarizeObstacleCourseOneLine } from "./obstacleCourse";
 
 const COLUMNS = [
@@ -64,7 +64,7 @@ export function buildResultsCsv(sessions) {
       rows.push([
         ...base,
         line.sortOrder,
-        line.lineTextSnapshot,
+        lineDisplayLabel(line),
         line.lineTypeSnapshot,
         (line.result ?? "").toUpperCase(),
         line.timerElapsedSeconds != null ? line.timerElapsedSeconds.toFixed(1) : "",

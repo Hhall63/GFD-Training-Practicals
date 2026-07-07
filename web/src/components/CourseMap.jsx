@@ -99,7 +99,8 @@ export default function CourseMap({ markers = [], onTap, onMarkerClick, distance
             <option value="" disabled hidden>— Select —</option>
             {DIST_OPTIONS.map((mt) => (
               <option key={mt.key} value={mt.key}>
-                {mt.label}{mt.points ? ` (−${mt.points})` : " (no penalty)"}
+                {mt.label}
+                {mt.key === "distDNF" ? "" : mt.points ? ` (−${mt.points})` : " (no penalty)"}
               </option>
             ))}
           </select>

@@ -9,6 +9,8 @@ export default function LoginPage() {
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetting, setResetting] = useState(false);
   // Show a one-time notice if we arrived here from an inactivity auto-logout. The flag
   // read/clear is a side effect, so it lives in an effect (not a useState initializer,
   // which must stay pure).
@@ -40,11 +42,26 @@ export default function LoginPage() {
 
   async function handleForgotPassword() {
     if (!email) return;
+    setResetting(true);
+    setResetError("");
+    setResetSent(false);
+    setError(false);
     try {
       await requestPasswordReset(email);
       setResetSent(true);
-    } catch {
-      setError(true);
+    } catch (err) {
+      const code = err?.code;
+      setResetError(
+        code === "auth/user-not-found"
+          ? "No account found for that email."
+          : code === "auth/invalid-email"
+          ? "Enter a valid email address."
+          : code === "auth/too-many-requests"
+          ? "Too many attempts. Wait a moment and try again."
+          : "Couldn't send the reset email. Try again."
+      );
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -86,8 +103,11 @@ export default function LoginPage() {
         )}
         {resetSent && (
           <p style={{ color: "var(--success)", fontSize: 13 }}>
-            Password reset email sent — check your inbox.
+            Password reset email sent — check your inbox (and your spam folder).
           </p>
+        )}
+        {resetError && (
+          <p style={{ color: "var(--brand-red)", fontSize: 13 }}>{resetError}</p>
         )}
         <button className="primary" type="submit" disabled={!email || !password || submitting}>
           {submitting ? "Signing In…" : "Sign In"}
@@ -97,10 +117,13 @@ export default function LoginPage() {
           className="secondary"
           style={{ marginTop: 10 }}
           onClick={handleForgotPassword}
-          disabled={!email}
+          disabled={!email || resetting}
         >
-          Forgot Password?
+          {resetting ? "Sending…" : "Forgot Password?"}
         </button>
+        <p className="muted" style={{ fontSize: 12, marginTop: 6, marginBottom: 0 }}>
+          Enter your email above, then tap Forgot Password to get a reset link.
+        </p>
       </form>
 
       <p className="muted" style={{ marginTop: 32, maxWidth: 320 }}>

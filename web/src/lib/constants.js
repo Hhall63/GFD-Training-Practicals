@@ -12,6 +12,17 @@ export const LINE_TYPE_LABELS = {
   [LINE_TYPES.OBSTACLE_COURSE]: "Obstacle Course",
 };
 
+/** The label to show for a test step. The obstacle course is a fixed department form, so
+ * it always shows its own name rather than a free-text description an evaluator may have
+ * typed (or left as junk) when building the template. Every other step shows its text.
+ * Accepts either a live template line (`lineType`/`lineText`) or a snapshotted line result
+ * (`lineTypeSnapshot`/`lineTextSnapshot`). */
+export function lineDisplayLabel(line) {
+  const type = line?.lineType ?? line?.lineTypeSnapshot;
+  if (type === LINE_TYPES.OBSTACLE_COURSE) return LINE_TYPE_LABELS[LINE_TYPES.OBSTACLE_COURSE];
+  return line?.lineText ?? line?.lineTextSnapshot ?? "";
+}
+
 export const RESULT = {
   PASS: "pass",
   FAIL: "fail",

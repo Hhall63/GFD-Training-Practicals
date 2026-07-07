@@ -157,7 +157,10 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
     try {
       const data = {
         lineType,
-        lineText,
+        // The obstacle course is a fixed department form, so it carries its own name rather
+        // than a free-text description — this keeps a clean label everywhere (results, the
+        // failure email, CSV) with no chance of stray text getting stored.
+        lineText: isObstacleCourse ? LINE_TYPE_LABELS[LINE_TYPES.OBSTACLE_COURSE] : lineText,
         isScored: lineType === LINE_TYPES.GRADED,
         passThresholdSeconds: lineType === LINE_TYPES.TIMER ? Number(passThresholdSeconds) : null,
         points: isObstacleCourse ? 100 : lineType !== LINE_TYPES.INSTRUCTION ? Number(points) : null,
@@ -208,10 +211,12 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
           </div>
         </div>
 
-        <div className="field">
-          <label>{lineType === LINE_TYPES.INSTRUCTION ? "Instruction Text" : "Step Description"}</label>
-          <textarea rows={3} value={lineText} onChange={(e) => setLineText(e.target.value)} />
-        </div>
+        {!isObstacleCourse && (
+          <div className="field">
+            <label>{lineType === LINE_TYPES.INSTRUCTION ? "Instruction Text" : "Step Description"}</label>
+            <textarea rows={3} value={lineText} onChange={(e) => setLineText(e.target.value)} />
+          </div>
+        )}
 
         {lineType === LINE_TYPES.TIMER && (
           <div className="field">
@@ -265,7 +270,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
 
         <div style={{ display: "flex", gap: 8 }}>
           <button className="secondary" onClick={onClose}>Cancel</button>
-          <button className="primary" disabled={!lineText || saving} onClick={handleSave}>
+          <button className="primary" disabled={(!lineText && !isObstacleCourse) || saving} onClick={handleSave}>
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
