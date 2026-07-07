@@ -135,20 +135,20 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
       <div style={{ textAlign: "center", marginBottom: 12, display: "flex", gap: 10, justifyContent: "center" }}>
         {isRunning ? (
           <>
-            <button className="secondary" style={{ maxWidth: 160 }} onClick={pause}>
+            <button className="primary warning" style={{ maxWidth: 160 }} onClick={pause}>
               Pause
             </button>
             <button className="primary danger" style={{ maxWidth: 160 }} onClick={stop}>
-              Stop
+              Finish
             </button>
           </>
         ) : isPaused ? (
           <>
-            <button className="primary" style={{ maxWidth: 160 }} onClick={resume}>
+            <button className="primary success" style={{ maxWidth: 160 }} onClick={resume}>
               Resume
             </button>
             <button className="primary danger" style={{ maxWidth: 160 }} onClick={stop}>
-              Stop
+              Finish
             </button>
           </>
         ) : (

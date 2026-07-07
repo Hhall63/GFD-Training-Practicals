@@ -110,6 +110,11 @@ button.primary.success {
   background: var(--success);
 }
 
+button.primary.warning {
+  background: var(--brand-gold);
+  color: var(--brand-navy);
+}
+
 button.secondary {
   width: 100%;
   padding: 12px;
