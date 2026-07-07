@@ -116,8 +116,14 @@ export function buildFailureMailto(recipients, session, lineResults) {
  *   "no-recipients"    no admin has "Notify with failures" checked
  *   "recipients-error" the recipient lookup itself failed (permissions/connection)
  *   "failed"           the send call errored — Results screen offers the mailto button
+ *
+ * `courseImageDataUrl`, when given (a PNG data URL of the graded obstacle course — see
+ * lib/courseImage.js), is sent under the `course_image` template param. Actually attaching
+ * it to the email requires a one-time EmailJS dashboard step (a "Variable Attachment" on the
+ * template bound to that param name) — the API call alone can't configure that. The mailto:
+ * fallback can't carry an attachment at all, so it's text-only regardless.
  */
-export async function sendFailureEmail(session, lineResults) {
+export async function sendFailureEmail(session, lineResults, { courseImageDataUrl } = {}) {
   let recipients;
   try {
     recipients = await fetchNotifyRecipients();
@@ -140,6 +146,7 @@ export async function sendFailureEmail(session, lineResults) {
           to_email: recipients.join(","),
           subject: buildFailureSubject(session),
           message: buildFailureBody(session, lineResults),
+          ...(courseImageDataUrl ? { course_image: courseImageDataUrl } : {}),
         },
       }),
     });

@@ -14,7 +14,8 @@ import { db } from "../firebase";
 import { compressImageToDataUrl } from "../lib/image";
 import { sendFailureEmail } from "../lib/notify";
 import { computeTimerResult, formatSeconds, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
-import { hasRequiredDistance } from "../lib/obstacleCourse";
+import { missingRequiredDistances } from "../lib/obstacleCourse";
+import { renderGradedCourseImage } from "../lib/courseImage";
 import ObstacleCourseRunner from "../components/ObstacleCourseRunner";
 
 export default function LiveTestRunnerPage() {
@@ -28,6 +29,7 @@ export default function LiveTestRunnerPage() {
   const [elapsed, setElapsed] = useState(0);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const [showDistanceRequired, setShowDistanceRequired] = useState(false);
+  const [missingDistanceObstacles, setMissingDistanceObstacles] = useState([]);
   const [showNoteRequired, setShowNoteRequired] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteRequiredReason, setNoteRequiredReason] = useState("stepFailed"); // "stepFailed" | "overallFail"
@@ -129,7 +131,18 @@ export default function LiveTestRunnerPage() {
     // could come back empty and wrongly claim no one is subscribed).
     let failureEmail = { status: null, recipients: [], error: null };
     if (overallResult === RESULT.FAIL) {
-      failureEmail = await sendFailureEmail(finishedSession, lineResults);
+      // Attach a snapshot of the graded course (every penalty/distance marker placed) so the
+      // admin sees exactly what happened without opening the app.
+      const obstacleLine = lineResults.find((l) => l.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE);
+      let courseImageDataUrl;
+      try {
+        if (obstacleLine?.obstacleTallies?.markers) {
+          courseImageDataUrl = renderGradedCourseImage(obstacleLine.obstacleTallies.markers);
+        }
+      } catch (err) {
+        console.error("Failed to render graded course image for the failure email", err);
+      }
+      failureEmail = await sendFailureEmail(finishedSession, lineResults, { courseImageDataUrl });
     }
 
     await updateDoc(doc(db, "sessions", sessionId), {
@@ -158,11 +171,16 @@ export default function LiveTestRunnerPage() {
   }
 
   async function advance() {
-    // A stopping distance for obstacle 5 must be recorded before this step can be completed.
-    // (Scoring/pass-fail still happens on Stop without it — this only gates moving on.)
-    if (isObstacleCourse && !hasRequiredDistance(current.obstacleTallies)) {
-      setShowDistanceRequired(true);
-      return;
+    // A stopping distance for both obstacle 2 and obstacle 5 must be recorded before this
+    // step can be completed. (Scoring/pass-fail still happens on Finish without them — this
+    // only gates moving on.)
+    if (isObstacleCourse) {
+      const missing = missingRequiredDistances(current.obstacleTallies);
+      if (missing.length > 0) {
+        setMissingDistanceObstacles(missing);
+        setShowDistanceRequired(true);
+        return;
+      }
     }
     // A failed step must be documented before moving on — a blocking pop-up (with a note
     // field) rather than a silently disabled button.
@@ -330,7 +348,8 @@ export default function LiveTestRunnerPage() {
           <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
             <h3 style={{ marginBottom: 12 }}>Distance Required</h3>
             <p className="muted" style={{ marginBottom: 20 }}>
-              Select a stopping distance for Obstacle 5 on the course map before submitting.
+              Select a stopping distance for Obstacle{missingDistanceObstacles.length > 1 ? "s" : ""}{" "}
+              {missingDistanceObstacles.join(" and ")} on the course map before submitting.
             </p>
             <button className="primary" style={{ width: "100%" }} onClick={() => setShowDistanceRequired(false)}>
               OK
@@ -519,10 +538,6 @@ function AttachmentCapture({ current, patchCurrent, isRequired }) {
     }
   }
 
-  function saveNote() {
-    patchCurrent({ note });
-  }
-
   return (
     <div
       className="card"
@@ -560,8 +575,14 @@ function AttachmentCapture({ current, patchCurrent, isRequired }) {
             placeholder="Note"
             rows={2}
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            onBlur={saveNote}
+            // Persist on every keystroke, not just blur: on mobile (especially iOS Safari),
+            // tapping Submit while the textarea is still focused can fire the click before a
+            // blur-only save lands, leaving the note-required gate and the failure email
+            // reading a stale, empty note even though one was typed.
+            onChange={(e) => {
+              setNote(e.target.value);
+              patchCurrent({ note: e.target.value });
+            }}
           />
         </div>
       )}

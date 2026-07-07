@@ -37,27 +37,35 @@ export const MARKER_TYPES = [
 const POINTS_BY_TYPE = Object.fromEntries(MARKER_TYPES.map((m) => [m.key, m.points]));
 const LABEL_BY_TYPE = Object.fromEntries(MARKER_TYPES.map((m) => [m.key, m.label]));
 
-// The two spots on the form where a stopping distance is measured (former obstacle-2 and
+// The two spots on the form where a stopping distance is measured (obstacle-2 and
 // obstacle-5 penalty stops). Fixed positions (fractions of the diagram) rather than
 // free-tap markers — the evaluator reads the measured inches off a tape and picks the
 // matching tier from a dropdown anchored right on the map, which grades it automatically.
+// Both are required before a run can be finished.
 export const DISTANCE_SLOTS = [
-  { key: "a", x: 0.13, y: 0.86 }, // obstacle 2 stop (chicane, bottom-left)
-  { key: "b", x: 0.28, y: 0.86 }, // obstacle 5 stop (left straight alley) — the required one
+  { key: "a", x: 0.13, y: 0.86, obstacleNumber: 2 }, // obstacle 2 stop (chicane, bottom-left)
+  { key: "b", x: 0.28, y: 0.86, obstacleNumber: 5 }, // obstacle 5 stop (left straight alley)
 ];
 
 // The mode buttons on the live runner only cover penalties placed by a free tap anywhere
 // on the course; stopping-distance tiers are graded from the DISTANCE_SLOTS dropdowns instead.
 export const TAP_MARKER_TYPES = MARKER_TYPES.filter((m) => !m.key.startsWith("dist"));
 
-// The obstacle-5 stopping distance must be recorded before a run can be finished. Returns
-// true once a distance tier (including the 0"–12" no-penalty tier) has been picked there.
-export function hasRequiredDistance(tallies) {
-  const slot = DISTANCE_SLOTS[1]; // obstacle 5
+// Both obstacle-2 and obstacle-5 stopping distances must be recorded before a run can be
+// finished. Returns the obstacle numbers still missing a distance tier (including the
+// 0"–12" no-penalty tier, which still counts as "recorded"); empty once both are set.
+export function missingRequiredDistances(tallies) {
   const markers = Array.isArray(tallies?.markers) ? tallies.markers : [];
-  return markers.some(
-    (m) => m.x === slot.x && m.y === slot.y && typeof m.type === "string" && m.type.startsWith("dist")
-  );
+  return DISTANCE_SLOTS.filter(
+    (slot) =>
+      !markers.some(
+        (m) => m.x === slot.x && m.y === slot.y && typeof m.type === "string" && m.type.startsWith("dist")
+      )
+  ).map((slot) => slot.obstacleNumber);
+}
+
+export function hasRequiredDistance(tallies) {
+  return missingRequiredDistances(tallies).length === 0;
 }
 
 export function defaultObstacleCourseConfig() {
