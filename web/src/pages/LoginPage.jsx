@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import badge from "../assets/gfd-badge.png";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, IDLE_LOGOUT_FLAG } from "../context/AuthContext";
 
 export default function LoginPage() {
   const { login, requestPasswordReset } = useAuth();
@@ -9,6 +9,20 @@ export default function LoginPage() {
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  // Show a one-time notice if we arrived here from an inactivity auto-logout. The flag
+  // read/clear is a side effect, so it lives in an effect (not a useState initializer,
+  // which must stay pure).
+  const [idleLogout, setIdleLogout] = useState(false);
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(IDLE_LOGOUT_FLAG)) {
+        setIdleLogout(true);
+        sessionStorage.removeItem(IDLE_LOGOUT_FLAG);
+      }
+    } catch {
+      // sessionStorage may be unavailable; the notice is a nicety, so ignore.
+    }
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -39,6 +53,12 @@ export default function LoginPage() {
       <img src={badge} alt="GFD Badge" style={{ width: 140, marginBottom: 16 }} />
       <h2 style={{ margin: "0 0 4px" }}>GFD Recruit Testing</h2>
       <p className="muted" style={{ marginTop: 0 }}>Greensboro Fire Department</p>
+
+      {idleLogout && (
+        <p className="muted" style={{ marginTop: 16, maxWidth: 320, textAlign: "center" }}>
+          You were signed out due to inactivity. Please sign in again.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 340, marginTop: 24 }}>
         <div className="field">

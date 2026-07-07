@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -9,6 +9,12 @@ import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firest
 import { auth, db } from "../firebase";
 
 const AuthContext = createContext(null);
+
+// Auto sign-out after this long with no user activity, so a shared department device
+// left unattended doesn't stay open on recruit data.
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+// Flag read by LoginPage to explain why the user landed back on the sign-in screen.
+export const IDLE_LOGOUT_FLAG = "signedOutForInactivity";
 
 export function AuthProvider({ children }) {
   const [firebaseUser, setFirebaseUser] = useState(undefined); // undefined = not yet resolved
@@ -54,6 +60,34 @@ export function AuthProvider({ children }) {
         setAppStateChecked(true);
       });
   }, [adminDoc, retryToken]);
+
+  // Idle auto-logout: while signed in, track activity and sign out after IDLE_TIMEOUT_MS
+  // of inactivity. Poll on an interval (rather than resetting a timeout on every event) so
+  // high-frequency events like mousemove/scroll stay cheap.
+  const lastActivityRef = useRef(Date.now());
+  useEffect(() => {
+    if (!firebaseUser) return;
+    lastActivityRef.current = Date.now();
+    const markActive = () => {
+      lastActivityRef.current = Date.now();
+    };
+    const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"];
+    events.forEach((e) => window.addEventListener(e, markActive, { passive: true }));
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivityRef.current >= IDLE_TIMEOUT_MS) {
+        try {
+          sessionStorage.setItem(IDLE_LOGOUT_FLAG, "1");
+        } catch {
+          // sessionStorage may be unavailable (private mode); logout still proceeds.
+        }
+        firebaseSignOut(auth); // onAuthStateChanged clears state; RequireAuth redirects to /login.
+      }
+    }, 30 * 1000);
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, markActive));
+      clearInterval(interval);
+    };
+  }, [firebaseUser]);
 
   function retryConnection() {
     setAppStateChecked(false);
