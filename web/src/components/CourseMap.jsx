@@ -2,6 +2,7 @@ import CourseDiagram from "./CourseDiagram";
 import { MARKER_TYPES } from "../lib/obstacleCourse";
 
 const META_BY_TYPE = Object.fromEntries(MARKER_TYPES.map((m) => [m.key, m]));
+const DIST_OPTIONS = MARKER_TYPES.filter((m) => m.key.startsWith("dist"));
 
 /**
  * The GFD obstacle-course diagram with penalty markers dropped on it. Tapping the image
@@ -10,8 +11,13 @@ const META_BY_TYPE = Object.fromEntries(MARKER_TYPES.map((m) => [m.key, m]));
  * given) reports its index — the runner uses that to remove it. With neither handler it's a
  * read-only picture, reused on the Results/report sheet so the record shows exactly where
  * each penalty happened.
+ *
+ * `distanceSlots`, when given, renders a small "Distance?" dropdown fixed at each stopping-
+ * distance measurement spot instead of a free-tap pin there — picking a tier grades it
+ * automatically. Markers already sitting at one of those exact positions are hidden from
+ * the pin layer so they aren't drawn twice.
  */
-export default function CourseMap({ markers = [], onTap, onMarkerClick }) {
+export default function CourseMap({ markers = [], onTap, onMarkerClick, distanceSlots }) {
   function handleTap(e) {
     if (!onTap) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -20,6 +26,8 @@ export default function CourseMap({ markers = [], onTap, onMarkerClick }) {
       y: (e.clientY - rect.top) / rect.height,
     });
   }
+
+  const slotPositions = new Set((distanceSlots ?? []).map((s) => `${s.x}|${s.y}`));
 
   return (
     <div
@@ -30,15 +38,61 @@ export default function CourseMap({ markers = [], onTap, onMarkerClick }) {
         lineHeight: 0,
         border: "1px solid var(--border)",
         borderRadius: 10,
-        overflow: "hidden",
+        // Overlays (distance dropdowns) must never be invisibly clipped, so the rounded-
+        // corner crop lives on the diagram wrapper below instead of on this container.
+        overflow: "visible",
         cursor: onTap ? "crosshair" : "default",
         touchAction: "manipulation",
-        background: "#fff",
       }}
     >
-      <CourseDiagram />
+      <div style={{ borderRadius: 10, overflow: "hidden", lineHeight: 0, background: "#fff" }}>
+        <CourseDiagram />
+      </div>
+      {distanceSlots?.map((slot) => (
+        <div
+          key={slot.key}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            left: `${slot.x * 100}%`,
+            top: `${slot.y * 100}%`,
+            transform: "translate(-50%, -50%)",
+            background: "#fff",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            padding: "2px 3px",
+            textAlign: "center",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+            width: 58,
+          }}
+        >
+          <div style={{ fontSize: 8, fontWeight: 700, color: "var(--text)", marginBottom: 1 }}>
+            Distance?
+          </div>
+          <select
+            value={slot.value ?? ""}
+            disabled={!slot.onChange}
+            onChange={(e) => slot.onChange?.(e.target.value)}
+            style={{
+              fontSize: 9,
+              width: "100%",
+              border: "1px solid var(--border)",
+              borderRadius: 4,
+              textOverflow: "ellipsis",
+            }}
+          >
+            <option value="">— none —</option>
+            {DIST_OPTIONS.map((mt) => (
+              <option key={mt.key} value={mt.key}>
+                {mt.label} (−{mt.points})
+              </option>
+            ))}
+          </select>
+        </div>
+      ))}
       {markers.map((m, i) => {
         if (m.x == null || m.y == null) return null;
+        if (slotPositions.has(`${m.x}|${m.y}`)) return null;
         const meta = META_BY_TYPE[m.type];
         return (
           <button

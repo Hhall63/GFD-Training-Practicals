@@ -49,8 +49,8 @@ const GUIDES = [
 ];
 
 const LABELS = [
-  { t: "1", x: 516, y: 590 }, { t: "2", x: 156, y: 590 }, { t: "3", x: 930, y: 590 },
-  { t: "4", x: 664, y: 250 }, { t: "5", x: 318, y: 470 },
+  { t: "1", x: 570, y: 300 }, { t: "2", x: 230, y: 450 }, { t: "3", x: 930, y: 590 },
+  { t: "4", x: 664, y: 250 }, { t: "5", x: 420, y: 250 },
 ];
 
 function Arrow({ x, yTail, yHead }) {
@@ -58,15 +58,6 @@ function Arrow({ x, yTail, yHead }) {
     <g stroke={INK} strokeWidth={3} fill={INK}>
       <line x1={x} y1={yTail} x2={x} y2={yHead + 6} />
       <polygon points={`${x},${yHead} ${x - 8},${yHead + 14} ${x + 8},${yHead + 14}`} stroke="none" />
-    </g>
-  );
-}
-
-function Penalty({ cx, cy }) {
-  return (
-    <g>
-      <text x={cx} y={cy - 22} textAnchor="middle" fontSize={22} fontWeight="600" fill={INK}>Penalty</text>
-      <rect x={cx - 38} y={cy - 16} width={76} height={34} rx={3} fill="#fff" stroke={INK} strokeWidth={2} />
     </g>
   );
 }
@@ -81,8 +72,6 @@ export default function CourseDiagram() {
       {CONES.map((c, i) => (
         <rect key={i} x={c.x - S / 2} y={c.y - S / 2} width={S} height={S} rx={3} fill={BLOCK} />
       ))}
-      <Penalty cx={120} cy={550} />
-      <Penalty cx={420} cy={580} />
       <Arrow x={618} yTail={214} yHead={80} />
       <Arrow x={720} yTail={415} yHead={281} />
       {LABELS.map((l) => (

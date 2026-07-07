@@ -32,6 +32,19 @@ export const MARKER_TYPES = [
 const POINTS_BY_TYPE = Object.fromEntries(MARKER_TYPES.map((m) => [m.key, m.points]));
 const LABEL_BY_TYPE = Object.fromEntries(MARKER_TYPES.map((m) => [m.key, m.label]));
 
+// The two spots on the form where a stopping distance is measured (former obstacle-2 and
+// obstacle-5 penalty stops). Fixed positions (fractions of the diagram) rather than
+// free-tap markers — the evaluator reads the measured inches off a tape and picks the
+// matching tier from a dropdown anchored right on the map, which grades it automatically.
+export const DISTANCE_SLOTS = [
+  { key: "a", x: 0.1, y: 0.85 },
+  { key: "b", x: 0.45, y: 0.9 },
+];
+
+// The mode buttons on the live runner only cover penalties placed by a free tap anywhere
+// on the course; stopping-distance tiers are graded from the DISTANCE_SLOTS dropdowns instead.
+export const TAP_MARKER_TYPES = MARKER_TYPES.filter((m) => !m.key.startsWith("dist"));
+
 export function defaultObstacleCourseConfig() {
   return {
     timeTiers: [

@@ -4,9 +4,10 @@ import CourseMap from "./CourseMap";
 import {
   computeObstacleCourseScore,
   defaultObstacleCourseConfig,
+  DISTANCE_SLOTS,
   formatClock,
-  MARKER_TYPES,
   seedObstacleTallies,
+  TAP_MARKER_TYPES,
 } from "../lib/obstacleCourse";
 
 /**
@@ -24,11 +25,13 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   const [tallies, setTallies] = useState(current.obstacleTallies ?? seedObstacleTallies());
   const [mode, setMode] = useState("cone");
   const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [liveElapsed, setLiveElapsed] = useState(0);
   const [portrait, setPortrait] = useState(
     typeof window !== "undefined" ? window.matchMedia("(orientation: portrait)").matches : true
   );
-  const startRef = useRef(null);
+  const startRef = useRef(null); // Date.now() when the current running segment began
+  const accumulatedRef = useRef(0); // seconds banked from prior run segments (pause/resume)
   const intervalRef = useRef(null);
 
   useEffect(() => () => clearInterval(intervalRef.current), []);
@@ -41,9 +44,9 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   }, []);
 
   const markers = tallies.markers ?? [];
-  const displaySeconds = isRunning ? liveElapsed : tallies.totalSeconds ?? 0;
+  const displaySeconds = isRunning || isPaused ? liveElapsed : tallies.totalSeconds ?? 0;
   const scoring = computeObstacleCourseScore(config, { ...tallies, totalSeconds: displaySeconds });
-  const started = tallies.totalSeconds != null || isRunning;
+  const started = tallies.totalSeconds != null || isRunning || isPaused;
 
   async function commit(next) {
     const hasTime = next.totalSeconds != null;
@@ -59,17 +62,39 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
     });
   }
 
+  function tick() {
+    setLiveElapsed(accumulatedRef.current + (Date.now() - startRef.current) / 1000);
+  }
+
   function start() {
+    accumulatedRef.current = 0;
     startRef.current = Date.now();
     setLiveElapsed(0);
     setIsRunning(true);
-    intervalRef.current = setInterval(() => setLiveElapsed((Date.now() - startRef.current) / 1000), 100);
+    setIsPaused(false);
+    intervalRef.current = setInterval(tick, 100);
+  }
+
+  function pause() {
+    clearInterval(intervalRef.current);
+    accumulatedRef.current += (Date.now() - startRef.current) / 1000;
+    setLiveElapsed(accumulatedRef.current);
+    setIsRunning(false);
+    setIsPaused(true);
+  }
+
+  function resume() {
+    startRef.current = Date.now();
+    setIsRunning(true);
+    setIsPaused(false);
+    intervalRef.current = setInterval(tick, 100);
   }
 
   function stop() {
     clearInterval(intervalRef.current);
+    const finalSeconds = isRunning ? accumulatedRef.current + (Date.now() - startRef.current) / 1000 : accumulatedRef.current;
     setIsRunning(false);
-    const finalSeconds = (Date.now() - startRef.current) / 1000;
+    setIsPaused(false);
     commit({ ...tallies, totalSeconds: finalSeconds });
   }
 
@@ -80,6 +105,18 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   function removeMarker(index) {
     commit({ ...tallies, markers: markers.filter((_, i) => i !== index) });
   }
+
+  function setDistance(slot, value) {
+    const others = markers.filter((m) => !(m.x === slot.x && m.y === slot.y));
+    const next = value ? [...others, { x: slot.x, y: slot.y, type: value }] : others;
+    commit({ ...tallies, markers: next });
+  }
+
+  const distanceSlots = DISTANCE_SLOTS.map((slot) => ({
+    ...slot,
+    value: markers.find((m) => m.x === slot.x && m.y === slot.y)?.type ?? "",
+    onChange: (value) => setDistance(slot, value),
+  }));
 
   return (
     <div style={{ width: "100%", maxWidth: 720 }}>
@@ -95,11 +132,25 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
         {formatClock(displaySeconds)}
       </div>
 
-      <div style={{ textAlign: "center", marginBottom: 12 }}>
+      <div style={{ textAlign: "center", marginBottom: 12, display: "flex", gap: 10, justifyContent: "center" }}>
         {isRunning ? (
-          <button className="primary danger" style={{ maxWidth: 320 }} onClick={stop}>
-            Stop
-          </button>
+          <>
+            <button className="secondary" style={{ maxWidth: 160 }} onClick={pause}>
+              Pause
+            </button>
+            <button className="primary danger" style={{ maxWidth: 160 }} onClick={stop}>
+              Stop
+            </button>
+          </>
+        ) : isPaused ? (
+          <>
+            <button className="primary" style={{ maxWidth: 160 }} onClick={resume}>
+              Resume
+            </button>
+            <button className="primary danger" style={{ maxWidth: 160 }} onClick={stop}>
+              Stop
+            </button>
+          </>
         ) : (
           <button className="primary" style={{ maxWidth: 320 }} onClick={start}>
             {started ? "Restart" : "Start"}
@@ -145,10 +196,11 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
 
       <p className="muted" style={{ fontSize: 13, margin: "0 0 8px", textAlign: "left" }}>
         Pick a penalty, then tap the course where it happened. Tap a marker to remove it.
+        Stopping distances are graded from the dropdowns on the map.
       </p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-        {MARKER_TYPES.map((mt) => (
+        {TAP_MARKER_TYPES.map((mt) => (
           <button
             key={mt.key}
             type="button"
@@ -204,7 +256,7 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
         </div>
       )}
 
-      <CourseMap markers={markers} onTap={addMarker} onMarkerClick={removeMarker} />
+      <CourseMap markers={markers} onTap={addMarker} onMarkerClick={removeMarker} distanceSlots={distanceSlots} />
     </div>
   );
 }
