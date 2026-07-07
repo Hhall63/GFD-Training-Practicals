@@ -207,7 +207,7 @@ export default function LiveTestRunnerPage() {
           Return to Home
         </button>
         <button className="primary" onClick={advance} disabled={!canAdvance()} style={{ flex: 1 }}>
-          {isLastLine ? "Finish" : "Next"}
+          {isLastLine ? "Submit" : "Next"}
         </button>
       </div>
 
@@ -285,7 +285,7 @@ export default function LiveTestRunnerPage() {
           <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
             <h3 style={{ marginBottom: 12 }}>Distance Required</h3>
             <p className="muted" style={{ marginBottom: 20 }}>
-              Select a stopping distance for Obstacle 5 on the course map before finishing.
+              Select a stopping distance for Obstacle 5 on the course map before submitting.
             </p>
             <button className="primary" style={{ width: "100%" }} onClick={() => setShowDistanceRequired(false)}>
               OK
