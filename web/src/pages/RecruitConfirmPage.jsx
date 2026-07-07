@@ -120,17 +120,20 @@ export default function RecruitConfirmPage() {
   if (!template) {
     return (
       <div className="app-shell">
-        <TopBar title="Loading…" showMenu={false} onBack={() => navigate("/")} />
+        <TopBar title="Loading…" showMenu={false} />
       </div>
     );
   }
 
   return (
     <div className="app-shell">
-      <TopBar title={template.name} showMenu={false} onBack={() => (selected ? setSelected(null) : navigate("/"))} />
+      <TopBar title={template.name} showMenu={false} />
       <div className="screen">
         {!selected ? (
           <>
+            <button className="secondary" style={{ marginBottom: 12, maxWidth: 200 }} onClick={() => navigate("/")}>
+              Return to Home
+            </button>
             <div className="field">
               <input
                 type="text"
@@ -185,6 +188,9 @@ export default function RecruitConfirmPage() {
               </button>
               <button className="secondary" style={{ marginTop: 10 }} onClick={() => setSelected(null)}>
                 Choose a Different Recruit
+              </button>
+              <button className="secondary" style={{ marginTop: 10 }} onClick={() => navigate("/")}>
+                Return to Home
               </button>
             </div>
           </div>

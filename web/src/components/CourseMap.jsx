@@ -60,13 +60,18 @@ export default function CourseMap({ markers = [], onTap, onMarkerClick, distance
             background: "#fff",
             border: "1px solid var(--border)",
             borderRadius: 6,
-            padding: "2px 3px",
+            padding: "3px 4px",
             textAlign: "center",
             boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
-            width: 58,
+            width: 74,
+            // This container inherits `lineHeight: 0` from the outer wrapper above (needed
+            // there to avoid a gap under the SVG); without resetting it here, the label
+            // text's line box collapses to zero height and its glyphs render overflowing
+            // past the box's own border instead of sitting inside it.
+            lineHeight: "normal",
           }}
         >
-          <div style={{ fontSize: 8, fontWeight: 700, color: "var(--text)", marginBottom: 1 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text)", marginBottom: 2, lineHeight: "normal" }}>
             Distance?
           </div>
           <select
@@ -74,14 +79,16 @@ export default function CourseMap({ markers = [], onTap, onMarkerClick, distance
             disabled={!slot.onChange}
             onChange={(e) => slot.onChange?.(e.target.value)}
             style={{
-              fontSize: 9,
+              fontSize: 10,
+              fontWeight: 700,
               width: "100%",
               border: "1px solid var(--border)",
               borderRadius: 4,
               textOverflow: "ellipsis",
+              lineHeight: "normal",
             }}
           >
-            <option value="">— none —</option>
+            <option value="" disabled hidden>— Select —</option>
             {DIST_OPTIONS.map((mt) => (
               <option key={mt.key} value={mt.key}>
                 {mt.label} (−{mt.points})
