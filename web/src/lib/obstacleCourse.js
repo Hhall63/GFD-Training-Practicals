@@ -46,6 +46,16 @@ export const DISTANCE_SLOTS = [
 // on the course; stopping-distance tiers are graded from the DISTANCE_SLOTS dropdowns instead.
 export const TAP_MARKER_TYPES = MARKER_TYPES.filter((m) => !m.key.startsWith("dist"));
 
+// The obstacle-5 stopping distance must be recorded before a run can be finished. Returns
+// true once a distance tier (including the 0"–12" no-penalty tier) has been picked there.
+export function hasRequiredDistance(tallies) {
+  const slot = DISTANCE_SLOTS[1]; // obstacle 5
+  const markers = Array.isArray(tallies?.markers) ? tallies.markers : [];
+  return markers.some(
+    (m) => m.x === slot.x && m.y === slot.y && typeof m.type === "string" && m.type.startsWith("dist")
+  );
+}
+
 export function defaultObstacleCourseConfig() {
   return {
     timeTiers: [

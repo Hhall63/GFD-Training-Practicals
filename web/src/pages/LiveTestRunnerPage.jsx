@@ -14,6 +14,7 @@ import { db } from "../firebase";
 import { compressImageToDataUrl } from "../lib/image";
 import { sendFailureEmail } from "../lib/notify";
 import { computeTimerResult, formatSeconds, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
+import { hasRequiredDistance } from "../lib/obstacleCourse";
 import ObstacleCourseRunner from "../components/ObstacleCourseRunner";
 
 export default function LiveTestRunnerPage() {
@@ -26,6 +27,7 @@ export default function LiveTestRunnerPage() {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
+  const [showDistanceRequired, setShowDistanceRequired] = useState(false);
   const timerStartRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -128,6 +130,12 @@ export default function LiveTestRunnerPage() {
   }
 
   async function advance() {
+    // A stopping distance for obstacle 5 must be recorded before this step can be completed.
+    // (Scoring/pass-fail still happens on Stop without it — this only gates moving on.)
+    if (isObstacleCourse && !hasRequiredDistance(current.obstacleTallies)) {
+      setShowDistanceRequired(true);
+      return;
+    }
     if (isLastLine) {
       await finishSession();
       navigate(`/session/${sessionId}/results`, { replace: true });
@@ -254,6 +262,34 @@ export default function LiveTestRunnerPage() {
                 Confirm
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showDistanceRequired && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowDistanceRequired(false)}
+        >
+          <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: 12 }}>Distance Required</h3>
+            <p className="muted" style={{ marginBottom: 20 }}>
+              Select a stopping distance for Obstacle 5 on the course map before finishing.
+            </p>
+            <button className="primary" style={{ width: "100%" }} onClick={() => setShowDistanceRequired(false)}>
+              OK
+            </button>
           </div>
         </div>
       )}

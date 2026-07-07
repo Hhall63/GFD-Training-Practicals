@@ -19,11 +19,11 @@ export default function ObstacleCourseSummary({ config, tallies }) {
 
   return (
     <div style={{ marginTop: 8 }}>
-      {markers.some((m) => m.x != null) && (
-        <div style={{ maxWidth: 720, marginBottom: 8 }}>
-          <CourseMap markers={markers} />
-        </div>
-      )}
+      {/* Always show the course map (with whatever markers were placed) as the visual record
+          of the run — the static "test sheet" for this attempt. */}
+      <div style={{ maxWidth: 720, marginBottom: 8 }}>
+        <CourseMap markers={markers} />
+      </div>
       <div className="muted">Total time: {formatClock(tallies.totalSeconds)} (base {scoring.baseScore} pts)</div>
       {MARKER_TYPES.map((mt) =>
         counts[mt.key] ? (
