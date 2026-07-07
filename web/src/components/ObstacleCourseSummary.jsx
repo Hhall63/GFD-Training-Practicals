@@ -28,7 +28,7 @@ export default function ObstacleCourseSummary({ config, tallies }) {
       {MARKER_TYPES.map((mt) =>
         counts[mt.key] ? (
           <div key={mt.key} className="muted" style={{ fontSize: 13 }}>
-            {mt.label}: {counts[mt.key]} (−{counts[mt.key] * mt.points})
+            {mt.label}: {counts[mt.key]}{mt.points ? ` (−${counts[mt.key] * mt.points})` : " (no penalty)"}
           </div>
         ) : null
       )}

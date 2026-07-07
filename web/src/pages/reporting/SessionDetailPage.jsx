@@ -48,29 +48,34 @@ export default function SessionDetailPage() {
           )}
         </div>
 
-        {lineResults.map((line) => (
-          <div key={line.id} className="card">
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>{line.lineTextSnapshot}</span>
-              <span>
-                {line.result === RESULT.PASS && "✅"}
-                {line.result === RESULT.FAIL && "❌"}
-                {line.result === RESULT.NOT_APPLICABLE && "—"}
-              </span>
+        {lineResults.map((line) => {
+          // The obstacle course's own summary already shows time/deductions/score, so skip
+          // the duplicate generic title/time/points header for that step.
+          const isObstacle = line.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE;
+          return (
+            <div key={line.id} className="card">
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>{!isObstacle && line.lineTextSnapshot}</span>
+                <span>
+                  {line.result === RESULT.PASS && "✅"}
+                  {line.result === RESULT.FAIL && "❌"}
+                  {line.result === RESULT.NOT_APPLICABLE && "—"}
+                </span>
+              </div>
+              {!isObstacle && line.timerElapsedSeconds != null && <div className="muted">{formatSeconds(line.timerElapsedSeconds)}s</div>}
+              {!isObstacle && line.pointsSnapshot != null && (
+                <div className="muted">{line.pointsEarned ?? 0} / {line.pointsSnapshot} pts</div>
+              )}
+              {(line.photoURLs ?? []).map((url) => (
+                <img key={url} src={url} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, marginTop: 6, marginRight: 6 }} />
+              ))}
+              {line.note && <div className="muted" style={{ marginTop: 4 }}>{line.note}</div>}
+              {isObstacle && (
+                <ObstacleCourseSummary config={line.obstacleCourseConfigSnapshot} tallies={line.obstacleTallies} />
+              )}
             </div>
-            {line.timerElapsedSeconds != null && <div className="muted">{formatSeconds(line.timerElapsedSeconds)}s</div>}
-            {line.pointsSnapshot != null && (
-              <div className="muted">{line.pointsEarned ?? 0} / {line.pointsSnapshot} pts</div>
-            )}
-            {(line.photoURLs ?? []).map((url) => (
-              <img key={url} src={url} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, marginTop: 6, marginRight: 6 }} />
-            ))}
-            {line.note && <div className="muted" style={{ marginTop: 4 }}>{line.note}</div>}
-            {line.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE && (
-              <ObstacleCourseSummary config={line.obstacleCourseConfigSnapshot} tallies={line.obstacleTallies} />
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -24,6 +24,7 @@ export const MARKER_TYPES = [
   { key: "cone", label: "Cone hit", short: "C", points: 4, color: "#c4212f" },
   { key: "line", label: "Line crossed", short: "L", points: 2, color: "#1f6feb" },
   { key: "stopLine", label: "Stop line hit", short: "S", points: 10, color: "#7d2ae8" },
+  { key: "dist0", label: 'Stopped 0"–12"', short: "⓪", points: 0, color: "#2f9e44" },
   { key: "dist1", label: 'Stopped 12"–24"', short: "①", points: 2, color: "#d98200" },
   { key: "dist2", label: 'Stopped 25"–36"', short: "②", points: 4, color: "#d98200" },
   { key: "dist3", label: 'Stopped 37"+', short: "③", points: 6, color: "#d98200" },

@@ -99,35 +99,41 @@ export default function ResultsPage() {
         )}
 
         <div style={{ width: "100%", marginTop: 24 }}>
-          {lineResults.map((line) => (
-            <div key={line.id} className="card" style={{ textAlign: "left" }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>
-                  {line.lineTextSnapshot}
-                  {line.isCriticalSnapshot && line.result === RESULT.FAIL && (
-                    <span style={{ color: "var(--brand-red)", fontWeight: 700 }}> (CRITICAL)</span>
-                  )}
-                </span>
-                <span>
-                  {line.result === RESULT.PASS && "✅"}
-                  {line.result === RESULT.FAIL && "❌"}
-                  {line.result === RESULT.NOT_APPLICABLE && "—"}
-                </span>
+          {lineResults.map((line) => {
+            // The obstacle course carries its own full breakdown (time, deductions, score)
+            // in ObstacleCourseSummary, so the generic title/time/points header on top would
+            // just duplicate it — show only the pass/fail mark and the summary for that step.
+            const isObstacle = line.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE;
+            return (
+              <div key={line.id} className="card" style={{ textAlign: "left" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>
+                    {!isObstacle && line.lineTextSnapshot}
+                    {line.isCriticalSnapshot && line.result === RESULT.FAIL && (
+                      <span style={{ color: "var(--brand-red)", fontWeight: 700 }}> (CRITICAL)</span>
+                    )}
+                  </span>
+                  <span>
+                    {line.result === RESULT.PASS && "✅"}
+                    {line.result === RESULT.FAIL && "❌"}
+                    {line.result === RESULT.NOT_APPLICABLE && "—"}
+                  </span>
+                </div>
+                {!isObstacle && line.timerElapsedSeconds != null && (
+                  <div className="muted">{formatSeconds(line.timerElapsedSeconds)}s</div>
+                )}
+                {!isObstacle && line.pointsSnapshot != null && (
+                  <div className="muted">{line.pointsEarned ?? 0} / {line.pointsSnapshot} pts</div>
+                )}
+                {line.photoURLs?.length > 0 && (
+                  <div className="muted">{line.photoURLs.length} photo(s) attached</div>
+                )}
+                {isObstacle && (
+                  <ObstacleCourseSummary config={line.obstacleCourseConfigSnapshot} tallies={line.obstacleTallies} />
+                )}
               </div>
-              {line.timerElapsedSeconds != null && (
-                <div className="muted">{formatSeconds(line.timerElapsedSeconds)}s</div>
-              )}
-              {line.pointsSnapshot != null && (
-                <div className="muted">{line.pointsEarned ?? 0} / {line.pointsSnapshot} pts</div>
-              )}
-              {line.photoURLs?.length > 0 && (
-                <div className="muted">{line.photoURLs.length} photo(s) attached</div>
-              )}
-              {line.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE && (
-                <ObstacleCourseSummary config={line.obstacleCourseConfigSnapshot} tallies={line.obstacleTallies} />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <button className="primary" style={{ marginTop: 16, maxWidth: 320 }} onClick={() => navigate("/")}>
