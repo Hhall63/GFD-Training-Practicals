@@ -158,31 +158,10 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
         )}
       </div>
 
-      {!isRunning && tallies.totalSeconds != null && (
-        <div
-          className={`badge ${scoring.autoFail ? "fail" : "pass"}`}
-          style={{ fontSize: 16, marginBottom: 12, display: "block", textAlign: "center" }}
-        >
-          {scoring.autoFail ? "FAIL" : "PASS"}
-        </div>
-      )}
-
-      {(scoring.autoFailCones || scoring.autoFailTime) && (
-        <div
-          style={{
-            background: "rgba(196,33,47,0.1)",
-            color: "var(--brand-red)",
-            fontWeight: 600,
-            fontSize: 13,
-            padding: "8px 10px",
-            borderRadius: 8,
-            marginBottom: 12,
-          }}
-        >
-          {scoring.autoFailCones && <div>AUTOMATIC FAILURE: {scoring.totalCones} cone penalties (max {config.maxConePenalties})</div>}
-          {scoring.autoFailTime && <div>AUTOMATIC FAILURE: time exceeds {formatClock(config.maxTotalSeconds)}</div>}
-        </div>
-      )}
+      {/* The pass/fail verdict and the "AUTOMATIC FAILURE" warnings are intentionally not
+          shown here — the evaluator shouldn't see the outcome until the test is submitted.
+          The result is still computed and stored; it's just revealed on the Results screen.
+          The Projected Score stays visible as a neutral running tally. */}
 
       <div className="card" style={{ textAlign: "left", marginBottom: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>

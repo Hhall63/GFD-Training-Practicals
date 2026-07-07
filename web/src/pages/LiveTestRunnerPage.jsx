@@ -28,6 +28,8 @@ export default function LiveTestRunnerPage() {
   const [elapsed, setElapsed] = useState(0);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const [showDistanceRequired, setShowDistanceRequired] = useState(false);
+  const [showNoteRequired, setShowNoteRequired] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
   const timerStartRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -82,11 +84,10 @@ export default function LiveTestRunnerPage() {
   function canAdvance() {
     if (!current) return false;
     if (current.lineTypeSnapshot === LINE_TYPES.INSTRUCTION) return true;
-    if (!current.result) return false;
-    if (current.result === RESULT.FAIL) {
-      return current.photoURLs?.length > 0 || !!current.note;
-    }
-    return true;
+    // A result must be recorded first. The note-required-on-failure rule is enforced with a
+    // blocking pop-up in advance() (like the distance gate), rather than by silently
+    // disabling this button — so the evaluator gets a clear prompt instead of a dead button.
+    return !!current.result;
   }
 
   async function finishSession() {
@@ -129,6 +130,19 @@ export default function LiveTestRunnerPage() {
     });
   }
 
+  function hasFailNote() {
+    return current.photoURLs?.length > 0 || !!current.note;
+  }
+
+  async function proceed() {
+    if (isLastLine) {
+      await finishSession();
+      navigate(`/session/${sessionId}/results`, { replace: true });
+    } else {
+      setCurrentIndex((i) => i + 1);
+    }
+  }
+
   async function advance() {
     // A stopping distance for obstacle 5 must be recorded before this step can be completed.
     // (Scoring/pass-fail still happens on Stop without it — this only gates moving on.)
@@ -136,12 +150,14 @@ export default function LiveTestRunnerPage() {
       setShowDistanceRequired(true);
       return;
     }
-    if (isLastLine) {
-      await finishSession();
-      navigate(`/session/${sessionId}/results`, { replace: true });
-    } else {
-      setCurrentIndex((i) => i + 1);
+    // A failed step must be documented before moving on — a blocking pop-up (with a note
+    // field) rather than a silently disabled button.
+    if (current.result === RESULT.FAIL && !hasFailNote()) {
+      setNoteDraft(current.note ?? "");
+      setShowNoteRequired(true);
+      return;
     }
+    await proceed();
   }
 
   function returnToHome() {
@@ -293,6 +309,56 @@ export default function LiveTestRunnerPage() {
           </div>
         </div>
       )}
+
+      {showNoteRequired && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowNoteRequired(false)}
+        >
+          <div className="card" style={{ maxWidth: 340, padding: "24px", textAlign: "left" }}>
+            <h3 style={{ marginBottom: 8 }}>Note Required</h3>
+            <p className="muted" style={{ marginTop: 0, marginBottom: 12 }}>
+              This step was failed. Add a note explaining what happened before continuing.
+            </p>
+            <textarea
+              autoFocus
+              rows={3}
+              placeholder="What did the recruit fail on?"
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              style={{ width: "100%" }}
+            />
+            <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+              <button className="secondary" style={{ flex: 1 }} onClick={() => setShowNoteRequired(false)}>
+                Cancel
+              </button>
+              <button
+                className="primary"
+                style={{ flex: 1 }}
+                disabled={!noteDraft.trim()}
+                onClick={async () => {
+                  await patchCurrent({ note: noteDraft.trim() });
+                  setShowNoteRequired(false);
+                  await proceed();
+                }}
+              >
+                Save & Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -364,8 +430,10 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
     return (
       <div className="center-column" style={{ paddingTop: 0 }}>
         <ObstacleCourseRunner current={current} patchCurrent={patchCurrent} />
+        {/* Always shown as optional so it never reveals the pass/fail outcome here; the note
+            is instead required (when the run fails) via the pop-up on Submit. */}
         {current.result && (
-          <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={current.result === RESULT.FAIL} />
+          <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={false} />
         )}
       </div>
     );
