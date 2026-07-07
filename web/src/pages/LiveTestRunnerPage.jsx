@@ -30,6 +30,7 @@ export default function LiveTestRunnerPage() {
   const [showDistanceRequired, setShowDistanceRequired] = useState(false);
   const [showNoteRequired, setShowNoteRequired] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
+  const [noteRequiredReason, setNoteRequiredReason] = useState("stepFailed"); // "stepFailed" | "overallFail"
   const timerStartRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -90,8 +91,11 @@ export default function LiveTestRunnerPage() {
     return !!current.result;
   }
 
-  async function finishSession() {
-    const graded = lineResults.filter((l) => l.lineTypeSnapshot !== LINE_TYPES.INSTRUCTION);
+  // Shared by finishSession (to actually record the outcome) and advance (to preview it
+  // before the last line submits) — one place computes pass/fail so the two can never
+  // disagree about whether the test is about to fail.
+  function computeSessionOutcome(results) {
+    const graded = results.filter((l) => l.lineTypeSnapshot !== LINE_TYPES.INSTRUCTION);
     const totalPointsEarned = graded.reduce((sum, l) => sum + (l.pointsEarned ?? 0), 0);
     const totalPointsPossible = graded.reduce((sum, l) => sum + (l.pointsSnapshot ?? 0), 0);
     // No points defined on this test at all (e.g. an all-instruction template) — treat as
@@ -103,6 +107,12 @@ export default function LiveTestRunnerPage() {
       !criticalFailure && percentageEarned >= sessionData.passingPercentageSnapshot
         ? RESULT.PASS
         : RESULT.FAIL;
+    return { overallResult, criticalFailure, totalPointsEarned, totalPointsPossible };
+  }
+
+  async function finishSession() {
+    const { overallResult, criticalFailure, totalPointsEarned, totalPointsPossible } =
+      computeSessionOutcome(lineResults);
 
     const finishedSession = {
       ...sessionData,
@@ -158,8 +168,23 @@ export default function LiveTestRunnerPage() {
     // field) rather than a silently disabled button.
     if (current.result === RESULT.FAIL && !hasFailNote()) {
       setNoteDraft(current.note ?? "");
+      setNoteRequiredReason("stepFailed");
       setShowNoteRequired(true);
       return;
+    }
+    // The obstacle course (and any scored step) only sets its own result to FAIL on a hard
+    // auto-fail trigger — a low but non-auto-fail score still reports PASS on the step even
+    // though it can drag the overall test below the passing percentage. So on the last line,
+    // also preview the overall outcome and require a note if the *test* is about to fail,
+    // even when this step's own result isn't FAIL.
+    if (isLastLine && current.lineTypeSnapshot !== LINE_TYPES.INSTRUCTION && !hasFailNote()) {
+      const { overallResult } = computeSessionOutcome(lineResults);
+      if (overallResult === RESULT.FAIL) {
+        setNoteDraft(current.note ?? "");
+        setNoteRequiredReason("overallFail");
+        setShowNoteRequired(true);
+        return;
+      }
     }
     await proceed();
   }
@@ -333,7 +358,9 @@ export default function LiveTestRunnerPage() {
           <div className="card" style={{ maxWidth: 340, padding: "24px", textAlign: "left" }}>
             <h3 style={{ marginBottom: 8 }}>Note Required</h3>
             <p className="muted" style={{ marginTop: 0, marginBottom: 12 }}>
-              This step was failed. Add a note explaining what happened before continuing.
+              {noteRequiredReason === "overallFail"
+                ? "This test does not meet the passing score. Add a note explaining what happened before submitting."
+                : "This step was failed. Add a note explaining what happened before continuing."}
             </p>
             <textarea
               autoFocus
