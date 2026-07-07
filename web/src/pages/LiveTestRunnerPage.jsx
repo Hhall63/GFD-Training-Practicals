@@ -40,6 +40,9 @@ export default function LiveTestRunnerPage() {
 
   const current = lineResults?.[currentIndex];
   const isLastLine = lineResults && currentIndex === lineResults.length - 1;
+  // The obstacle course is a full-screen dashboard with its own controls, so the test
+  // chrome (progress bar, "Line X of Y", and the step's own title) just gets in the way.
+  const isObstacleCourse = current?.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE;
 
   function patchCurrent(fields) {
     setLineResults((prev) => {
@@ -153,22 +156,24 @@ export default function LiveTestRunnerPage() {
         </div>
       )}
 
-      <div style={{ padding: "12px 16px 0" }}>
-        <div style={{ height: 6, background: "#e1e1e8", borderRadius: 3, overflow: "hidden" }}>
-          <div
-            style={{
-              height: "100%",
-              width: `${((currentIndex + 1) / lineResults.length) * 100}%`,
-              background: "var(--brand-gold)",
-            }}
-          />
+      {!isObstacleCourse && (
+        <div style={{ padding: "12px 16px 0" }}>
+          <div style={{ height: 6, background: "#e1e1e8", borderRadius: 3, overflow: "hidden" }}>
+            <div
+              style={{
+                height: "100%",
+                width: `${((currentIndex + 1) / lineResults.length) * 100}%`,
+                background: "var(--brand-gold)",
+              }}
+            />
+          </div>
+          <p className="muted" style={{ textAlign: "center", marginTop: 6 }}>
+            Line {currentIndex + 1} of {lineResults.length}
+          </p>
         </div>
-        <p className="muted" style={{ textAlign: "center", marginTop: 6 }}>
-          Line {currentIndex + 1} of {lineResults.length}
-        </p>
-      </div>
+      )}
 
-      <div className="screen" style={{ flex: 1 }}>
+      <div className="screen" style={{ flex: 1, paddingTop: isObstacleCourse ? 12 : undefined }}>
         <LineCard
           current={current}
           isTimerRunning={isTimerRunning}
@@ -321,8 +326,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
 
   if (current.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE) {
     return (
-      <div className="center-column" style={{ paddingTop: 16 }}>
-        <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
+      <div className="center-column" style={{ paddingTop: 0 }}>
         <ObstacleCourseRunner current={current} patchCurrent={patchCurrent} />
         {current.result && (
           <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={current.result === RESULT.FAIL} />

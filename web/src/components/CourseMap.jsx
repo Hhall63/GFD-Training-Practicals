@@ -63,7 +63,15 @@ export default function CourseMap({ markers = [], onTap, onMarkerClick, distance
             padding: "3px 4px",
             textAlign: "center",
             boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
-            width: 74,
+            // Width scales with the diagram, not a fixed pixel size — obstacle 2 and 5's
+            // stops are only ~15% of the width apart, so fixed-width boxes overlap on a
+            // narrow (portrait) screen. A percentage keeps them clear of each other in
+            // both orientations, wide in landscape (the intended orientation) and merely
+            // compact in portrait.
+            width: "14%",
+            minWidth: 46,
+            maxWidth: 110,
+            boxSizing: "border-box",
             // This container inherits `lineHeight: 0` from the outer wrapper above (needed
             // there to avoid a gap under the SVG); without resetting it here, the label
             // text's line box collapses to zero height and its glyphs render overflowing
