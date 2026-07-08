@@ -23,6 +23,12 @@ export default function LiveTestRunnerPage() {
 
   const [sessionData, setSessionData] = useState(null);
   const [lineResults, setLineResults] = useState(null);
+  // finishSession() needs the just-patched note/result even when it runs inside the same
+  // handler that patched it (e.g. the Note Required modal's "Save & Continue"), where a
+  // re-render hasn't happened yet and the handler's own closure over `lineResults` is still
+  // the pre-patch value. patchCurrent keeps this ref in sync synchronously so reads are
+  // never stale regardless of render timing.
+  const lineResultsRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -38,7 +44,11 @@ export default function LiveTestRunnerPage() {
   useEffect(() => {
     getDoc(doc(db, "sessions", sessionId)).then((snap) => setSessionData(snap.data()));
     getDocs(query(collection(db, "sessions", sessionId, "lineResults"), orderBy("sortOrder"))).then(
-      (snap) => setLineResults(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      (snap) => {
+        const results = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        lineResultsRef.current = results;
+        setLineResults(results);
+      }
     );
   }, [sessionId]);
 
@@ -54,6 +64,7 @@ export default function LiveTestRunnerPage() {
     setLineResults((prev) => {
       const copy = [...prev];
       copy[currentIndex] = { ...copy[currentIndex], ...fields };
+      lineResultsRef.current = copy;
       return copy;
     });
     return updateDoc(doc(db, "sessions", sessionId, "lineResults", current.id), fields);
@@ -112,8 +123,12 @@ export default function LiveTestRunnerPage() {
   }
 
   async function finishSession() {
+    // Read from the ref, not the `lineResults` state closure: a note just patched by the
+    // Note Required modal's "Save & Continue" (in this same handler, before any re-render)
+    // would otherwise be missed. See the lineResultsRef comment above.
+    const results = lineResultsRef.current ?? lineResults;
     const { overallResult, criticalFailure, totalPointsEarned, totalPointsPossible } =
-      computeSessionOutcome(lineResults);
+      computeSessionOutcome(results);
 
     const finishedSession = {
       ...sessionData,
@@ -131,7 +146,7 @@ export default function LiveTestRunnerPage() {
     // could come back empty and wrongly claim no one is subscribed).
     let failureEmail = { status: null, recipients: [], error: null };
     if (overallResult === RESULT.FAIL) {
-      failureEmail = await sendFailureEmail(finishedSession, lineResults);
+      failureEmail = await sendFailureEmail(finishedSession, results);
     }
 
     await updateDoc(doc(db, "sessions", sessionId), {
@@ -185,7 +200,7 @@ export default function LiveTestRunnerPage() {
     // also preview the overall outcome and require a note if the *test* is about to fail,
     // even when this step's own result isn't FAIL.
     if (isLastLine && current.lineTypeSnapshot !== LINE_TYPES.INSTRUCTION && !hasFailNote()) {
-      const { overallResult } = computeSessionOutcome(lineResults);
+      const { overallResult } = computeSessionOutcome(lineResultsRef.current ?? lineResults);
       if (overallResult === RESULT.FAIL) {
         setNoteDraft(current.note ?? "");
         setNoteRequiredReason("overallFail");
