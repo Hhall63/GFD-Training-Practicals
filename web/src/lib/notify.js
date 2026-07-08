@@ -66,6 +66,12 @@ export function buildFailureBody(session, lineResults) {
   if (session.criticalFailure) {
     lines.push("CRITICAL FAILURE: a step marked critical was failed — automatic test failure.");
   }
+  // EmailJS attachments require a paid plan, so the graded course (with every penalty/
+  // distance marker) isn't attached — a direct link to view it in the app is the free
+  // alternative. Session detail is admin-only, matching who gets this email.
+  if (session.id) {
+    lines.push(`View full results (with the graded course diagram): ${window.location.origin}/reports/sessions/${session.id}`);
+  }
   lines.push("");
   lines.push("--- FULL TEST SHEET ---");
 
@@ -116,14 +122,8 @@ export function buildFailureMailto(recipients, session, lineResults) {
  *   "no-recipients"    no admin has "Notify with failures" checked
  *   "recipients-error" the recipient lookup itself failed (permissions/connection)
  *   "failed"           the send call errored — Results screen offers the mailto button
- *
- * `courseImageDataUrl`, when given (a PNG data URL of the graded obstacle course — see
- * lib/courseImage.js), is sent under the `course_image` template param. Actually attaching
- * it to the email requires a one-time EmailJS dashboard step (a "Variable Attachment" on the
- * template bound to that param name) — the API call alone can't configure that. The mailto:
- * fallback can't carry an attachment at all, so it's text-only regardless.
  */
-export async function sendFailureEmail(session, lineResults, { courseImageDataUrl } = {}) {
+export async function sendFailureEmail(session, lineResults) {
   let recipients;
   try {
     recipients = await fetchNotifyRecipients();
@@ -146,7 +146,6 @@ export async function sendFailureEmail(session, lineResults, { courseImageDataUr
           to_email: recipients.join(","),
           subject: buildFailureSubject(session),
           message: buildFailureBody(session, lineResults),
-          ...(courseImageDataUrl ? { course_image: courseImageDataUrl } : {}),
         },
       }),
     });

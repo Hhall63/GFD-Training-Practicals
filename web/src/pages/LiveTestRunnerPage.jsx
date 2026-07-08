@@ -15,7 +15,6 @@ import { compressImageToDataUrl } from "../lib/image";
 import { sendFailureEmail } from "../lib/notify";
 import { computeTimerResult, formatSeconds, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
 import { missingRequiredDistances } from "../lib/obstacleCourse";
-import { renderGradedCourseImage } from "../lib/courseImage";
 import ObstacleCourseRunner from "../components/ObstacleCourseRunner";
 
 export default function LiveTestRunnerPage() {
@@ -118,6 +117,7 @@ export default function LiveTestRunnerPage() {
 
     const finishedSession = {
       ...sessionData,
+      id: sessionId, // buildFailureBody links to /reports/sessions/:id (the graded course, view-only, free — EmailJS attachments need a paid plan)
       overallResult,
       criticalFailure,
       totalPointsEarned,
@@ -131,18 +131,7 @@ export default function LiveTestRunnerPage() {
     // could come back empty and wrongly claim no one is subscribed).
     let failureEmail = { status: null, recipients: [], error: null };
     if (overallResult === RESULT.FAIL) {
-      // Attach a snapshot of the graded course (every penalty/distance marker placed) so the
-      // admin sees exactly what happened without opening the app.
-      const obstacleLine = lineResults.find((l) => l.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE);
-      let courseImageDataUrl;
-      try {
-        if (obstacleLine?.obstacleTallies?.markers) {
-          courseImageDataUrl = renderGradedCourseImage(obstacleLine.obstacleTallies.markers);
-        }
-      } catch (err) {
-        console.error("Failed to render graded course image for the failure email", err);
-      }
-      failureEmail = await sendFailureEmail(finishedSession, lineResults, { courseImageDataUrl });
+      failureEmail = await sendFailureEmail(finishedSession, lineResults);
     }
 
     await updateDoc(doc(db, "sessions", sessionId), {
