@@ -32,7 +32,7 @@ export default function HomePage() {
     <div className="app-shell">
       <TopBar />
       <div className="screen">
-        <h3 style={{ marginTop: 16 }}>Select a Test</h3>
+        <h3 style={{ marginTop: 16, color: "var(--brand-navy)" }}>Select a Test</h3>
         {!loading && templates.length === 0 && (
           <p className="muted">No tests available yet.</p>
         )}
