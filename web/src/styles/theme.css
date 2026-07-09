@@ -61,7 +61,8 @@ body {
      app is installed to the Home Screen (standalone mode) — without it, the bar sits at
      the very top of the screen and the clock/battery/signal icons overlap it. */
   padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
-  background: var(--brand-navy);
+  background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-2));
+  border-bottom: 3px solid var(--brand-gold);
   color: white;
 }
 
@@ -304,7 +305,8 @@ h4 {
   /* Same safe-area clearance as .top-bar — the live test runner has no header above this
      banner, so it needs its own clearance from the iPhone status bar/notch. */
   padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
-  background: var(--brand-navy);
+  background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-2));
+  border-bottom: 3px solid var(--brand-gold);
   color: white;
 }
 
