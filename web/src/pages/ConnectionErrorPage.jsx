@@ -10,7 +10,9 @@ export default function ConnectionErrorPage() {
     <div className="screen center-column" style={{ paddingTop: 48 }}>
       <img src={badge} alt="GFD Badge" style={{ width: 110, marginBottom: 12 }} />
       <div style={{ fontSize: 44 }}>⚠️</div>
-      <h2 style={{ margin: "4px 0", color: "var(--brand-red)" }}>Error!</h2>
+      <h2 style={{ margin: "4px 0", color: "var(--brand-red)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        Error!
+      </h2>
       <p style={{ fontWeight: 600, marginTop: 0 }}>Can't reach the server.</p>
 
       <div className="card" style={{ textAlign: "left", maxWidth: 360, width: "100%" }}>

@@ -25,7 +25,7 @@ export default function SessionDetailPage() {
     <div className="app-shell">
       <TopBar title="Session Detail" onBack={() => navigate(-1)} showMenu={false} />
       <div className="screen">
-        <div className="card center-column">
+        <div className={`card center-column ${session.overallResult === "pass" ? "card--pass" : "card--fail"}`}>
           <h2 style={{ margin: "0 0 4px", color: session.overallResult === "pass" ? "var(--success)" : "var(--brand-red)" }}>
             {session.overallResult === "pass" ? "PASS" : "FAIL"}
           </h2>

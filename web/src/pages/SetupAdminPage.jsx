@@ -47,7 +47,7 @@ export default function SetupAdminPage() {
   return (
     <div className="screen center-column" style={{ paddingTop: 32 }}>
       <img src={badge} alt="GFD Badge" style={{ width: 110, marginBottom: 12 }} />
-      <h2 style={{ margin: "0 0 4px" }}>Welcome</h2>
+      <h2 style={{ margin: "0 0 4px", color: "var(--brand-navy)" }}>Welcome</h2>
       <p className="muted" style={{ maxWidth: 340 }}>
         Create the first administrator account for this department's app. This account can
         create everyone else's login afterward.

@@ -96,7 +96,8 @@ export default function TemplateEditorPage() {
               />
               <span>%</span>
               <span className="muted">
-                = {pointsNeededToPass} of <strong>{totalPointsPossible}</strong> total points
+                = <strong style={{ color: "var(--brand-navy)" }}>{pointsNeededToPass}</strong> of{" "}
+                <strong style={{ color: "var(--brand-navy)" }}>{totalPointsPossible}</strong> total points
               </span>
             </div>
           </div>
@@ -188,22 +189,13 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
 
         <div className="field">
           <label>Type</label>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div className="segmented">
             {Object.values(LINE_TYPES).map((type) => (
               <button
                 key={type}
                 type="button"
+                className={`segment${lineType === type ? " active" : ""}`}
                 onClick={() => setLineType(type)}
-                style={{
-                  flex: 1,
-                  padding: "8px 4px",
-                  fontSize: 13,
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: lineType === type ? "var(--brand-navy)" : "white",
-                  color: lineType === type ? "white" : "var(--text)",
-                  cursor: "pointer",
-                }}
               >
                 {LINE_TYPE_LABELS[type]}
               </button>
