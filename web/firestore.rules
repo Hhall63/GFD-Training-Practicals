@@ -1,0 +1,99 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myUserDoc() {
+      return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data;
+    }
+
+    // Any signed-in, active account of any role (Administrator, Evaluator, or Recruit).
+    function isActiveUser() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && myUserDoc().isActive == true;
+    }
+
+    // Accounts created before roles existed have no `role` field — treated as "admin" so
+    // nobody's access silently changed when roles were introduced.
+    function myRole() {
+      return !('role' in myUserDoc()) ? 'admin' : myUserDoc().role;
+    }
+
+    // Staff = Administrators + Evaluators: the people who run tests on recruits.
+    function isStaff() {
+      return isActiveUser() && (myRole() == 'admin' || myRole() == 'evaluator');
+    }
+
+    function isAdminRole() {
+      return isActiveUser() && myRole() == 'admin';
+    }
+
+    function isRecruitRole() {
+      return isActiveUser() && myRole() == 'recruit';
+    }
+
+    // There's no server here, so the very first admin account has to bootstrap itself the
+    // first time the app is ever opened. Once meta/appState.firstAdminCreated is true, this
+    // door closes and every account after that must be created by an existing administrator.
+    function noAdminExistsYet() {
+      return !exists(/databases/$(database)/documents/meta/appState)
+        || get(/databases/$(database)/documents/meta/appState).data.firstAdminCreated != true;
+    }
+
+    match /meta/appState {
+      allow get: if true;
+      allow create, update: if noAdminExistsYet() || isAdminRole();
+    }
+
+    match /admins/{adminId} {
+      // `get` for any signed-in user (needed for the role checks above and to load one's
+      // own account). `list` for staff: evaluators need to query the notify-on-failure
+      // admin list when a recruit fails a test. Recruits cannot browse accounts.
+      allow get: if isSignedIn();
+      allow list: if isStaff();
+      allow create: if isAdminRole() || (request.auth.uid == adminId && noAdminExistsYet());
+      allow update, delete: if isAdminRole();
+    }
+
+    match /recruits/{recruitId} {
+      // Staff read the roster to pick who they're testing; a Recruit may read only their
+      // own linked record. Only administrators write.
+      allow get: if isStaff() || (isRecruitRole() && myUserDoc().recruitId == recruitId);
+      allow list: if isStaff();
+      allow write: if isAdminRole();
+    }
+
+    match /templates/{templateId} {
+      // Drafts are visible to administrators only. Published tests are visible to
+      // everyone active (evaluators run them; recruits see them on their status list).
+      // Templates created before the draft feature have no `status` field — treated as
+      // published, since they were already live.
+      allow read: if isAdminRole()
+        || (isActiveUser() && (!('status' in resource.data) || resource.data.status == 'published'));
+      allow write: if isAdminRole();
+
+      match /lines/{lineId} {
+        // Line-level reads don't re-check the parent's draft status (rules can't cheaply
+        // join): staff-only is fine because only staff run tests. Recruits never need
+        // individual lines — their view is session results, not template content.
+        allow read: if isStaff();
+        allow write: if isAdminRole();
+      }
+    }
+
+    match /sessions/{sessionId} {
+      // Staff run tests and record results. A Recruit may read only their own sessions.
+      allow read: if isStaff() || (isRecruitRole() && resource.data.recruitId == myUserDoc().recruitId);
+      allow write: if isStaff();
+
+      match /lineResults/{lineResultId} {
+        allow read, write: if isStaff();
+      }
+    }
+  }
+}

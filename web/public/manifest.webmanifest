@@ -1,0 +1,21 @@
+{
+  "name": "GFD Recruit Testing",
+  "short_name": "GFD Testing",
+  "description": "Greensboro Fire Department recruit practical skills testing",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#12123A",
+  "theme_color": "#12123A",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

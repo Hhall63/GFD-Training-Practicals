@@ -1,0 +1,18 @@
+# Node / Vite build artifacts
+web/node_modules/
+web/dist/
+
+# Local Firebase project config (each deployment fills these in themselves)
+web/.env
+web/.firebaserc
+web/.firebase/
+
+# Editor/OS cruft
+.DS_Store
+web/firestore-debug.log
+
+# Superpowers brainstorming companion mockups (local scratch, not project source)
+.superpowers/
+
+# Local git worktrees for isolated implementation work
+.worktrees/
