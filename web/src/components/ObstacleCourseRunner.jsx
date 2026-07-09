@@ -164,9 +164,11 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
           The Projected Score stays visible as a neutral running tally. */}
 
       <div className="card" style={{ textAlign: "left", marginBottom: 12 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
-          <span>Projected Score</span>
-          <span>{scoring.score} / 100</span>
+        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+          <span style={{ textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13, color: "var(--text-secondary)" }}>
+            Projected Score
+          </span>
+          <span style={{ color: "var(--brand-navy)" }}>{scoring.score} / 100</span>
         </div>
       </div>
 
