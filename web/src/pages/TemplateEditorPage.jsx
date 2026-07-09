@@ -96,7 +96,8 @@ export default function TemplateEditorPage() {
               />
               <span>%</span>
               <span className="muted">
-                = {pointsNeededToPass} of <strong>{totalPointsPossible}</strong> total points
+                = <strong style={{ color: "var(--brand-navy)" }}>{pointsNeededToPass}</strong> of{" "}
+                <strong style={{ color: "var(--brand-navy)" }}>{totalPointsPossible}</strong> total points
               </span>
             </div>
           </div>

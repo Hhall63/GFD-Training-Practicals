@@ -45,7 +45,7 @@ export default function TemplatesAdminPage() {
             <div key={template.id} className="card">
               <div className="list-row" style={{ padding: 0, border: "none" }}>
                 <div style={{ flex: 1 }} onClick={() => navigate(`/templates/${template.id}`)}>
-                  <div style={{ fontWeight: 600 }}>
+                  <div style={{ fontWeight: 700, color: "var(--brand-navy)" }}>
                     {template.name}{" "}
                     <span className={`badge ${status === "published" ? "pass" : "neutral"}`}>
                       {status === "published" ? "Published" : "Draft"}
