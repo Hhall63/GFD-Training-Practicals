@@ -44,7 +44,7 @@ export default function RecruitHistoryDetailPage() {
             <div className="avatar" style={{ width: 64, height: 64 }}>{initials(recruit.firstName, recruit.lastName)}</div>
           )}
           <div>
-            <div style={{ fontWeight: 600, fontSize: 18 }}>{recruit.firstName} {recruit.lastName}</div>
+            <div style={{ fontWeight: 700, fontSize: 18, color: "var(--brand-navy)" }}>{recruit.firstName} {recruit.lastName}</div>
             <div className="muted">{recruit.recruitClassOrCohort}</div>
           </div>
         </div>
