@@ -78,7 +78,7 @@ export default function CohortDashboardPage() {
             <h4>Training Matrix</h4>
             {recruits.map((recruit) => (
               <div key={recruit.id} className="card">
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>{recruit.firstName} {recruit.lastName}</div>
+                <div style={{ fontWeight: 700, marginBottom: 8, color: "var(--brand-navy)" }}>{recruit.firstName} {recruit.lastName}</div>
                 <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
                   {templates.map((template) => {
                     const entry = latestResults[`${recruit.id}_${template.id}`];

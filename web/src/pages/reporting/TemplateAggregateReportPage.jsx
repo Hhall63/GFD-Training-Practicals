@@ -57,11 +57,11 @@ export default function TemplateAggregateReportPage() {
       <div className="screen">
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>Sessions</span><strong>{sessionCount}</strong>
+            <span>Sessions</span><strong style={{ color: "var(--brand-navy)" }}>{sessionCount}</strong>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>Overall Pass Rate</span>
-            <strong>{passRate == null ? "—" : `${Math.round(passRate * 100)}%`}</strong>
+            <strong style={{ color: "var(--brand-navy)" }}>{passRate == null ? "—" : `${Math.round(passRate * 100)}%`}</strong>
           </div>
         </div>
 
