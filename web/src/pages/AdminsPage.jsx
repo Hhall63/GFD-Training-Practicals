@@ -101,7 +101,7 @@ export default function AdminsPage() {
           const isSelf = user.id === adminDoc?.id;
           return (
             <div key={user.id} className="card">
-              <div style={{ fontWeight: 600 }}>
+              <div style={{ fontWeight: 700, color: "var(--brand-navy)" }}>
                 {user.displayName}{" "}
                 <span className={`badge ${role === "admin" ? "pass" : "neutral"}`}>{ROLE_LABELS[role]}</span>
               </div>
