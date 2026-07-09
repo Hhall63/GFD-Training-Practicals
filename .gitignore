@@ -10,3 +10,6 @@ web/.firebase/
 # Editor/OS cruft
 .DS_Store
 web/firestore-debug.log
+
+# Superpowers brainstorming companion mockups (local scratch, not project source)
+.superpowers/
