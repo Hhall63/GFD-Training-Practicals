@@ -83,7 +83,7 @@ export default function RecruitsAdminPage() {
                 <div className="avatar">{initials(recruit.firstName, recruit.lastName)}</div>
               )}
               <div style={{ flex: 1 }} onClick={() => setEditing(recruit)}>
-                <div style={{ fontWeight: 600 }}>{recruit.firstName} {recruit.lastName}</div>
+                <div style={{ fontWeight: 700, color: "var(--brand-navy)" }}>{recruit.firstName} {recruit.lastName}</div>
                 <div className="muted">{recruit.recruitClassOrCohort}</div>
                 <div className="muted">{login ? `Portal login: ${login.email}` : "No portal login"}</div>
               </div>
