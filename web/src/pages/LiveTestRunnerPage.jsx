@@ -233,7 +233,7 @@ export default function LiveTestRunnerPage() {
 
       {!isObstacleCourse && (
         <div style={{ padding: "12px 16px 0" }}>
-          <div style={{ height: 6, background: "#e1e1e8", borderRadius: 3, overflow: "hidden" }}>
+          <div style={{ height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
             <div
               style={{
                 height: "100%",
