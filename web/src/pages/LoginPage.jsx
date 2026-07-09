@@ -68,8 +68,10 @@ export default function LoginPage() {
   return (
     <div className="screen center-column" style={{ paddingTop: 48 }}>
       <img src={badge} alt="GFD Badge" style={{ width: 140, marginBottom: 16 }} />
-      <h2 style={{ margin: "0 0 4px" }}>GFD Recruit Testing</h2>
-      <p className="muted" style={{ marginTop: 0 }}>Greensboro Fire Department</p>
+      <h2 style={{ margin: "0 0 4px", color: "var(--brand-navy)" }}>GFD Recruit Testing</h2>
+      <p className="muted" style={{ marginTop: 0, textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 700 }}>
+        Greensboro Fire Department
+      </p>
 
       {idleLogout && (
         <p className="muted" style={{ marginTop: 16, maxWidth: 320, textAlign: "center" }}>
