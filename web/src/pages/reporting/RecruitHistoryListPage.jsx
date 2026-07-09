@@ -39,7 +39,7 @@ export default function RecruitHistoryListPage() {
           return (
             <button key={recruit.id} className="list-row" onClick={() => navigate(`/reports/recruits/${recruit.id}`)}>
               <div>
-                <div style={{ fontWeight: 600 }}>{recruit.firstName} {recruit.lastName}</div>
+                <div style={{ fontWeight: 700, color: "var(--brand-navy)" }}>{recruit.firstName} {recruit.lastName}</div>
                 <div className="muted">
                   {sessions.length === 0
                     ? "No completed tests yet"
