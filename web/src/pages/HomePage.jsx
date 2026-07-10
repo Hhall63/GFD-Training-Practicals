@@ -39,7 +39,7 @@ export default function HomePage() {
         {templates.map((template) => {
           const isDraft = isAdmin && (template.status ?? "published") === "draft";
           return (
-            <button key={template.id} className="card list-row" style={{ display: "block" }} onClick={() => navigate(`/test/${template.id}`)}>
+            <button key={template.id} className="test-tile" style={{ display: "block" }} onClick={() => navigate(`/test/${template.id}`)}>
               <div style={{ fontWeight: 600, fontSize: 16 }}>
                 {template.name}
                 {isDraft && <span className="badge neutral" style={{ marginLeft: 8 }}>Draft</span>}

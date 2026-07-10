@@ -12,6 +12,7 @@
   --status-pass-muted: #6b9e7a;
   --status-fail-muted: #b5555f;
   --radius: 14px;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -202,6 +203,20 @@ a:visited {
 
 .list-row:last-child {
   border-bottom: none;
+}
+
+.test-tile {
+  display: block;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--brand-navy);
+  background: linear-gradient(135deg, rgba(18, 18, 58, 0.05), rgba(211, 168, 95, 0.08));
+  box-shadow: var(--shadow-sm);
+}
+
+.test-tile:active {
+  background: rgba(18, 18, 58, 0.12);
 }
 
 .badge {
