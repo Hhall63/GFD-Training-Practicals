@@ -67,9 +67,14 @@ export default function SessionDetailPage() {
                   {line.result === RESULT.NOT_APPLICABLE && "—"}
                 </span>
               </div>
-              {!isObstacle && line.timerElapsedSeconds != null && <div className="muted">{formatSeconds(line.timerElapsedSeconds)}s</div>}
+              {!isObstacle && (line.timerElapsedSeconds ?? line.elapsedSeconds) != null && (
+                <div className="muted">{formatSeconds(line.timerElapsedSeconds ?? line.elapsedSeconds)}s</div>
+              )}
               {!isObstacle && line.pointsSnapshot != null && (
                 <div className="muted">{line.pointsEarned ?? 0} / {line.pointsSnapshot} pts</div>
+              )}
+              {line.totalPausedSeconds > 0 && (
+                <div className="muted">Paused for {formatSeconds(line.totalPausedSeconds)}s</div>
               )}
               {(line.photoURLs ?? []).map((url) => (
                 <img key={url} src={url} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, marginTop: 6, marginRight: 6 }} />

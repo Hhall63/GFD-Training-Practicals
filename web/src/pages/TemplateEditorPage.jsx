@@ -113,7 +113,9 @@ export default function TemplateEditorPage() {
               <div style={{ fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(line.lineText) }} />
               <div className="muted">
                 {LINE_TYPE_LABELS[line.lineType]}
-                {line.lineType === LINE_TYPES.TIMER && line.passThresholdSeconds != null && ` — pass at ≤ ${line.passThresholdSeconds}s`}
+                {(line.lineType === LINE_TYPES.TIMER || line.lineType === LINE_TYPES.OVERALL_TIMER) &&
+                  line.passThresholdSeconds != null &&
+                  ` — pass at ≤ ${line.passThresholdSeconds}s`}
                 {line.lineType !== LINE_TYPES.INSTRUCTION && ` — ${line.points ?? 0} pts`}
                 {line.isCritical && <span style={{ color: "var(--brand-red)", fontWeight: 600 }}> — CRITICAL</span>}
               </div>
@@ -176,7 +178,10 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
         // failure email, CSV) with no chance of stray text getting stored.
         lineText: isObstacleCourse ? LINE_TYPE_LABELS[LINE_TYPES.OBSTACLE_COURSE] : lineText,
         isScored: lineType === LINE_TYPES.GRADED,
-        passThresholdSeconds: lineType === LINE_TYPES.TIMER ? Number(passThresholdSeconds) : null,
+        passThresholdSeconds:
+          (lineType === LINE_TYPES.TIMER || lineType === LINE_TYPES.OVERALL_TIMER)
+            ? Number(passThresholdSeconds)
+            : null,
         points: isObstacleCourse ? 100 : lineType !== LINE_TYPES.INSTRUCTION ? Number(points) : null,
         isCritical: isObstacleCourse ? true : lineType !== LINE_TYPES.INSTRUCTION ? isCritical : false,
       };
@@ -259,7 +264,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
           </div>
         )}
 
-        {lineType === LINE_TYPES.TIMER && (
+        {(lineType === LINE_TYPES.TIMER || lineType === LINE_TYPES.OVERALL_TIMER) && (
           <div className="field">
             <label>Pass at ≤ seconds</label>
             <input
@@ -287,7 +292,11 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
             <label>Points</label>
             <input type="number" min={0} value={points} onChange={(e) => setPoints(e.target.value)} />
             <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
-              Full points are earned on a Pass{lineType === LINE_TYPES.TIMER ? " (finishing within the time limit)" : ""}, zero on a Fail.
+              Full points are earned on a Pass
+              {(lineType === LINE_TYPES.TIMER || lineType === LINE_TYPES.OVERALL_TIMER)
+                ? " (finishing within the time limit)"
+                : ""}
+              , zero on a Fail.
             </p>
           </div>
         )}

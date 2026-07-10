@@ -57,6 +57,15 @@ export default function LiveTestRunnerPage() {
   const [noteRequiredReason, setNoteRequiredReason] = useState("stepFailed"); // "stepFailed" | "overallFail"
   const timerStartRef = useRef(null);
   const intervalRef = useRef(null);
+  // Whole-test stopwatch (Task 10). Independent of currentIndex/viewMode by design — it
+  // starts the instant the template's Overall Timer line loads and keeps running across
+  // every view until Stop Test is pressed, unlike the per-step timer above.
+  const [overallElapsed, setOverallElapsed] = useState(0);
+  const [isOverallRunning, setIsOverallRunning] = useState(false);
+  const [overallPauseEvents, setOverallPauseEvents] = useState([]);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const overallStartRef = useRef(null);
+  const overallIntervalRef = useRef(null);
 
   useEffect(() => {
     getDoc(doc(db, "sessions", sessionId)).then(async (snap) => {
@@ -77,6 +86,26 @@ export default function LiveTestRunnerPage() {
   }, [sessionId]);
 
   useEffect(() => () => clearInterval(intervalRef.current), []);
+
+  // The whole-test line, if this template has one — found fresh on every render so it picks
+  // up the result/pauseEvents patchLine() writes once Stop Test finalizes it.
+  const overallTimerLine = lineResults?.find((l) => l.lineTypeSnapshot === LINE_TYPES.OVERALL_TIMER);
+
+  // Auto-starts the instant the Overall Timer line is available and hasn't already been
+  // finalized (result == null) — independent of currentIndex/viewMode, so switching steps or
+  // views never restarts or interrupts it. Re-runs only when overallTimerLine's own object
+  // identity changes (i.e. when patchLine touches it), not on every unrelated re-render.
+  useEffect(() => {
+    if (overallTimerLine && overallTimerLine.result == null && !isOverallRunning) {
+      overallStartRef.current = Date.now();
+      setIsOverallRunning(true);
+      overallIntervalRef.current = setInterval(() => {
+        setOverallElapsed((Date.now() - overallStartRef.current) / 1000);
+      }, 100);
+    }
+    return () => clearInterval(overallIntervalRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overallTimerLine]);
 
   const current = lineResults?.[currentIndex];
   const isLastLine = lineResults && currentIndex === lineResults.length - 1;
@@ -222,21 +251,101 @@ export default function LiveTestRunnerPage() {
     return current.photoURLs?.length > 0 || !!current.note;
   }
 
+  // The one real "end the session" path in this page: computes/records the pass-fail
+  // outcome via finishSession(), then either shows Task 9's Test Group continuation popup
+  // or navigates to the results screen. Shared by proceed() (normal last-line completion)
+  // and confirmStopTest() (Task 10's early-stop path) so an early-stopped session gets
+  // exactly the same finishSession() computation and exactly the same Test Group offer as
+  // a normally-completed one — no second, parallel "finish" implementation.
+  async function finishSessionAndContinue() {
+    await finishSession();
+    if (sessionData.groupId) {
+      setShowGroupContinue(true);
+    } else {
+      navigate(`/session/${sessionId}/results`, { replace: true });
+    }
+  }
+
   async function proceed() {
     if (isLastLine) {
-      await finishSession();
-      // Sessions started from a Test Group don't fall straight through to the results
-      // page — the instructor still needs the option to keep going to the next test in
-      // the group, so show the continuation popup instead. A session started the normal
-      // way never has groupId set, so its behavior is completely unchanged.
-      if (sessionData.groupId) {
-        setShowGroupContinue(true);
-      } else {
-        navigate(`/session/${sessionId}/results`, { replace: true });
-      }
+      await finishSessionAndContinue();
     } else {
       setCurrentIndex((i) => i + 1);
     }
+  }
+
+  function pauseOverallTimer() {
+    clearInterval(overallIntervalRef.current);
+    setIsOverallRunning(false);
+    setOverallPauseEvents((prev) => [
+      ...prev,
+      { pausedAtElapsedSeconds: overallElapsed, resumedAtElapsedSeconds: null },
+    ]);
+  }
+
+  function resumeOverallTimer() {
+    overallStartRef.current = Date.now() - overallElapsed * 1000;
+    setIsOverallRunning(true);
+    overallIntervalRef.current = setInterval(() => {
+      setOverallElapsed((Date.now() - overallStartRef.current) / 1000);
+    }, 100);
+    setOverallPauseEvents((prev) =>
+      prev.map((p, i) => (i === prev.length - 1 ? { ...p, resumedAtElapsedSeconds: overallElapsed } : p))
+    );
+  }
+
+  // Freezes the clock immediately (reusing pauseOverallTimer, so the elapsed reading is
+  // stable while the confirmation is up) and opens the "Are you sure?" popup.
+  function handleStopTestClick() {
+    pauseOverallTimer();
+    setShowStopConfirm(true);
+  }
+
+  // Cancels an in-flight stop exactly like canceling a pause: reuses resumeOverallTimer so
+  // there's no separate "resume after a canceled stop" behavior to maintain.
+  function cancelStopTest() {
+    setShowStopConfirm(false);
+    resumeOverallTimer();
+  }
+
+  // Finalizes the Overall Timer line's own pass/fail (all-or-nothing against its threshold,
+  // same as the per-step Timer type), records every still-ungraded line as an immediate
+  // fail/zero, then ends the session through the exact same finishSessionAndContinue() path
+  // used when a test completes normally — so a stopped-early session still gets
+  // finishSession()'s pass/fail computation and still offers "Go to Next Test" when this
+  // session belongs to a Test Group.
+  async function confirmStopTest() {
+    const finalElapsed = overallElapsed;
+    const result =
+      overallTimerLine.passThresholdSecondsSnapshot != null
+        ? computeTimerResult(finalElapsed, overallTimerLine.passThresholdSecondsSnapshot)
+        : RESULT.PASS;
+    const pointsEarned = result === RESULT.PASS ? (overallTimerLine.pointsSnapshot ?? 0) : 0;
+    const totalPausedSeconds = overallPauseEvents.reduce(
+      (sum, p) => sum + ((p.resumedAtElapsedSeconds ?? finalElapsed) - p.pausedAtElapsedSeconds),
+      0
+    );
+
+    // Use the same name-addressed patchLine() helper the rest of the page writes through
+    // (Task 8), not a hand-rolled updateDoc, so both the Firestore write and the local
+    // lineResults/lineResultsRef state stay in sync the same way every other grade does.
+    await patchLine(overallTimerLine.id, {
+      result,
+      pointsEarned,
+      elapsedSeconds: finalElapsed,
+      pauseEvents: overallPauseEvents,
+      totalPausedSeconds,
+    });
+
+    const stillUngraded = (lineResultsRef.current ?? lineResults).filter(
+      (l) => l.id !== overallTimerLine.id && l.result == null
+    );
+    await Promise.all(
+      stillUngraded.map((l) => patchLine(l.id, { result: RESULT.FAIL, pointsEarned: 0 }))
+    );
+
+    setShowStopConfirm(false);
+    await finishSessionAndContinue();
   }
 
   // Creates the next session in the group (same recruit, next templateId in the group's
@@ -361,6 +470,38 @@ export default function LiveTestRunnerPage() {
 
   return (
     <div className="app-shell">
+      {/* Rendered above/outside Task 8's viewMode branch below, so this whole-test banner and
+          its controls show in every view (Standard/Checklist/Tile) and are never affected by
+          switching views. */}
+      {overallTimerLine && (
+        <div className="overall-timer-banner">
+          <span>
+            Overall Timer: {formatSeconds(overallElapsed)}s
+            {overallTimerLine.result != null && (
+              <span
+                className={`badge ${overallTimerLine.result === RESULT.PASS ? "pass" : "fail"}`}
+                style={{ marginLeft: 10 }}
+              >
+                {overallTimerLine.result === RESULT.PASS ? "PASS" : "FAIL"}
+              </span>
+            )}
+          </span>
+          {overallTimerLine.result == null && (
+            <div className="overall-timer-actions">
+              <button
+                className="secondary"
+                onClick={isOverallRunning ? pauseOverallTimer : resumeOverallTimer}
+              >
+                {isOverallRunning ? "Pause" : "Resume"}
+              </button>
+              <button className="primary danger" onClick={handleStopTestClick}>
+                Stop Test
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {isTimerRunning && (
         <div className="timer-banner">
           <span>Timer running: {formatSeconds(elapsed)}s</span>
@@ -605,6 +746,36 @@ export default function LiveTestRunnerPage() {
                   View Group Summary
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStopConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: 12 }}>Stop Test?</h3>
+            <p className="muted" style={{ marginBottom: 20 }}>
+              This ends the test now. Any ungraded steps will be recorded as failed with zero
+              points.
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button className="secondary" style={{ flex: 1 }} onClick={cancelStopTest}>
+                Cancel
+              </button>
+              <button className="primary danger" style={{ flex: 1 }} onClick={confirmStopTest}>
+                Yes, Stop Test
+              </button>
             </div>
           </div>
         </div>
