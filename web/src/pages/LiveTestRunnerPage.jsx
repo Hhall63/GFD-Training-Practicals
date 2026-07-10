@@ -182,6 +182,12 @@ export default function LiveTestRunnerPage() {
 
   function canAdvance() {
     if (!current) return false;
+    // The Overall Timer line is only ever scored by Stop Test (see its dedicated read-only
+    // LineCard branch), never by completing whichever line happens to be last. Without this
+    // check, a template shaped like [Overall Timer, ...graded steps..., closing Instruction]
+    // could be finished via Submit on that closing line while the Overall Timer line itself
+    // sits ungraded — silently dropping its result/elapsed time/pause history from the report.
+    if (isLastLine && overallTimerLine && overallTimerLine.result == null) return false;
     if (current.lineTypeSnapshot === LINE_TYPES.INSTRUCTION) return true;
     // A result must be recorded first. The note-required-on-failure rule is enforced with a
     // blocking pop-up in advance() (like the distance gate), rather than by silently
