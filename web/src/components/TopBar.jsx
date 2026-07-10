@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import badge from "../assets/gfd-badge.png";
 import { useAuth } from "../context/AuthContext";
+import { getAdminNavItems } from "../lib/navItems";
 
 export default function TopBar({ title = "GFD Recruit Testing", showMenu = true, onBack }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -10,15 +11,7 @@ export default function TopBar({ title = "GFD Recruit Testing", showMenu = true,
 
   // Only administrators get management/reporting links — evaluators and recruits see just
   // Sign Out (the routes are also gated in App.jsx and by the security rules).
-  const menuItems = isAdmin
-    ? [
-        ["Manage Recruits", "/recruits"],
-        ["Manage Tests", "/templates"],
-        ["Reports", "/reports"],
-        ["Add User", "/admins?new=1"],
-        ["See All Users", "/admins"],
-      ]
-    : [];
+  const menuItems = isAdmin ? getAdminNavItems() : [];
 
   return (
     <div className="top-bar">

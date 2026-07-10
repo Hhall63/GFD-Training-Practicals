@@ -5,6 +5,7 @@ import LoginPage from "./pages/LoginPage";
 import SetupAdminPage from "./pages/SetupAdminPage";
 import ConnectionErrorPage from "./pages/ConnectionErrorPage";
 import HomePage from "./pages/HomePage";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
 import RecruitHomePage from "./pages/RecruitHomePage";
 import RecruitConfirmPage from "./pages/RecruitConfirmPage";
 import LiveTestRunnerPage from "./pages/LiveTestRunnerPage";
@@ -53,7 +54,7 @@ function RequireAdminRole({ children }) {
 }
 
 export default function App() {
-  const { loading, adminDoc, anyAdminExists, connectionError, isRecruit } = useAuth();
+  const { loading, adminDoc, anyAdminExists, connectionError, isRecruit, role } = useAuth();
 
   return (
     <Routes>
@@ -90,7 +91,8 @@ export default function App() {
         }
       />
 
-      <Route path="/" element={<RequireAuth>{isRecruit ? <RecruitHomePage /> : <HomePage />}</RequireAuth>} />
+      <Route path="/" element={<RequireAuth>{role === "admin" ? <AdminDashboardPage /> : isRecruit ? <RecruitHomePage /> : <HomePage />}</RequireAuth>} />
+      <Route path="/start-test" element={<RequireAuth><RequireStaff><HomePage /></RequireStaff></RequireAuth>} />
       <Route path="/test/:templateId" element={<RequireAuth><RequireStaff><RecruitConfirmPage /></RequireStaff></RequireAuth>} />
       <Route path="/session/:sessionId/run" element={<RequireAuth><RequireStaff><LiveTestRunnerPage /></RequireStaff></RequireAuth>} />
       <Route path="/session/:sessionId/results" element={<RequireAuth><RequireStaff><ResultsPage /></RequireStaff></RequireAuth>} />
