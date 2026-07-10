@@ -503,14 +503,14 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
       </p>
       <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 400, marginTop: 16 }}>
         <button
-          className={`primary ${current.result === RESULT.PASS ? "success" : ""}`}
+          className={`primary ${current.result === RESULT.PASS ? "pass-muted" : ""}`}
           style={{ background: current.result === RESULT.PASS ? undefined : "#c7c7cc" }}
           onClick={() => setGradedResult(RESULT.PASS)}
         >
           Pass
         </button>
         <button
-          className={`primary ${current.result === RESULT.FAIL ? "danger" : ""}`}
+          className={`primary ${current.result === RESULT.FAIL ? "fail-muted" : ""}`}
           style={{ background: current.result === RESULT.FAIL ? undefined : "#c7c7cc" }}
           onClick={() => setGradedResult(RESULT.FAIL)}
         >
