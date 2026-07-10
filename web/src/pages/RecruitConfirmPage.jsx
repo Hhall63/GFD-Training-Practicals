@@ -30,6 +30,7 @@ export default function RecruitConfirmPage() {
   const [selected, setSelected] = useState(null);
   const [attemptType, setAttemptType] = useState("first");
   const [starting, setStarting] = useState(false);
+  const [viewMode, setViewMode] = useState("standard");
 
   useEffect(() => {
     getDoc(doc(db, "templates", templateId)).then((snap) => {
@@ -111,7 +112,7 @@ export default function RecruitConfirmPage() {
       });
       await batch.commit();
 
-      navigate(`/session/${sessionRef.id}/run`, { replace: true });
+      navigate(`/session/${sessionRef.id}/run`, { replace: true, state: { initialViewMode: viewMode } });
     } finally {
       setStarting(false);
     }
@@ -182,6 +183,21 @@ export default function RecruitConfirmPage() {
                   {/* Retakes are only administrators' call — evaluators don't see the option. */}
                   {isAdmin && <option value="retake">Retake</option>}
                 </select>
+              </div>
+              <div className="field" style={{ textAlign: "left" }}>
+                <label>Display View</label>
+                <div className="segmented">
+                  {["standard", "checklist", "tile"].map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={`segment ${viewMode === mode ? "active" : ""}`}
+                      onClick={() => setViewMode(mode)}
+                    >
+                      {mode === "standard" ? "Standard" : mode === "checklist" ? "Checklist" : "Tile"}
+                    </button>
+                  ))}
+                </div>
               </div>
               <button className="primary" onClick={beginTest} disabled={starting}>
                 {starting ? "Starting…" : attemptType === "retake" ? "Begin Retake" : "Begin Test"}

@@ -284,3 +284,45 @@ a:visited {
   padding: 8px 14px;
   font-weight: 600;
 }
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.segment {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  border: none;
+  cursor: pointer;
+}
+
+.segment + .segment {
+  border-left: 1px solid var(--border);
+}
+
+.segment.active {
+  background: var(--brand-navy);
+  color: white;
+}
+
+.card--pass {
+  border-left: 4px solid var(--success);
+}
+
+.card--fail {
+  border-left: 4px solid var(--brand-red);
+}
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}

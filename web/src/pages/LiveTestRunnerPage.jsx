@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   collection,
   doc,
@@ -17,13 +17,20 @@ import { computeTimerResult, formatSeconds, LINE_TYPES, RESULT, SESSION_STATUS }
 import { missingRequiredDistances } from "../lib/obstacleCourse";
 import { sanitizeHtml } from "../lib/richText";
 import ObstacleCourseRunner from "../components/ObstacleCourseRunner";
+import ChecklistView from "../components/ChecklistView";
+import TileView from "../components/TileView";
 
 export default function LiveTestRunnerPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [sessionData, setSessionData] = useState(null);
   const [lineResults, setLineResults] = useState(null);
+  // Purely presentational — which display view is showing. Never read by the timer effect,
+  // patchCurrent/gradeLine, or finishSession, so switching views mid-test can't disturb
+  // progress, grading, or a running timer.
+  const [viewMode, setViewMode] = useState(location.state?.initialViewMode ?? "standard");
   // finishSession() needs the just-patched note/result even when it runs inside the same
   // handler that patched it (e.g. the Note Required modal's "Save & Continue"), where a
   // re-render hasn't happened yet and the handler's own closure over `lineResults` is still
@@ -61,14 +68,40 @@ export default function LiveTestRunnerPage() {
   // chrome (progress bar, "Line X of Y", and the step's own title) just gets in the way.
   const isObstacleCourse = current?.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE;
 
-  function patchCurrent(fields) {
+  // Name-addressed write, shared by patchCurrent (index-addressed, used by the Standard
+  // single-step card) and gradeLine (used by the Checklist/Tile views, which grade lines
+  // out of order and so can't rely on currentIndex). Keeping one write path means both ever
+  // touch the same Firestore update shape and the same lineResultsRef sync.
+  function patchLine(lineId, fields) {
     setLineResults((prev) => {
-      const copy = [...prev];
-      copy[currentIndex] = { ...copy[currentIndex], ...fields };
+      const copy = prev.map((l) => (l.id === lineId ? { ...l, ...fields } : l));
       lineResultsRef.current = copy;
       return copy;
     });
-    return updateDoc(doc(db, "sessions", sessionId, "lineResults", current.id), fields);
+    return updateDoc(doc(db, "sessions", sessionId, "lineResults", lineId), fields);
+  }
+
+  function patchCurrent(fields) {
+    return patchLine(current.id, fields);
+  }
+
+  // Name-addressed grading for the Checklist/Tile views, which show every line at once and
+  // let the evaluator grade any of them without making it "current" first. Generalizes
+  // setGradedResult (below), which only ever grades `current`.
+  async function gradeLine(lineId, result) {
+    const line = lineResultsRef.current?.find((l) => l.id === lineId);
+    if (!line) return;
+    const pointsEarned = result === RESULT.PASS ? (line.pointsSnapshot ?? 0) : 0;
+    await patchLine(lineId, { result, pointsEarned });
+  }
+
+  // Used by the Checklist/Tile views to open a line (timer/obstacle-course/instruction)
+  // that can't be graded with a single tap in the Standard single-step card instead.
+  function jumpToStandard(lineId) {
+    const index = lineResults.findIndex((l) => l.id === lineId);
+    if (index === -1) return;
+    setCurrentIndex(index);
+    setViewMode("standard");
   }
 
   function startTimer() {
@@ -232,7 +265,11 @@ export default function LiveTestRunnerPage() {
         </div>
       )}
 
-      {!isObstacleCourse && (
+      <div style={{ padding: "12px 16px 0", maxWidth: 720, margin: "0 auto", width: "100%" }}>
+        <ViewSwitcher viewMode={viewMode} setViewMode={setViewMode} />
+      </div>
+
+      {viewMode === "standard" && !isObstacleCourse && (
         <div style={{ padding: "12px 16px 0" }}>
           <div style={{ height: 6, background: "#e1e1e8", borderRadius: 3, overflow: "hidden" }}>
             <div
@@ -250,15 +287,21 @@ export default function LiveTestRunnerPage() {
       )}
 
       <div className="screen" style={{ flex: 1, paddingTop: isObstacleCourse ? 12 : undefined }}>
-        <LineCard
-          current={current}
-          isTimerRunning={isTimerRunning}
-          elapsed={elapsed}
-          startTimer={startTimer}
-          stopTimer={stopTimer}
-          patchCurrent={patchCurrent}
-          setGradedResult={setGradedResult}
-        />
+        {viewMode === "standard" ? (
+          <LineCard
+            current={current}
+            isTimerRunning={isTimerRunning}
+            elapsed={elapsed}
+            startTimer={startTimer}
+            stopTimer={stopTimer}
+            patchCurrent={patchCurrent}
+            setGradedResult={setGradedResult}
+          />
+        ) : viewMode === "checklist" ? (
+          <ChecklistView lineResults={lineResults} onGrade={gradeLine} onJump={jumpToStandard} />
+        ) : (
+          <TileView lineResults={lineResults} onGrade={gradeLine} onJump={jumpToStandard} />
+        )}
       </div>
 
       <div
@@ -414,6 +457,24 @@ export default function LiveTestRunnerPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// "Change View" control, shared by the top of this page. Purely presentational — it only
+// ever calls setViewMode, never anything that touches currentIndex/lineResults/the timer.
+function ViewSwitcher({ viewMode, setViewMode }) {
+  return (
+    <div className="segmented">
+      {["standard", "checklist", "tile"].map((mode) => (
+        <button
+          key={mode}
+          className={`segment ${viewMode === mode ? "active" : ""}`}
+          onClick={() => setViewMode(mode)}
+        >
+          {mode === "standard" ? "Standard" : mode === "checklist" ? "Checklist" : "Tile"}
+        </button>
+      ))}
     </div>
   );
 }
