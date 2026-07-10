@@ -884,6 +884,25 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
     );
   }
 
+  if (current.lineTypeSnapshot === LINE_TYPES.OVERALL_TIMER) {
+    return (
+      <div className="center-column" style={{ paddingTop: 32 }}>
+        <div style={{ fontSize: 40 }}>⏱️</div>
+        <p style={{ fontSize: 20, fontWeight: 500 }}>
+          This step is scored automatically by the Overall Timer banner above.
+        </p>
+        <p className="muted">
+          Use "Stop Test" when the recruit finishes — there's nothing to grade manually here.
+        </p>
+        {current.result != null && (
+          <div className={`badge ${current.result === RESULT.PASS ? "pass" : "fail"}`} style={{ fontSize: 16, marginTop: 12 }}>
+            {current.result === RESULT.PASS ? "PASS" : "FAIL"}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // Graded line
   return (
     <div className="center-column" style={{ paddingTop: 16 }}>
