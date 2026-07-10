@@ -15,6 +15,7 @@ import { compressImageToDataUrl } from "../lib/image";
 import { sendFailureEmail } from "../lib/notify";
 import { computeTimerResult, formatSeconds, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
 import { missingRequiredDistances } from "../lib/obstacleCourse";
+import { sanitizeHtml } from "../lib/richText";
 import ObstacleCourseRunner from "../components/ObstacleCourseRunner";
 
 export default function LiveTestRunnerPage() {
@@ -422,7 +423,10 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
     return (
       <div className="center-column" style={{ paddingTop: 32 }}>
         <div style={{ fontSize: 40 }}>ℹ️</div>
-        <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
+        <p
+          style={{ fontSize: 20, fontWeight: 500 }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(current.lineTextSnapshot) }}
+        />
       </div>
     );
   }
@@ -430,7 +434,10 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
   if (current.lineTypeSnapshot === LINE_TYPES.TIMER) {
     return (
       <div className="center-column" style={{ paddingTop: 16 }}>
-        <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
+        <p
+          style={{ fontSize: 20, fontWeight: 500 }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(current.lineTextSnapshot) }}
+        />
         {current.passThresholdSecondsSnapshot != null && (
           <p className="muted" style={{ fontWeight: 600 }}>
             Pass: ≤ {current.passThresholdSecondsSnapshot}s · Worth {current.pointsSnapshot ?? 0} pts
@@ -496,7 +503,10 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
   // Graded line
   return (
     <div className="center-column" style={{ paddingTop: 16 }}>
-      <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
+      <p
+        style={{ fontSize: 20, fontWeight: 500 }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(current.lineTextSnapshot) }}
+      />
       <p className="muted" style={{ fontWeight: 600 }}>
         Worth {current.pointsSnapshot ?? 0} pts
         {current.isCriticalSnapshot && <span style={{ color: "var(--brand-red)" }}> · CRITICAL</span>}

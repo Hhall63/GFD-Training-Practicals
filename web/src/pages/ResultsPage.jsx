@@ -4,6 +4,7 @@ import { collection, doc, getDoc, getDocs, orderBy, query } from "firebase/fires
 import { db } from "../firebase";
 import { buildFailureMailto, fetchNotifyRecipients } from "../lib/notify";
 import { formatSeconds, LINE_TYPES, RESULT } from "../lib/constants";
+import { sanitizeHtml } from "../lib/richText";
 import ObstacleCourseSummary from "../components/ObstacleCourseSummary";
 
 export default function ResultsPage() {
@@ -126,7 +127,9 @@ export default function ResultsPage() {
               <div key={line.id} className="card" style={{ textAlign: "left" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>
-                    {!isObstacle && line.lineTextSnapshot}
+                    {!isObstacle && (
+                      <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(line.lineTextSnapshot) }} />
+                    )}
                     {line.isCriticalSnapshot && line.result === RESULT.FAIL && (
                       <span style={{ color: "var(--brand-red)", fontWeight: 700 }}> (CRITICAL)</span>
                     )}

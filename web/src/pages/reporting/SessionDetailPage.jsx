@@ -4,6 +4,7 @@ import { collection, doc, getDoc, getDocs, orderBy, query } from "firebase/fires
 import { db } from "../../firebase";
 import TopBar from "../../components/TopBar";
 import { formatSeconds, LINE_TYPES, RESULT } from "../../lib/constants";
+import { sanitizeHtml } from "../../lib/richText";
 import ObstacleCourseSummary from "../../components/ObstacleCourseSummary";
 
 export default function SessionDetailPage() {
@@ -55,7 +56,11 @@ export default function SessionDetailPage() {
           return (
             <div key={line.id} className="card">
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>{!isObstacle && line.lineTextSnapshot}</span>
+                <span>
+                  {!isObstacle && (
+                    <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(line.lineTextSnapshot) }} />
+                  )}
+                </span>
                 <span>
                   {line.result === RESULT.PASS && "✅"}
                   {line.result === RESULT.FAIL && "❌"}

@@ -1,5 +1,6 @@
 import { lineDisplayLabel, LINE_TYPES } from "./constants";
 import { summarizeObstacleCourseOneLine } from "./obstacleCourse";
+import { htmlToPlainText } from "./richText";
 
 const COLUMNS = [
   "Recruit Name", "Cohort", "Badge/ID", "Template Name",
@@ -64,7 +65,7 @@ export function buildResultsCsv(sessions) {
       rows.push([
         ...base,
         line.sortOrder,
-        lineDisplayLabel(line),
+        htmlToPlainText(lineDisplayLabel(line)),
         line.lineTypeSnapshot,
         (line.result ?? "").toUpperCase(),
         line.timerElapsedSeconds != null ? line.timerElapsedSeconds.toFixed(1) : "",

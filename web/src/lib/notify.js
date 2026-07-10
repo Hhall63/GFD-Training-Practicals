@@ -2,6 +2,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { formatSeconds, lineDisplayLabel, LINE_TYPES, RESULT } from "./constants";
 import { summarizeObstacleCourseLines } from "./obstacleCourse";
+import { htmlToPlainText } from "./richText";
 
 /**
  * Failure-notification emails, kept free of charge two ways:
@@ -78,12 +79,12 @@ export function buildFailureBody(session, lineResults) {
   for (const line of lineResults) {
     lines.push("");
     if (line.lineTypeSnapshot === LINE_TYPES.INSTRUCTION) {
-      lines.push(`[Instruction] ${lineDisplayLabel(line)}`);
+      lines.push(`[Instruction] ${htmlToPlainText(lineDisplayLabel(line))}`);
       continue;
     }
     const result = line.result === RESULT.PASS ? "PASS" : line.result === RESULT.FAIL ? "FAIL" : "—";
     const critical = line.isCriticalSnapshot && line.result === RESULT.FAIL ? " (CRITICAL)" : "";
-    lines.push(`[${result}${critical}] ${lineDisplayLabel(line)}`);
+    lines.push(`[${result}${critical}] ${htmlToPlainText(lineDisplayLabel(line))}`);
     if (line.timerElapsedSeconds != null) {
       const threshold = line.passThresholdSecondsSnapshot != null ? ` (pass at ≤ ${line.passThresholdSecondsSnapshot}s)` : "";
       lines.push(`    Time: ${formatSeconds(line.timerElapsedSeconds)}s${threshold}`);

@@ -14,7 +14,9 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
+import RichTextEditor from "../components/RichTextEditor";
 import { LINE_TYPE_LABELS, LINE_TYPES } from "../lib/constants";
+import { sanitizeHtml } from "../lib/richText";
 
 const DEFAULT_PASSING_PERCENTAGE = 70;
 
@@ -108,7 +110,7 @@ export default function TemplateEditorPage() {
         {lines.map((line, index) => (
           <div key={line.id} className="list-row">
             <div style={{ flex: 1 }} onClick={() => setEditingLine(line)}>
-              <div style={{ fontWeight: 500 }}>{line.lineText}</div>
+              <div style={{ fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(line.lineText) }} />
               <div className="muted">
                 {LINE_TYPE_LABELS[line.lineType]}
                 {line.lineType === LINE_TYPES.TIMER && line.passThresholdSeconds != null && ` — pass at ≤ ${line.passThresholdSeconds}s`}
@@ -253,7 +255,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
         {!isObstacleCourse && (
           <div className="field">
             <label>{lineType === LINE_TYPES.INSTRUCTION ? "Instruction Text" : "Step Description"}</label>
-            <textarea rows={3} value={lineText} onChange={(e) => setLineText(e.target.value)} />
+            <RichTextEditor value={lineText} onChange={setLineText} />
           </div>
         )}
 

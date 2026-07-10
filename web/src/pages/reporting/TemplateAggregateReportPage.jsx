@@ -4,6 +4,7 @@ import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebas
 import { db } from "../../firebase";
 import TopBar from "../../components/TopBar";
 import { LINE_TYPES, RESULT } from "../../lib/constants";
+import { sanitizeHtml } from "../../lib/richText";
 
 export default function TemplateAggregateReportPage() {
   const { templateId } = useParams();
@@ -69,7 +70,7 @@ export default function TemplateAggregateReportPage() {
         {rows.length === 0 && <p className="muted">No completed sessions yet.</p>}
         {rows.map((row) => (
           <div key={row.text} className="card">
-            <div>{row.text}</div>
+            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(row.text) }} />
             <div className="muted" style={{ color: row.failed > 0 ? "var(--brand-red)" : undefined }}>
               Failed {row.failed} of {row.total} ({Math.round((row.failed / row.total) * 100)}%)
             </div>
