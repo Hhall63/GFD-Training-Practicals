@@ -86,6 +86,15 @@ service cloud.firestore {
       }
     }
 
+    match /testGroups/{groupId} {
+      // Bundles of existing templates for running several back-to-back on one recruit
+      // (e.g. "PPE Practicals" bundling 4 existing tests). Staff read the list to start a
+      // group test from Home; only administrators build/manage groups.
+      allow get: if isStaff();
+      allow list: if isStaff();
+      allow write: if isAdminRole();
+    }
+
     match /sessions/{sessionId} {
       // Staff run tests and record results. A Recruit may read only their own sessions.
       allow read: if isStaff() || (isRecruitRole() && resource.data.recruitId == myUserDoc().recruitId);

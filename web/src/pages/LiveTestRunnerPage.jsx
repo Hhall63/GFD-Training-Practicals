@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
@@ -9,12 +10,13 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { compressImageToDataUrl } from "../lib/image";
 import { sendFailureEmail } from "../lib/notify";
 import { computeTimerResult, formatSeconds, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
-import { missingRequiredDistances } from "../lib/obstacleCourse";
+import { defaultObstacleCourseConfig, missingRequiredDistances, seedObstacleTallies } from "../lib/obstacleCourse";
 import { sanitizeHtml } from "../lib/richText";
 import ObstacleCourseRunner from "../components/ObstacleCourseRunner";
 import ChecklistView from "../components/ChecklistView";
@@ -27,6 +29,13 @@ export default function LiveTestRunnerPage() {
 
   const [sessionData, setSessionData] = useState(null);
   const [lineResults, setLineResults] = useState(null);
+  // Only populated when this session is part of a Test Group (sessionData.groupId is set) —
+  // the group's ordered templateIds, read once on mount alongside the session/lineResults
+  // fetch, so we know whether this is the last test in the group and what template to seed
+  // next for "Go to Next Test".
+  const [groupTemplateIds, setGroupTemplateIds] = useState(null);
+  const [showGroupContinue, setShowGroupContinue] = useState(false);
+  const [creatingNextTest, setCreatingNextTest] = useState(false);
   // Purely presentational — which display view is showing. Never read by the timer effect,
   // patchCurrent/gradeLine, or finishSession, so switching views mid-test can't disturb
   // progress, grading, or a running timer.
@@ -50,7 +59,14 @@ export default function LiveTestRunnerPage() {
   const intervalRef = useRef(null);
 
   useEffect(() => {
-    getDoc(doc(db, "sessions", sessionId)).then((snap) => setSessionData(snap.data()));
+    getDoc(doc(db, "sessions", sessionId)).then(async (snap) => {
+      const data = snap.data();
+      setSessionData(data);
+      if (data?.groupId) {
+        const groupSnap = await getDoc(doc(db, "testGroups", data.groupId));
+        if (groupSnap.exists()) setGroupTemplateIds(groupSnap.data().templateIds ?? []);
+      }
+    });
     getDocs(query(collection(db, "sessions", sessionId, "lineResults"), orderBy("sortOrder"))).then(
       (snap) => {
         const results = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -64,6 +80,13 @@ export default function LiveTestRunnerPage() {
 
   const current = lineResults?.[currentIndex];
   const isLastLine = lineResults && currentIndex === lineResults.length - 1;
+  // Whether there's another test queued up after this one in the group. If the group's
+  // templateIds haven't loaded yet (shouldn't normally happen — it's fetched on mount
+  // alongside the session), this safely defaults to "last test" rather than blocking.
+  const isMidGroup =
+    !!sessionData?.groupId &&
+    !!groupTemplateIds &&
+    sessionData.groupSequenceIndex + 1 < groupTemplateIds.length;
   // The obstacle course is a full-screen dashboard with its own controls, so the test
   // chrome (progress bar, "Line X of Y", and the step's own title) just gets in the way.
   const isObstacleCourse = current?.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE;
@@ -202,9 +225,89 @@ export default function LiveTestRunnerPage() {
   async function proceed() {
     if (isLastLine) {
       await finishSession();
-      navigate(`/session/${sessionId}/results`, { replace: true });
+      // Sessions started from a Test Group don't fall straight through to the results
+      // page — the instructor still needs the option to keep going to the next test in
+      // the group, so show the continuation popup instead. A session started the normal
+      // way never has groupId set, so its behavior is completely unchanged.
+      if (sessionData.groupId) {
+        setShowGroupContinue(true);
+      } else {
+        navigate(`/session/${sessionId}/results`, { replace: true });
+      }
     } else {
       setCurrentIndex((i) => i + 1);
+    }
+  }
+
+  // Creates the next session in the group (same recruit, next templateId in the group's
+  // ordered list, groupSequenceIndex + 1) and jumps straight into it, skipping recruit
+  // re-selection entirely. Mirrors RecruitConfirmPage's beginTest() session/lineResults
+  // seeding — this page has its own recruit/template context (from the just-finished
+  // session), so it creates the next session itself rather than routing back through
+  // RecruitConfirmPage.
+  async function goToNextTest() {
+    setCreatingNextTest(true);
+    try {
+      const nextIndex = sessionData.groupSequenceIndex + 1;
+      const nextTemplateId = groupTemplateIds[nextIndex];
+      const nextTemplateSnap = await getDoc(doc(db, "templates", nextTemplateId));
+      const nextTemplate = { id: nextTemplateSnap.id, ...nextTemplateSnap.data() };
+
+      const linesSnap = await getDocs(
+        query(collection(db, "templates", nextTemplateId, "lines"), orderBy("sortOrder"))
+      );
+      const lines = linesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const totalPointsPossible = lines.reduce(
+        (sum, line) => sum + (line.lineType !== LINE_TYPES.INSTRUCTION ? Number(line.points ?? 0) : 0),
+        0
+      );
+
+      const nextSessionRef = await addDoc(collection(db, "sessions"), {
+        recruitId: sessionData.recruitId,
+        recruitName: sessionData.recruitName,
+        templateId: nextTemplate.id,
+        templateName: nextTemplate.name,
+        evaluatorName: sessionData.evaluatorName,
+        attemptType: sessionData.attemptType,
+        startedAt: serverTimestamp(),
+        completedAt: null,
+        status: SESSION_STATUS.IN_PROGRESS,
+        overallResult: null,
+        criticalFailure: false,
+        passingPercentageSnapshot: nextTemplate.passingPercentage ?? 70,
+        totalPointsPossible,
+        totalPointsEarned: null,
+        failureEmailStatus: null,
+        groupId: sessionData.groupId,
+        groupName: sessionData.groupName,
+        groupSequenceIndex: nextIndex,
+      });
+
+      const batch = writeBatch(db);
+      lines.forEach((line) => {
+        const lineResultRef = doc(collection(db, "sessions", nextSessionRef.id, "lineResults"));
+        const isObstacleCourse = line.lineType === LINE_TYPES.OBSTACLE_COURSE;
+        batch.set(lineResultRef, {
+          sortOrder: line.sortOrder,
+          lineTypeSnapshot: line.lineType,
+          lineTextSnapshot: line.lineText,
+          passThresholdSecondsSnapshot: line.passThresholdSeconds ?? null,
+          pointsSnapshot: line.lineType !== LINE_TYPES.INSTRUCTION ? Number(line.points ?? 0) : null,
+          isCriticalSnapshot: line.isCritical ?? false,
+          obstacleCourseConfigSnapshot: isObstacleCourse ? defaultObstacleCourseConfig() : null,
+          obstacleTallies: isObstacleCourse ? seedObstacleTallies() : null,
+          result: line.lineType === LINE_TYPES.INSTRUCTION ? RESULT.NOT_APPLICABLE : null,
+          pointsEarned: null,
+          timerElapsedSeconds: null,
+          note: null,
+          photoURLs: [],
+        });
+      });
+      await batch.commit();
+
+      navigate(`/session/${nextSessionRef.id}/run`, { replace: true, state: { initialViewMode: viewMode } });
+    } finally {
+      setCreatingNextTest(false);
     }
   }
 
@@ -453,6 +556,55 @@ export default function LiveTestRunnerPage() {
               >
                 Save & Continue
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showGroupContinue && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: 12 }}>Test Complete</h3>
+            <p className="muted" style={{ marginBottom: 20 }}>
+              {sessionData.groupName}: test {sessionData.groupSequenceIndex + 1} of{" "}
+              {groupTemplateIds?.length ?? sessionData.groupSequenceIndex + 1} complete.
+              {isMidGroup
+                ? " The recruit is already selected — go straight to the next test, or view this test's result first."
+                : " That was the last test in this group."}
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                className="secondary"
+                style={{ flex: 1 }}
+                onClick={() => navigate(`/session/${sessionId}/results`, { replace: true })}
+              >
+                View Results
+              </button>
+              {isMidGroup ? (
+                <button className="primary" style={{ flex: 1 }} disabled={creatingNextTest} onClick={goToNextTest}>
+                  {creatingNextTest ? "Loading…" : "Go to Next Test"}
+                </button>
+              ) : (
+                <button
+                  className="primary"
+                  style={{ flex: 1 }}
+                  onClick={() =>
+                    navigate(`/session-group/${sessionData.groupId}/${sessionData.recruitId}`, { replace: true })
+                  }
+                >
+                  View Group Summary
+                </button>
+              )}
             </div>
           </div>
         </div>

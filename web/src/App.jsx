@@ -13,6 +13,8 @@ import ResultsPage from "./pages/ResultsPage";
 import RecruitsAdminPage from "./pages/RecruitsAdminPage";
 import TemplatesAdminPage from "./pages/TemplatesAdminPage";
 import TemplateEditorPage from "./pages/TemplateEditorPage";
+import TestGroupsAdminPage from "./pages/TestGroupsAdminPage";
+import GroupSummaryPage from "./pages/GroupSummaryPage";
 import AdminsPage from "./pages/AdminsPage";
 import ReportingHomePage from "./pages/reporting/ReportingHomePage";
 import RecruitHistoryListPage from "./pages/reporting/RecruitHistoryListPage";
@@ -94,12 +96,15 @@ export default function App() {
       <Route path="/" element={<RequireAuth>{role === "admin" ? <AdminDashboardPage /> : isRecruit ? <RecruitHomePage /> : <HomePage />}</RequireAuth>} />
       <Route path="/start-test" element={<RequireAuth><RequireStaff><HomePage /></RequireStaff></RequireAuth>} />
       <Route path="/test/:templateId" element={<RequireAuth><RequireStaff><RecruitConfirmPage /></RequireStaff></RequireAuth>} />
+      <Route path="/test/group/:groupId" element={<RequireAuth><RequireStaff><RecruitConfirmPage /></RequireStaff></RequireAuth>} />
       <Route path="/session/:sessionId/run" element={<RequireAuth><RequireStaff><LiveTestRunnerPage /></RequireStaff></RequireAuth>} />
       <Route path="/session/:sessionId/results" element={<RequireAuth><RequireStaff><ResultsPage /></RequireStaff></RequireAuth>} />
+      <Route path="/session-group/:groupId/:recruitId" element={<RequireAuth><RequireStaff><GroupSummaryPage /></RequireStaff></RequireAuth>} />
 
       <Route path="/recruits" element={<RequireAuth><RequireAdminRole><RecruitsAdminPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/templates" element={<RequireAuth><RequireAdminRole><TemplatesAdminPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/templates/:templateId" element={<RequireAuth><RequireAdminRole><TemplateEditorPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/test-groups" element={<RequireAuth><RequireAdminRole><TestGroupsAdminPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/admins" element={<RequireAuth><RequireAdminRole><AdminsPage /></RequireAdminRole></RequireAuth>} />
 
       <Route path="/reports" element={<RequireAuth><RequireAdminRole><ReportingHomePage /></RequireAdminRole></RequireAuth>} />

@@ -20,11 +20,16 @@ import { initials, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
 import { defaultObstacleCourseConfig, seedObstacleTallies } from "../lib/obstacleCourse";
 
 export default function RecruitConfirmPage() {
-  const { templateId } = useParams();
+  // Two routes render this page: /test/:templateId (a single test) and
+  // /test/group/:groupId (a Test Group — several templates run back-to-back for one
+  // recruit). Only one of these params is ever set, depending on which route matched.
+  const { templateId, groupId } = useParams();
   const navigate = useNavigate();
   const { adminDoc, isAdmin } = useAuth();
 
   const [template, setTemplate] = useState(null);
+  const [group, setGroup] = useState(null);
+  const [groupTemplateIds, setGroupTemplateIds] = useState(null);
   const [recruits, setRecruits] = useState([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
@@ -33,10 +38,26 @@ export default function RecruitConfirmPage() {
   const [viewMode, setViewMode] = useState("standard");
 
   useEffect(() => {
-    getDoc(doc(db, "templates", templateId)).then((snap) => {
-      if (snap.exists()) setTemplate({ id: snap.id, ...snap.data() });
-    });
-  }, [templateId]);
+    if (groupId) {
+      // Load the group, then the first template in its ordered list — the recruit is
+      // confirmed once, and "Start" begins that first test exactly like a normal test.
+      getDoc(doc(db, "testGroups", groupId)).then(async (snap) => {
+        if (!snap.exists()) return;
+        const groupData = { id: snap.id, ...snap.data() };
+        setGroup(groupData);
+        const ids = groupData.templateIds ?? [];
+        setGroupTemplateIds(ids);
+        if (ids.length > 0) {
+          const firstSnap = await getDoc(doc(db, "templates", ids[0]));
+          if (firstSnap.exists()) setTemplate({ id: firstSnap.id, ...firstSnap.data() });
+        }
+      });
+    } else {
+      getDoc(doc(db, "templates", templateId)).then((snap) => {
+        if (snap.exists()) setTemplate({ id: snap.id, ...snap.data() });
+      });
+    }
+  }, [templateId, groupId]);
 
   useEffect(() => {
     const q = query(collection(db, "recruits"), where("isActive", "==", true));
@@ -58,8 +79,11 @@ export default function RecruitConfirmPage() {
   async function beginTest() {
     setStarting(true);
     try {
+      // `template` is already the right one for either flow: the single template picked
+      // by /test/:templateId, or the first template in the group's ordered list for
+      // /test/group/:groupId.
       const linesSnap = await getDocs(
-        query(collection(db, "templates", templateId, "lines"), orderBy("sortOrder"))
+        query(collection(db, "templates", template.id, "lines"), orderBy("sortOrder"))
       );
       const lines = linesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -86,6 +110,11 @@ export default function RecruitConfirmPage() {
         totalPointsPossible,
         totalPointsEarned: null,
         failureEmailStatus: null,
+        // Only present when this session was started from a Test Group — snapshot the
+        // group name (same "snapshot" convention as passingPercentageSnapshot etc.) so a
+        // later rename of the group never rewrites the history of past tests. Sessions
+        // started the normal way simply never have these fields.
+        ...(groupId ? { groupId, groupName: group?.name ?? null, groupSequenceIndex: 0 } : {}),
       });
 
       const batch = writeBatch(db);
@@ -128,7 +157,7 @@ export default function RecruitConfirmPage() {
 
   return (
     <div className="app-shell">
-      <TopBar title={template.name} showMenu={false} />
+      <TopBar title={groupId && group ? `${group.name} (1 of ${groupTemplateIds?.length ?? 1})` : template.name} showMenu={false} />
       <div className="screen">
         {!selected ? (
           <>
@@ -173,7 +202,9 @@ export default function RecruitConfirmPage() {
             <p className="muted" style={{ margin: "0 0 4px" }}>{selected.recruitClassOrCohort}</p>
             {selected.badgeOrIdNumber && <p className="muted">ID: {selected.badgeOrIdNumber}</p>}
             <p className="muted" style={{ maxWidth: 320, margin: "16px 0" }}>
-              Confirm this is the recruit being tested on "{template.name}".
+              {groupId && group
+                ? `Confirm this is the recruit being tested on the "${group.name}" group (starting with "${template.name}", ${groupTemplateIds?.length ?? 1} tests total).`
+                : `Confirm this is the recruit being tested on "${template.name}".`}
             </p>
             <div style={{ width: "100%", maxWidth: 320 }}>
               <div className="field" style={{ textAlign: "left" }}>
