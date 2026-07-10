@@ -3,6 +3,7 @@ export const LINE_TYPES = {
   GRADED: "graded",
   TIMER: "timer",
   OBSTACLE_COURSE: "obstacleCourse",
+  OVERALL_TIMER: "overallTimer",
 };
 
 export const LINE_TYPE_LABELS = {
@@ -10,6 +11,7 @@ export const LINE_TYPE_LABELS = {
   [LINE_TYPES.GRADED]: "Graded Step",
   [LINE_TYPES.TIMER]: "Timer",
   [LINE_TYPES.OBSTACLE_COURSE]: "Obstacle Course",
+  [LINE_TYPES.OVERALL_TIMER]: "Overall Timer",
 };
 
 /** The label to show for a test step. The obstacle course is a fixed department form, so

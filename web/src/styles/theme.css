@@ -1,5 +1,9 @@
 :root {
   --brand-navy: #12123a;
+  /* Second gradient stop for .overall-timer-banner — a lighter navy so the whole-test timer
+     banner reads as a distinct, richer surface from the flat --brand-navy per-step timer
+     banner, without introducing a whole new hue. */
+  --brand-navy-2: #23235c;
   --brand-red: #c4212f;
   --brand-gold: #d3a85f;
   --bg: #f4f4f7;
@@ -9,7 +13,10 @@
   --border: #e1e1e8;
   --success: #1f8a3b;
   --danger: var(--brand-red);
+  --status-pass-muted: #6b9e7a;
+  --status-fail-muted: #b5555f;
   --radius: 14px;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -115,6 +122,16 @@ button.primary.warning {
   color: var(--brand-navy);
 }
 
+button.primary.pass-muted {
+  background: var(--status-pass-muted);
+  box-shadow: 0 3px 10px rgba(107, 158, 122, 0.35);
+}
+
+button.primary.fail-muted {
+  background: var(--status-fail-muted);
+  box-shadow: 0 3px 10px rgba(181, 85, 95, 0.35);
+}
+
 button.secondary {
   width: 100%;
   padding: 12px;
@@ -192,6 +209,25 @@ a:visited {
   border-bottom: none;
 }
 
+.test-tile {
+  display: block;
+  width: 100%;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--brand-navy);
+  background: linear-gradient(135deg, rgba(18, 18, 58, 0.05), rgba(211, 168, 95, 0.08));
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.test-tile:active {
+  background: rgba(18, 18, 58, 0.12);
+}
+
 .badge {
   display: inline-block;
   padding: 3px 10px;
@@ -251,4 +287,77 @@ a:visited {
   border-radius: 8px;
   padding: 8px 14px;
   font-weight: 600;
+}
+
+.overall-timer-banner {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  /* Same safe-area clearance as .top-bar/.timer-banner — this banner sits above everything
+     else on the live test runner (including .timer-banner, when both happen to be present
+     at once), so it needs its own clearance from the iPhone status bar/notch. */
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-2));
+  border-bottom: 3px solid var(--brand-gold);
+  color: white;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.overall-timer-banner .overall-timer-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.overall-timer-banner .overall-timer-actions button {
+  width: auto;
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.segment {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  border: none;
+  cursor: pointer;
+}
+
+.segment + .segment {
+  border-left: 1px solid var(--border);
+}
+
+.segment.active {
+  background: var(--brand-navy);
+  color: white;
+}
+
+.card--pass {
+  border-left: 4px solid var(--success);
+}
+
+.card--fail {
+  border-left: 4px solid var(--brand-red);
+}
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
 }

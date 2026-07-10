@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
@@ -9,20 +10,36 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { compressImageToDataUrl } from "../lib/image";
 import { sendFailureEmail } from "../lib/notify";
 import { computeTimerResult, formatSeconds, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
-import { missingRequiredDistances } from "../lib/obstacleCourse";
+import { defaultObstacleCourseConfig, missingRequiredDistances, seedObstacleTallies } from "../lib/obstacleCourse";
+import { sanitizeHtml } from "../lib/richText";
 import ObstacleCourseRunner from "../components/ObstacleCourseRunner";
+import ChecklistView from "../components/ChecklistView";
+import TileView from "../components/TileView";
 
 export default function LiveTestRunnerPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [sessionData, setSessionData] = useState(null);
   const [lineResults, setLineResults] = useState(null);
+  // Only populated when this session is part of a Test Group (sessionData.groupId is set) —
+  // the group's ordered templateIds, read once on mount alongside the session/lineResults
+  // fetch, so we know whether this is the last test in the group and what template to seed
+  // next for "Go to Next Test".
+  const [groupTemplateIds, setGroupTemplateIds] = useState(null);
+  const [showGroupContinue, setShowGroupContinue] = useState(false);
+  const [creatingNextTest, setCreatingNextTest] = useState(false);
+  // Purely presentational — which display view is showing. Never read by the timer effect,
+  // patchCurrent/gradeLine, or finishSession, so switching views mid-test can't disturb
+  // progress, grading, or a running timer.
+  const [viewMode, setViewMode] = useState(location.state?.initialViewMode ?? "standard");
   // finishSession() needs the just-patched note/result even when it runs inside the same
   // handler that patched it (e.g. the Note Required modal's "Save & Continue"), where a
   // re-render hasn't happened yet and the handler's own closure over `lineResults` is still
@@ -40,9 +57,25 @@ export default function LiveTestRunnerPage() {
   const [noteRequiredReason, setNoteRequiredReason] = useState("stepFailed"); // "stepFailed" | "overallFail"
   const timerStartRef = useRef(null);
   const intervalRef = useRef(null);
+  // Whole-test stopwatch (Task 10). Independent of currentIndex/viewMode by design — it
+  // starts the instant the template's Overall Timer line loads and keeps running across
+  // every view until Stop Test is pressed, unlike the per-step timer above.
+  const [overallElapsed, setOverallElapsed] = useState(0);
+  const [isOverallRunning, setIsOverallRunning] = useState(false);
+  const [overallPauseEvents, setOverallPauseEvents] = useState([]);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const overallStartRef = useRef(null);
+  const overallIntervalRef = useRef(null);
 
   useEffect(() => {
-    getDoc(doc(db, "sessions", sessionId)).then((snap) => setSessionData(snap.data()));
+    getDoc(doc(db, "sessions", sessionId)).then(async (snap) => {
+      const data = snap.data();
+      setSessionData(data);
+      if (data?.groupId) {
+        const groupSnap = await getDoc(doc(db, "testGroups", data.groupId));
+        if (groupSnap.exists()) setGroupTemplateIds(groupSnap.data().templateIds ?? []);
+      }
+    });
     getDocs(query(collection(db, "sessions", sessionId, "lineResults"), orderBy("sortOrder"))).then(
       (snap) => {
         const results = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -54,20 +87,73 @@ export default function LiveTestRunnerPage() {
 
   useEffect(() => () => clearInterval(intervalRef.current), []);
 
+  // The whole-test line, if this template has one — found fresh on every render so it picks
+  // up the result/pauseEvents patchLine() writes once Stop Test finalizes it.
+  const overallTimerLine = lineResults?.find((l) => l.lineTypeSnapshot === LINE_TYPES.OVERALL_TIMER);
+
+  // Auto-starts the instant the Overall Timer line is available and hasn't already been
+  // finalized (result == null) — independent of currentIndex/viewMode, so switching steps or
+  // views never restarts or interrupts it. Re-runs only when overallTimerLine's own object
+  // identity changes (i.e. when patchLine touches it), not on every unrelated re-render.
+  useEffect(() => {
+    if (overallTimerLine && overallTimerLine.result == null && !isOverallRunning) {
+      overallStartRef.current = Date.now();
+      setIsOverallRunning(true);
+      overallIntervalRef.current = setInterval(() => {
+        setOverallElapsed((Date.now() - overallStartRef.current) / 1000);
+      }, 100);
+    }
+    return () => clearInterval(overallIntervalRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overallTimerLine]);
+
   const current = lineResults?.[currentIndex];
   const isLastLine = lineResults && currentIndex === lineResults.length - 1;
+  // Whether there's another test queued up after this one in the group. If the group's
+  // templateIds haven't loaded yet (shouldn't normally happen — it's fetched on mount
+  // alongside the session), this safely defaults to "last test" rather than blocking.
+  const isMidGroup =
+    !!sessionData?.groupId &&
+    !!groupTemplateIds &&
+    sessionData.groupSequenceIndex + 1 < groupTemplateIds.length;
   // The obstacle course is a full-screen dashboard with its own controls, so the test
   // chrome (progress bar, "Line X of Y", and the step's own title) just gets in the way.
   const isObstacleCourse = current?.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE;
 
-  function patchCurrent(fields) {
+  // Name-addressed write, shared by patchCurrent (index-addressed, used by the Standard
+  // single-step card) and gradeLine (used by the Checklist/Tile views, which grade lines
+  // out of order and so can't rely on currentIndex). Keeping one write path means both ever
+  // touch the same Firestore update shape and the same lineResultsRef sync.
+  function patchLine(lineId, fields) {
     setLineResults((prev) => {
-      const copy = [...prev];
-      copy[currentIndex] = { ...copy[currentIndex], ...fields };
+      const copy = prev.map((l) => (l.id === lineId ? { ...l, ...fields } : l));
       lineResultsRef.current = copy;
       return copy;
     });
-    return updateDoc(doc(db, "sessions", sessionId, "lineResults", current.id), fields);
+    return updateDoc(doc(db, "sessions", sessionId, "lineResults", lineId), fields);
+  }
+
+  function patchCurrent(fields) {
+    return patchLine(current.id, fields);
+  }
+
+  // Name-addressed grading for the Checklist/Tile views, which show every line at once and
+  // let the evaluator grade any of them without making it "current" first. Generalizes
+  // setGradedResult (below), which only ever grades `current`.
+  async function gradeLine(lineId, result) {
+    const line = lineResultsRef.current?.find((l) => l.id === lineId);
+    if (!line) return;
+    const pointsEarned = result === RESULT.PASS ? (line.pointsSnapshot ?? 0) : 0;
+    await patchLine(lineId, { result, pointsEarned });
+  }
+
+  // Used by the Checklist/Tile views to open a line (timer/obstacle-course/instruction)
+  // that can't be graded with a single tap in the Standard single-step card instead.
+  function jumpToStandard(lineId) {
+    const index = lineResults.findIndex((l) => l.id === lineId);
+    if (index === -1) return;
+    setCurrentIndex(index);
+    setViewMode("standard");
   }
 
   function startTimer() {
@@ -96,6 +182,12 @@ export default function LiveTestRunnerPage() {
 
   function canAdvance() {
     if (!current) return false;
+    // The Overall Timer line is only ever scored by Stop Test (see its dedicated read-only
+    // LineCard branch), never by completing whichever line happens to be last. Without this
+    // check, a template shaped like [Overall Timer, ...graded steps..., closing Instruction]
+    // could be finished via Submit on that closing line while the Overall Timer line itself
+    // sits ungraded — silently dropping its result/elapsed time/pause history from the report.
+    if (isLastLine && overallTimerLine && overallTimerLine.result == null) return false;
     if (current.lineTypeSnapshot === LINE_TYPES.INSTRUCTION) return true;
     // A result must be recorded first. The note-required-on-failure rule is enforced with a
     // blocking pop-up in advance() (like the distance gate), rather than by silently
@@ -165,12 +257,172 @@ export default function LiveTestRunnerPage() {
     return current.photoURLs?.length > 0 || !!current.note;
   }
 
+  // The one real "end the session" path in this page: computes/records the pass-fail
+  // outcome via finishSession(), then either shows Task 9's Test Group continuation popup
+  // or navigates to the results screen. Shared by proceed() (normal last-line completion)
+  // and confirmStopTest() (Task 10's early-stop path) so an early-stopped session gets
+  // exactly the same finishSession() computation and exactly the same Test Group offer as
+  // a normally-completed one — no second, parallel "finish" implementation.
+  async function finishSessionAndContinue() {
+    await finishSession();
+    if (sessionData.groupId) {
+      setShowGroupContinue(true);
+    } else {
+      navigate(`/session/${sessionId}/results`, { replace: true });
+    }
+  }
+
   async function proceed() {
     if (isLastLine) {
-      await finishSession();
-      navigate(`/session/${sessionId}/results`, { replace: true });
+      await finishSessionAndContinue();
     } else {
       setCurrentIndex((i) => i + 1);
+    }
+  }
+
+  function pauseOverallTimer() {
+    clearInterval(overallIntervalRef.current);
+    setIsOverallRunning(false);
+    setOverallPauseEvents((prev) => [
+      ...prev,
+      { pausedAtElapsedSeconds: overallElapsed, resumedAtElapsedSeconds: null },
+    ]);
+  }
+
+  function resumeOverallTimer() {
+    overallStartRef.current = Date.now() - overallElapsed * 1000;
+    setIsOverallRunning(true);
+    overallIntervalRef.current = setInterval(() => {
+      setOverallElapsed((Date.now() - overallStartRef.current) / 1000);
+    }, 100);
+    setOverallPauseEvents((prev) =>
+      prev.map((p, i) => (i === prev.length - 1 ? { ...p, resumedAtElapsedSeconds: overallElapsed } : p))
+    );
+  }
+
+  // Freezes the clock immediately (reusing pauseOverallTimer, so the elapsed reading is
+  // stable while the confirmation is up) and opens the "Are you sure?" popup.
+  function handleStopTestClick() {
+    pauseOverallTimer();
+    setShowStopConfirm(true);
+  }
+
+  // Cancels an in-flight stop exactly like canceling a pause: reuses resumeOverallTimer so
+  // there's no separate "resume after a canceled stop" behavior to maintain.
+  function cancelStopTest() {
+    setShowStopConfirm(false);
+    resumeOverallTimer();
+  }
+
+  // Finalizes the Overall Timer line's own pass/fail (all-or-nothing against its threshold,
+  // same as the per-step Timer type), records every still-ungraded line as an immediate
+  // fail/zero, then ends the session through the exact same finishSessionAndContinue() path
+  // used when a test completes normally — so a stopped-early session still gets
+  // finishSession()'s pass/fail computation and still offers "Go to Next Test" when this
+  // session belongs to a Test Group.
+  async function confirmStopTest() {
+    const finalElapsed = overallElapsed;
+    const result =
+      overallTimerLine.passThresholdSecondsSnapshot != null
+        ? computeTimerResult(finalElapsed, overallTimerLine.passThresholdSecondsSnapshot)
+        : RESULT.PASS;
+    const pointsEarned = result === RESULT.PASS ? (overallTimerLine.pointsSnapshot ?? 0) : 0;
+    const totalPausedSeconds = overallPauseEvents.reduce(
+      (sum, p) => sum + ((p.resumedAtElapsedSeconds ?? finalElapsed) - p.pausedAtElapsedSeconds),
+      0
+    );
+
+    // Use the same name-addressed patchLine() helper the rest of the page writes through
+    // (Task 8), not a hand-rolled updateDoc, so both the Firestore write and the local
+    // lineResults/lineResultsRef state stay in sync the same way every other grade does.
+    await patchLine(overallTimerLine.id, {
+      result,
+      pointsEarned,
+      elapsedSeconds: finalElapsed,
+      pauseEvents: overallPauseEvents,
+      totalPausedSeconds,
+    });
+
+    const stillUngraded = (lineResultsRef.current ?? lineResults).filter(
+      (l) => l.id !== overallTimerLine.id && l.result == null
+    );
+    await Promise.all(
+      stillUngraded.map((l) => patchLine(l.id, { result: RESULT.FAIL, pointsEarned: 0 }))
+    );
+
+    setShowStopConfirm(false);
+    await finishSessionAndContinue();
+  }
+
+  // Creates the next session in the group (same recruit, next templateId in the group's
+  // ordered list, groupSequenceIndex + 1) and jumps straight into it, skipping recruit
+  // re-selection entirely. Mirrors RecruitConfirmPage's beginTest() session/lineResults
+  // seeding — this page has its own recruit/template context (from the just-finished
+  // session), so it creates the next session itself rather than routing back through
+  // RecruitConfirmPage.
+  async function goToNextTest() {
+    setCreatingNextTest(true);
+    try {
+      const nextIndex = sessionData.groupSequenceIndex + 1;
+      const nextTemplateId = groupTemplateIds[nextIndex];
+      const nextTemplateSnap = await getDoc(doc(db, "templates", nextTemplateId));
+      const nextTemplate = { id: nextTemplateSnap.id, ...nextTemplateSnap.data() };
+
+      const linesSnap = await getDocs(
+        query(collection(db, "templates", nextTemplateId, "lines"), orderBy("sortOrder"))
+      );
+      const lines = linesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const totalPointsPossible = lines.reduce(
+        (sum, line) => sum + (line.lineType !== LINE_TYPES.INSTRUCTION ? Number(line.points ?? 0) : 0),
+        0
+      );
+
+      const nextSessionRef = await addDoc(collection(db, "sessions"), {
+        recruitId: sessionData.recruitId,
+        recruitName: sessionData.recruitName,
+        templateId: nextTemplate.id,
+        templateName: nextTemplate.name,
+        evaluatorName: sessionData.evaluatorName,
+        attemptType: sessionData.attemptType,
+        startedAt: serverTimestamp(),
+        completedAt: null,
+        status: SESSION_STATUS.IN_PROGRESS,
+        overallResult: null,
+        criticalFailure: false,
+        passingPercentageSnapshot: nextTemplate.passingPercentage ?? 70,
+        totalPointsPossible,
+        totalPointsEarned: null,
+        failureEmailStatus: null,
+        groupId: sessionData.groupId,
+        groupName: sessionData.groupName,
+        groupSequenceIndex: nextIndex,
+      });
+
+      const batch = writeBatch(db);
+      lines.forEach((line) => {
+        const lineResultRef = doc(collection(db, "sessions", nextSessionRef.id, "lineResults"));
+        const isObstacleCourse = line.lineType === LINE_TYPES.OBSTACLE_COURSE;
+        batch.set(lineResultRef, {
+          sortOrder: line.sortOrder,
+          lineTypeSnapshot: line.lineType,
+          lineTextSnapshot: line.lineText,
+          passThresholdSecondsSnapshot: line.passThresholdSeconds ?? null,
+          pointsSnapshot: line.lineType !== LINE_TYPES.INSTRUCTION ? Number(line.points ?? 0) : null,
+          isCriticalSnapshot: line.isCritical ?? false,
+          obstacleCourseConfigSnapshot: isObstacleCourse ? defaultObstacleCourseConfig() : null,
+          obstacleTallies: isObstacleCourse ? seedObstacleTallies() : null,
+          result: line.lineType === LINE_TYPES.INSTRUCTION ? RESULT.NOT_APPLICABLE : null,
+          pointsEarned: null,
+          timerElapsedSeconds: null,
+          note: null,
+          photoURLs: [],
+        });
+      });
+      await batch.commit();
+
+      navigate(`/session/${nextSessionRef.id}/run`, { replace: true, state: { initialViewMode: viewMode } });
+    } finally {
+      setCreatingNextTest(false);
     }
   }
 
@@ -224,6 +476,38 @@ export default function LiveTestRunnerPage() {
 
   return (
     <div className="app-shell">
+      {/* Rendered above/outside Task 8's viewMode branch below, so this whole-test banner and
+          its controls show in every view (Standard/Checklist/Tile) and are never affected by
+          switching views. */}
+      {overallTimerLine && (
+        <div className="overall-timer-banner">
+          <span>
+            Overall Timer: {formatSeconds(overallElapsed)}s
+            {overallTimerLine.result != null && (
+              <span
+                className={`badge ${overallTimerLine.result === RESULT.PASS ? "pass" : "fail"}`}
+                style={{ marginLeft: 10 }}
+              >
+                {overallTimerLine.result === RESULT.PASS ? "PASS" : "FAIL"}
+              </span>
+            )}
+          </span>
+          {overallTimerLine.result == null && (
+            <div className="overall-timer-actions">
+              <button
+                className="secondary"
+                onClick={isOverallRunning ? pauseOverallTimer : resumeOverallTimer}
+              >
+                {isOverallRunning ? "Pause" : "Resume"}
+              </button>
+              <button className="primary danger" onClick={handleStopTestClick}>
+                Stop Test
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {isTimerRunning && (
         <div className="timer-banner">
           <span>Timer running: {formatSeconds(elapsed)}s</span>
@@ -231,7 +515,11 @@ export default function LiveTestRunnerPage() {
         </div>
       )}
 
-      {!isObstacleCourse && (
+      <div style={{ padding: "12px 16px 0", maxWidth: 720, margin: "0 auto", width: "100%" }}>
+        <ViewSwitcher viewMode={viewMode} setViewMode={setViewMode} />
+      </div>
+
+      {viewMode === "standard" && !isObstacleCourse && (
         <div style={{ padding: "12px 16px 0" }}>
           <div style={{ height: 6, background: "#e1e1e8", borderRadius: 3, overflow: "hidden" }}>
             <div
@@ -249,15 +537,21 @@ export default function LiveTestRunnerPage() {
       )}
 
       <div className="screen" style={{ flex: 1, paddingTop: isObstacleCourse ? 12 : undefined }}>
-        <LineCard
-          current={current}
-          isTimerRunning={isTimerRunning}
-          elapsed={elapsed}
-          startTimer={startTimer}
-          stopTimer={stopTimer}
-          patchCurrent={patchCurrent}
-          setGradedResult={setGradedResult}
-        />
+        {viewMode === "standard" ? (
+          <LineCard
+            current={current}
+            isTimerRunning={isTimerRunning}
+            elapsed={elapsed}
+            startTimer={startTimer}
+            stopTimer={stopTimer}
+            patchCurrent={patchCurrent}
+            setGradedResult={setGradedResult}
+          />
+        ) : viewMode === "checklist" ? (
+          <ChecklistView lineResults={lineResults} onGrade={gradeLine} onJump={jumpToStandard} />
+        ) : (
+          <TileView lineResults={lineResults} onGrade={gradeLine} onJump={jumpToStandard} />
+        )}
       </div>
 
       <div
@@ -413,6 +707,103 @@ export default function LiveTestRunnerPage() {
           </div>
         </div>
       )}
+
+      {showGroupContinue && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: 12 }}>Test Complete</h3>
+            <p className="muted" style={{ marginBottom: 20 }}>
+              {sessionData.groupName}: test {sessionData.groupSequenceIndex + 1} of{" "}
+              {groupTemplateIds?.length ?? sessionData.groupSequenceIndex + 1} complete.
+              {isMidGroup
+                ? " The recruit is already selected — go straight to the next test, or view this test's result first."
+                : " That was the last test in this group."}
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                className="secondary"
+                style={{ flex: 1 }}
+                onClick={() => navigate(`/session/${sessionId}/results`, { replace: true })}
+              >
+                View Results
+              </button>
+              {isMidGroup ? (
+                <button className="primary" style={{ flex: 1 }} disabled={creatingNextTest} onClick={goToNextTest}>
+                  {creatingNextTest ? "Loading…" : "Go to Next Test"}
+                </button>
+              ) : (
+                <button
+                  className="primary"
+                  style={{ flex: 1 }}
+                  onClick={() =>
+                    navigate(`/session-group/${sessionData.groupId}/${sessionData.recruitId}`, { replace: true })
+                  }
+                >
+                  View Group Summary
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStopConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: 12 }}>Stop Test?</h3>
+            <p className="muted" style={{ marginBottom: 20 }}>
+              This ends the test now. Any ungraded steps will be recorded as failed with zero
+              points.
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button className="secondary" style={{ flex: 1 }} onClick={cancelStopTest}>
+                Cancel
+              </button>
+              <button className="primary danger" style={{ flex: 1 }} onClick={confirmStopTest}>
+                Yes, Stop Test
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// "Change View" control, shared by the top of this page. Purely presentational — it only
+// ever calls setViewMode, never anything that touches currentIndex/lineResults/the timer.
+function ViewSwitcher({ viewMode, setViewMode }) {
+  return (
+    <div className="segmented">
+      {["standard", "checklist", "tile"].map((mode) => (
+        <button
+          key={mode}
+          className={`segment ${viewMode === mode ? "active" : ""}`}
+          onClick={() => setViewMode(mode)}
+        >
+          {mode === "standard" ? "Standard" : mode === "checklist" ? "Checklist" : "Tile"}
+        </button>
+      ))}
     </div>
   );
 }
@@ -422,7 +813,10 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
     return (
       <div className="center-column" style={{ paddingTop: 32 }}>
         <div style={{ fontSize: 40 }}>ℹ️</div>
-        <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
+        <p
+          style={{ fontSize: 20, fontWeight: 500 }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(current.lineTextSnapshot) }}
+        />
       </div>
     );
   }
@@ -430,7 +824,10 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
   if (current.lineTypeSnapshot === LINE_TYPES.TIMER) {
     return (
       <div className="center-column" style={{ paddingTop: 16 }}>
-        <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
+        <p
+          style={{ fontSize: 20, fontWeight: 500 }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(current.lineTextSnapshot) }}
+        />
         {current.passThresholdSecondsSnapshot != null && (
           <p className="muted" style={{ fontWeight: 600 }}>
             Pass: ≤ {current.passThresholdSecondsSnapshot}s · Worth {current.pointsSnapshot ?? 0} pts
@@ -493,24 +890,46 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
     );
   }
 
+  if (current.lineTypeSnapshot === LINE_TYPES.OVERALL_TIMER) {
+    return (
+      <div className="center-column" style={{ paddingTop: 32 }}>
+        <div style={{ fontSize: 40 }}>⏱️</div>
+        <p style={{ fontSize: 20, fontWeight: 500 }}>
+          This step is scored automatically by the Overall Timer banner above.
+        </p>
+        <p className="muted">
+          Use "Stop Test" when the recruit finishes — there's nothing to grade manually here.
+        </p>
+        {current.result != null && (
+          <div className={`badge ${current.result === RESULT.PASS ? "pass" : "fail"}`} style={{ fontSize: 16, marginTop: 12 }}>
+            {current.result === RESULT.PASS ? "PASS" : "FAIL"}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // Graded line
   return (
     <div className="center-column" style={{ paddingTop: 16 }}>
-      <p style={{ fontSize: 20, fontWeight: 500 }}>{current.lineTextSnapshot}</p>
+      <p
+        style={{ fontSize: 20, fontWeight: 500 }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(current.lineTextSnapshot) }}
+      />
       <p className="muted" style={{ fontWeight: 600 }}>
         Worth {current.pointsSnapshot ?? 0} pts
         {current.isCriticalSnapshot && <span style={{ color: "var(--brand-red)" }}> · CRITICAL</span>}
       </p>
       <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 400, marginTop: 16 }}>
         <button
-          className={`primary ${current.result === RESULT.PASS ? "success" : ""}`}
+          className={`primary ${current.result === RESULT.PASS ? "pass-muted" : ""}`}
           style={{ background: current.result === RESULT.PASS ? undefined : "#c7c7cc" }}
           onClick={() => setGradedResult(RESULT.PASS)}
         >
           Pass
         </button>
         <button
-          className={`primary ${current.result === RESULT.FAIL ? "danger" : ""}`}
+          className={`primary ${current.result === RESULT.FAIL ? "fail-muted" : ""}`}
           style={{ background: current.result === RESULT.FAIL ? undefined : "#c7c7cc" }}
           onClick={() => setGradedResult(RESULT.FAIL)}
         >

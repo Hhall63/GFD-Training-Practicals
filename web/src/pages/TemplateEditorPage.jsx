@@ -14,7 +14,9 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
+import RichTextEditor from "../components/RichTextEditor";
 import { LINE_TYPE_LABELS, LINE_TYPES } from "../lib/constants";
+import { sanitizeHtml, htmlToPlainText } from "../lib/richText";
 
 const DEFAULT_PASSING_PERCENTAGE = 70;
 
@@ -108,10 +110,12 @@ export default function TemplateEditorPage() {
         {lines.map((line, index) => (
           <div key={line.id} className="list-row">
             <div style={{ flex: 1 }} onClick={() => setEditingLine(line)}>
-              <div style={{ fontWeight: 500 }}>{line.lineText}</div>
+              <div style={{ fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(line.lineText) }} />
               <div className="muted">
                 {LINE_TYPE_LABELS[line.lineType]}
-                {line.lineType === LINE_TYPES.TIMER && line.passThresholdSeconds != null && ` — pass at ≤ ${line.passThresholdSeconds}s`}
+                {(line.lineType === LINE_TYPES.TIMER || line.lineType === LINE_TYPES.OVERALL_TIMER) &&
+                  line.passThresholdSeconds != null &&
+                  ` — pass at ≤ ${line.passThresholdSeconds}s`}
                 {line.lineType !== LINE_TYPES.INSTRUCTION && ` — ${line.points ?? 0} pts`}
                 {line.isCritical && <span style={{ color: "var(--brand-red)", fontWeight: 600 }}> — CRITICAL</span>}
               </div>
@@ -126,6 +130,9 @@ export default function TemplateEditorPage() {
 
         <button className="primary" style={{ marginTop: 16 }} onClick={() => setEditingLine({})}>
           + Add Step
+        </button>
+        <button className="secondary" style={{ marginTop: 12, width: "100%" }} onClick={() => navigate("/")}>
+          Save & Exit
         </button>
       </div>
 
@@ -143,14 +150,23 @@ export default function TemplateEditorPage() {
 
 function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
   const isNew = !line.id;
-  const [lineType, setLineType] = useState(line.lineType ?? LINE_TYPES.INSTRUCTION);
+  const [lineType, setLineType] = useState(line.lineType ?? LINE_TYPES.GRADED);
   const [lineText, setLineText] = useState(line.lineText ?? "");
   const [passThresholdSeconds, setPassThresholdSeconds] = useState(line.passThresholdSeconds ?? 30);
   const [points, setPoints] = useState(line.points ?? 10);
   const [isCritical, setIsCritical] = useState(line.isCritical ?? false);
   const [saving, setSaving] = useState(false);
+  const [showAddAnotherPrompt, setShowAddAnotherPrompt] = useState(false);
 
   const isObstacleCourse = lineType === LINE_TYPES.OBSTACLE_COURSE;
+
+  function resetForNewLine() {
+    setLineType(LINE_TYPES.GRADED);
+    setLineText("");
+    setPassThresholdSeconds(30);
+    setPoints(10);
+    setIsCritical(false);
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -162,20 +178,50 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
         // failure email, CSV) with no chance of stray text getting stored.
         lineText: isObstacleCourse ? LINE_TYPE_LABELS[LINE_TYPES.OBSTACLE_COURSE] : lineText,
         isScored: lineType === LINE_TYPES.GRADED,
-        passThresholdSeconds: lineType === LINE_TYPES.TIMER ? Number(passThresholdSeconds) : null,
+        passThresholdSeconds:
+          (lineType === LINE_TYPES.TIMER || lineType === LINE_TYPES.OVERALL_TIMER)
+            ? Number(passThresholdSeconds)
+            : null,
         points: isObstacleCourse ? 100 : lineType !== LINE_TYPES.INSTRUCTION ? Number(points) : null,
         isCritical: isObstacleCourse ? true : lineType !== LINE_TYPES.INSTRUCTION ? isCritical : false,
       };
       if (isNew) {
         data.sortOrder = nextSortOrder;
         await addDoc(collection(db, "templates", templateId, "lines"), data);
+        setShowAddAnotherPrompt(true);
       } else {
         await updateDoc(doc(db, "templates", templateId, "lines", line.id), data);
+        onClose();
       }
-      onClose();
     } finally {
       setSaving(false);
     }
+  }
+
+  if (showAddAnotherPrompt) {
+    return (
+      <div
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30 }}
+      >
+        <div className="card" style={{ width: 300, background: "white", textAlign: "center" }}>
+          <h3 style={{ marginTop: 0 }}>Step Saved</h3>
+          <p className="muted">Add another step, or return to the test build screen?</p>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button className="secondary" style={{ flex: 1 }} onClick={onClose}>Return</button>
+            <button
+              className="primary"
+              style={{ flex: 1 }}
+              onClick={() => {
+                resetForNewLine();
+                setShowAddAnotherPrompt(false);
+              }}
+            >
+              Add Another
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -214,11 +260,11 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
         {!isObstacleCourse && (
           <div className="field">
             <label>{lineType === LINE_TYPES.INSTRUCTION ? "Instruction Text" : "Step Description"}</label>
-            <textarea rows={3} value={lineText} onChange={(e) => setLineText(e.target.value)} />
+            <RichTextEditor value={lineText} onChange={setLineText} />
           </div>
         )}
 
-        {lineType === LINE_TYPES.TIMER && (
+        {(lineType === LINE_TYPES.TIMER || lineType === LINE_TYPES.OVERALL_TIMER) && (
           <div className="field">
             <label>Pass at ≤ seconds</label>
             <input
@@ -246,7 +292,11 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
             <label>Points</label>
             <input type="number" min={0} value={points} onChange={(e) => setPoints(e.target.value)} />
             <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
-              Full points are earned on a Pass{lineType === LINE_TYPES.TIMER ? " (finishing within the time limit)" : ""}, zero on a Fail.
+              Full points are earned on a Pass
+              {(lineType === LINE_TYPES.TIMER || lineType === LINE_TYPES.OVERALL_TIMER)
+                ? " (finishing within the time limit)"
+                : ""}
+              , zero on a Fail.
             </p>
           </div>
         )}
@@ -270,7 +320,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
 
         <div style={{ display: "flex", gap: 8 }}>
           <button className="secondary" onClick={onClose}>Cancel</button>
-          <button className="primary" disabled={(!lineText && !isObstacleCourse) || saving} onClick={handleSave}>
+          <button className="primary" disabled={(!htmlToPlainText(lineText).trim() && !isObstacleCourse) || saving} onClick={handleSave}>
             {saving ? "Saving…" : "Save"}
           </button>
         </div>

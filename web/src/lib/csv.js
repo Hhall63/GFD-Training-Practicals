@@ -1,11 +1,12 @@
 import { lineDisplayLabel, LINE_TYPES } from "./constants";
 import { summarizeObstacleCourseOneLine } from "./obstacleCourse";
+import { htmlToPlainText } from "./richText";
 
 const COLUMNS = [
   "Recruit Name", "Cohort", "Badge/ID", "Template Name",
   "Evaluator", "Session Date", "Attempt", "Overall Result", "Critical Failure",
   "Points Earned", "Points Possible", "Score %", "Passing %",
-  "Line Order", "Line Text", "Line Type", "Result", "Timer Seconds",
+  "Line Order", "Line Text", "Line Type", "Result", "Timer Seconds", "Paused (s)",
   "Pass Threshold Seconds", "Line Points Earned", "Line Points Possible", "Note", "Has Photo",
   "Obstacle Course Detail",
 ];
@@ -64,10 +65,20 @@ export function buildResultsCsv(sessions) {
       rows.push([
         ...base,
         line.sortOrder,
-        lineDisplayLabel(line),
+        htmlToPlainText(lineDisplayLabel(line)),
         line.lineTypeSnapshot,
         (line.result ?? "").toUpperCase(),
-        line.timerElapsedSeconds != null ? line.timerElapsedSeconds.toFixed(1) : "",
+        // The Overall Timer line records its elapsed time under `elapsedSeconds` rather than
+        // the per-step Timer's `timerElapsedSeconds` (it isn't tied to a single step's
+        // start/stop), so fall back to it here for that one line type.
+        line.timerElapsedSeconds != null
+          ? line.timerElapsedSeconds.toFixed(1)
+          : line.elapsedSeconds != null
+          ? line.elapsedSeconds.toFixed(1)
+          : "",
+        // "Paused (s)" — must be noted in the report per Task 10's requirement. Blank for
+        // every line except the Overall Timer, which is the only one that can be paused.
+        line.totalPausedSeconds != null ? line.totalPausedSeconds.toFixed(1) : "",
         line.passThresholdSecondsSnapshot ?? "",
         line.pointsEarned ?? "",
         line.pointsSnapshot ?? "",
