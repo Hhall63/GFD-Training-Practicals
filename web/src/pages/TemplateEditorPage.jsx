@@ -143,7 +143,7 @@ export default function TemplateEditorPage() {
 
 function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
   const isNew = !line.id;
-  const [lineType, setLineType] = useState(line.lineType ?? LINE_TYPES.INSTRUCTION);
+  const [lineType, setLineType] = useState(line.lineType ?? LINE_TYPES.GRADED);
   const [lineText, setLineText] = useState(line.lineText ?? "");
   const [passThresholdSeconds, setPassThresholdSeconds] = useState(line.passThresholdSeconds ?? 30);
   const [points, setPoints] = useState(line.points ?? 10);
