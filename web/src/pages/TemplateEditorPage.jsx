@@ -16,7 +16,7 @@ import { db } from "../firebase";
 import TopBar from "../components/TopBar";
 import RichTextEditor from "../components/RichTextEditor";
 import { LINE_TYPE_LABELS, LINE_TYPES } from "../lib/constants";
-import { sanitizeHtml } from "../lib/richText";
+import { sanitizeHtml, htmlToPlainText } from "../lib/richText";
 
 const DEFAULT_PASSING_PERCENTAGE = 70;
 
@@ -311,7 +311,7 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
 
         <div style={{ display: "flex", gap: 8 }}>
           <button className="secondary" onClick={onClose}>Cancel</button>
-          <button className="primary" disabled={(!lineText && !isObstacleCourse) || saving} onClick={handleSave}>
+          <button className="primary" disabled={(!htmlToPlainText(lineText).trim() && !isObstacleCourse) || saving} onClick={handleSave}>
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
