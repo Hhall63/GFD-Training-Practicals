@@ -127,6 +127,9 @@ export default function TemplateEditorPage() {
         <button className="primary" style={{ marginTop: 16 }} onClick={() => setEditingLine({})}>
           + Add Step
         </button>
+        <button className="secondary" style={{ marginTop: 12, width: "100%" }} onClick={() => navigate("/")}>
+          Save & Exit
+        </button>
       </div>
 
       {editingLine && (
