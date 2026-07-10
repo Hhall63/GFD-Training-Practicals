@@ -152,8 +152,17 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
   const [points, setPoints] = useState(line.points ?? 10);
   const [isCritical, setIsCritical] = useState(line.isCritical ?? false);
   const [saving, setSaving] = useState(false);
+  const [showAddAnotherPrompt, setShowAddAnotherPrompt] = useState(false);
 
   const isObstacleCourse = lineType === LINE_TYPES.OBSTACLE_COURSE;
+
+  function resetForNewLine() {
+    setLineType(LINE_TYPES.GRADED);
+    setLineText("");
+    setPassThresholdSeconds(30);
+    setPoints(10);
+    setIsCritical(false);
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -172,13 +181,40 @@ function LineEditorModal({ templateId, line, nextSortOrder, onClose }) {
       if (isNew) {
         data.sortOrder = nextSortOrder;
         await addDoc(collection(db, "templates", templateId, "lines"), data);
+        setShowAddAnotherPrompt(true);
       } else {
         await updateDoc(doc(db, "templates", templateId, "lines", line.id), data);
+        onClose();
       }
-      onClose();
     } finally {
       setSaving(false);
     }
+  }
+
+  if (showAddAnotherPrompt) {
+    return (
+      <div
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30 }}
+      >
+        <div className="card" style={{ width: 300, background: "white", textAlign: "center" }}>
+          <h3 style={{ marginTop: 0 }}>Step Saved</h3>
+          <p className="muted">Add another step, or return to the test build screen?</p>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button className="secondary" style={{ flex: 1 }} onClick={onClose}>Return</button>
+            <button
+              className="primary"
+              style={{ flex: 1 }}
+              onClick={() => {
+                resetForNewLine();
+                setShowAddAnotherPrompt(false);
+              }}
+            >
+              Add Another
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
