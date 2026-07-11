@@ -18,6 +18,7 @@ import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
 import { initials, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
 import { defaultObstacleCourseConfig, seedObstacleTallies } from "../lib/obstacleCourse";
+import { ensurePracticeRecruit, PRACTICE_RECRUIT_ID } from "../lib/practiceRecruit";
 
 export default function RecruitConfirmPage() {
   // Two routes render this page: /test/:templateId (a single test) and
@@ -78,13 +79,26 @@ export default function RecruitConfirmPage() {
     );
   }, [template]);
 
+  // Idempotent (setDoc merge on a fixed id) — safe to call on every mount so the built-in
+  // practice recruit always exists for the picker below, with no risk of duplicates. Only
+  // administrators can write recruits/*, so this silently no-ops for evaluators once an
+  // administrator has created it once; failures here are never user-facing.
+  useEffect(() => {
+    ensurePracticeRecruit().catch(() => {});
+  }, []);
+
   useEffect(() => {
     const q = query(collection(db, "recruits"), where("isActive", "==", true));
     return onSnapshot(q, (snap) => {
       setRecruits(
         snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => a.lastName.localeCompare(b.lastName))
+          // The practice recruit is pinned first regardless of name, so it's always the
+          // fastest tile to find when running a quick demo/training pass.
+          .sort((a, b) => {
+            if (a.isPractice !== b.isPractice) return a.isPractice ? -1 : 1;
+            return a.lastName.localeCompare(b.lastName);
+          })
       );
     });
   }, []);
@@ -134,6 +148,9 @@ export default function RecruitConfirmPage() {
         // later rename of the group never rewrites the history of past tests. Sessions
         // started the normal way simply never have these fields.
         ...(groupId ? { groupId, groupName: group?.name ?? null, groupSequenceIndex: 0 } : {}),
+        // Lets report queries exclude practice runs by a single field, no recruitId
+        // cross-referencing — omitted entirely for real sessions, same convention as groupId.
+        ...(selected.isPractice || selected.id === PRACTICE_RECRUIT_ID ? { isPractice: true } : {}),
       });
 
       const batch = writeBatch(db);
@@ -177,7 +194,11 @@ export default function RecruitConfirmPage() {
   return (
     <div className="app-shell">
       <TopBar title={groupId && group ? `${group.name} (1 of ${groupTemplateIds?.length ?? 1})` : template.name} showMenu={false} />
-      <div className="screen">
+      {/* screen--wide (not screen): the recruit-grid below needs more than 720px to reach its
+          target 4-5 columns on iPad/desktop (see .recruit-grid's comment in theme.css). The
+          confirmation view further below already constrains itself to a 320px column via
+          .center-column, so it reads the same either way. */}
+      <div className="screen--wide">
         {!selected ? (
           <>
             <button className="secondary" style={{ marginBottom: 12, maxWidth: 200 }} onClick={() => navigate("/")}>
@@ -194,19 +215,28 @@ export default function RecruitConfirmPage() {
             {filtered.length === 0 && (
               <p className="muted">No recruits yet. Add recruits from the menu under Manage Recruits.</p>
             )}
-            {filtered.map((recruit) => (
-              <button key={recruit.id} className="list-row" onClick={() => setSelected(recruit)}>
-                {recruit.photoURL ? (
-                  <img src={recruit.photoURL} className="avatar" alt="" />
-                ) : (
-                  <div className="avatar">{initials(recruit.firstName, recruit.lastName)}</div>
-                )}
-                <div>
-                  <div style={{ fontWeight: 600 }}>{recruit.firstName} {recruit.lastName}</div>
-                  <div className="muted">{recruit.recruitClassOrCohort}</div>
-                </div>
-              </button>
-            ))}
+            <div className="recruit-grid">
+              {filtered.map((recruit) => (
+                <button
+                  key={recruit.id}
+                  className="card card--raised recruit-tile"
+                  onClick={() => setSelected(recruit)}
+                >
+                  {recruit.isPractice && (
+                    <span className="badge neutral">Practice</span>
+                  )}
+                  {recruit.photoURL ? (
+                    <img src={recruit.photoURL} className="avatar" alt="" />
+                  ) : (
+                    <div className="avatar">{initials(recruit.firstName, recruit.lastName)}</div>
+                  )}
+                  <div className="recruit-tile-name" style={{ fontWeight: 600 }}>
+                    {recruit.firstName} {recruit.lastName}
+                  </div>
+                  <div className="muted recruit-tile-cohort">{recruit.recruitClassOrCohort}</div>
+                </button>
+              ))}
+            </div>
           </>
         ) : (
           <div className="center-column" style={{ paddingTop: 24 }}>

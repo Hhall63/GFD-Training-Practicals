@@ -426,13 +426,49 @@ a:visited {
 
 /* Grid utility for recruit/dashboard listings — pairs with .screen--wide. auto-fill +
    minmax means the column count adapts to width with no explicit breakpoints: ~2 columns on
-   iPhone Pro/Pro Max (393-430pt), ~4-5 on an 11" iPad portrait (~834pt, capped by
-   .screen--wide's own padding), more on iPad landscape/desktop as .screen--wide's 1180px
-   cap is approached/reached. */
+   iPhone Pro/Pro Max (393-430pt), ~4 on an 11" iPad portrait (~834pt, capped by
+   .screen--wide's own padding), ~5-6 on iPad landscape/desktop as .screen--wide's 1180px
+   cap is approached/reached. 180px (raised from an initial 150px once real recruit tiles —
+   photo + name + cohort — existed to check it against) keeps that column count without
+   packing tiles too tightly for a photo + two lines of text to read comfortably. */
 .recruit-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
+}
+
+/* Content layout inside a .recruit-grid tile (Task 6). Additive: combine with
+   className="card card--raised recruit-tile" for a whole-tile button (the test picker,
+   where .card/.card--raised already supply background/border/shadow/padding) — or use
+   standalone with an inline style reset when nested inside another element instead of
+   being the button itself (Manage Recruits' tile, which needs a separate Deactivate
+   button alongside the edit action, so only part of the tile can be a <button>). */
+.recruit-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  width: 100%;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+/* Recruit photo/initials read better bigger than the 44px list-row avatar now that each
+   recruit gets a whole tile to itself. */
+.recruit-tile .avatar {
+  width: 72px;
+  height: 72px;
+  font-size: 22px;
+}
+
+.recruit-tile .recruit-tile-name,
+.recruit-tile .recruit-tile-cohort {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Flag/callout treatment for surfacing an item needing attention (e.g. a recruit with an
