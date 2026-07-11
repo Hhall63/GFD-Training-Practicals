@@ -12,14 +12,15 @@ export const PRACTICE_RECRUIT_ID = "__practice__";
 
 /**
  * Ensures the practice recruit doc exists, without ever clobbering fields an admin may have
- * hand-edited (e.g. a future custom photo) or duplicating the doc. Safe to call on every
- * mount of the test picker — `merge: true` makes repeated calls a no-op once the doc exists.
+ * hand-edited (e.g. a future custom photo) or duplicating the doc. Called on every mount of
+ * the test picker (and only there — Manage Recruits does not seed this doc) — `merge: true`
+ * makes repeated calls a no-op once the doc exists.
  *
- * Only administrators can write `recruits/*` per firestore.rules, so when an evaluator is
- * the first to open the test picker after a fresh deploy, this call is expected to fail
- * with permission-denied; callers should swallow that rather than surface it, since the
- * doc will simply get created the next time an administrator opens the picker (or the
- * Manage Recruits page) instead.
+ * firestore.rules scopes `recruits/*` writes to administrators plus staff writing only this
+ * fixed `__practice__` doc, so both admins and evaluators can call this successfully. A
+ * permission-denied here is not expected/normal — it indicates a real problem (e.g. the
+ * caller isn't signed in as active staff, or firestore.rules and PRACTICE_RECRUIT_ID have
+ * drifted out of sync) and should be surfaced, not silently swallowed.
  */
 export async function ensurePracticeRecruit() {
   await setDoc(

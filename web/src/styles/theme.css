@@ -428,12 +428,14 @@ a:visited {
    minmax means the column count adapts to width with no explicit breakpoints: ~2 columns on
    iPhone Pro/Pro Max (393-430pt), ~4 on an 11" iPad portrait (~834pt, capped by
    .screen--wide's own padding), ~5-6 on iPad landscape/desktop as .screen--wide's 1180px
-   cap is approached/reached. 180px (raised from an initial 150px once real recruit tiles —
-   photo + name + cohort — existed to check it against) keeps that column count without
-   packing tiles too tightly for a photo + two lines of text to read comfortably. */
+   cap is approached/reached. 170px (raised from an initial 150px once real recruit tiles —
+   photo + name + cohort — existed to check it against, then trimmed from 180px so the
+   iPhone Pro's 361px content width still clears 2 columns instead of collapsing to 1)
+   keeps that column count without packing tiles too tightly for a photo + two lines of
+   text to read comfortably. */
 .recruit-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   gap: 12px;
 }
 

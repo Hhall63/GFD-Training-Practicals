@@ -65,7 +65,7 @@ service cloud.firestore {
       // own linked record. Only administrators write.
       allow get: if isStaff() || (isRecruitRole() && myUserDoc().recruitId == recruitId);
       allow list: if isStaff();
-      allow write: if isAdminRole();
+      allow write: if isAdminRole() || (isStaff() && recruitId == '__practice__');
     }
 
     match /templates/{templateId} {
