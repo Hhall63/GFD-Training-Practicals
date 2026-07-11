@@ -16,3 +16,9 @@ web/firestore-debug.log
 
 # Local git worktrees for isolated implementation work
 .worktrees/
+
+# Local AI-tooling config (impeccable, agents, codex) — per-machine, not project source
+.claude/
+.agents/
+.codex/
+.impeccable/
