@@ -36,6 +36,10 @@ export default function RecruitConfirmPage() {
   const [attemptType, setAttemptType] = useState("first");
   const [starting, setStarting] = useState(false);
   const [viewMode, setViewMode] = useState("standard");
+  // Whether the selected template contains an obstacle-course line — checked before the test
+  // starts (same query beginTest() runs) so the Display View picker can be hidden and defaulted
+  // to Standard for these templates, matching the runner's own always-Standard enforcement.
+  const [templateHasObstacleCourse, setTemplateHasObstacleCourse] = useState(false);
 
   useEffect(() => {
     if (groupId) {
@@ -58,6 +62,21 @@ export default function RecruitConfirmPage() {
       });
     }
   }, [templateId, groupId]);
+
+  // Checked whenever `template` (re)loads — same lines query beginTest() uses — so we know
+  // before the test starts whether Checklist/Tile should even be offered. Runs for both flows:
+  // a single test's own template, or a group's first template (checking its lines is enough,
+  // since RecruitConfirmPage only ever shows the picker once, up front, for the first test).
+  useEffect(() => {
+    if (!template) return;
+    getDocs(query(collection(db, "templates", template.id, "lines"), orderBy("sortOrder"))).then(
+      (snap) => {
+        const hasOC = snap.docs.some((d) => d.data().lineType === LINE_TYPES.OBSTACLE_COURSE);
+        setTemplateHasObstacleCourse(hasOC);
+        if (hasOC) setViewMode("standard");
+      }
+    );
+  }, [template]);
 
   useEffect(() => {
     const q = query(collection(db, "recruits"), where("isActive", "==", true));
@@ -215,21 +234,23 @@ export default function RecruitConfirmPage() {
                   {isAdmin && <option value="retake">Retake</option>}
                 </select>
               </div>
-              <div className="field" style={{ textAlign: "left" }}>
-                <label>Display View</label>
-                <div className="segmented">
-                  {["standard", "checklist", "tile"].map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      className={`segment ${viewMode === mode ? "active" : ""}`}
-                      onClick={() => setViewMode(mode)}
-                    >
-                      {mode === "standard" ? "Standard" : mode === "checklist" ? "Checklist" : "Tile"}
-                    </button>
-                  ))}
+              {!templateHasObstacleCourse && (
+                <div className="field" style={{ textAlign: "left" }}>
+                  <label>Display View</label>
+                  <div className="segmented">
+                    {["standard", "checklist", "tile"].map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={`segment ${viewMode === mode ? "active" : ""}`}
+                        onClick={() => setViewMode(mode)}
+                      >
+                        {mode === "standard" ? "Standard" : mode === "checklist" ? "Checklist" : "Tile"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               <button className="primary" onClick={beginTest} disabled={starting}>
                 {starting ? "Starting…" : attemptType === "retake" ? "Begin Retake" : "Begin Test"}
               </button>

@@ -124,6 +124,18 @@ export default function LiveTestRunnerPage() {
   // The obstacle course is a full-screen dashboard with its own controls, so the test
   // chrome (progress bar, "Line X of Y", and the step's own title) just gets in the way.
   const isObstacleCourse = current?.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE;
+  // Template-level (not "current line") check: does ANY line in this session's template
+  // use the obstacle-course dashboard. Checklist/Tile show every line at once, which can't
+  // represent the obstacle course's full-screen dashboard, so any template containing one is
+  // pinned to Standard for its entire run, not just while the obstacle-course line is current.
+  const hasObstacleCourse = !!lineResults?.some((l) => l.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE);
+  // The view actually rendered. Derived (not synced via an effect) so it can never be stale
+  // or bypassed: even if `viewMode` state holds "checklist"/"tile" (e.g. carried in via
+  // router state from RecruitConfirmPage, or via goToNextTest's `state: { initialViewMode }`
+  // when hopping into the next test of a Test Group), this always collapses to "standard"
+  // for an obstacle-course template — there's no code path that reads raw `viewMode` for
+  // rendering, only this.
+  const effectiveViewMode = hasObstacleCourse ? "standard" : viewMode;
 
   // Name-addressed write, shared by patchCurrent (index-addressed, used by the Standard
   // single-step card) and gradeLine (used by the Checklist/Tile views, which grade lines
@@ -538,11 +550,13 @@ export default function LiveTestRunnerPage() {
         </div>
       )}
 
-      <div style={{ padding: "12px 16px 0", maxWidth: 720, margin: "0 auto", width: "100%" }}>
-        <ViewSwitcher viewMode={viewMode} setViewMode={setViewMode} />
-      </div>
+      {!hasObstacleCourse && (
+        <div style={{ padding: "12px 16px 0", maxWidth: 720, margin: "0 auto", width: "100%" }}>
+          <ViewSwitcher viewMode={viewMode} setViewMode={setViewMode} />
+        </div>
+      )}
 
-      {viewMode === "standard" && !isObstacleCourse && (
+      {effectiveViewMode === "standard" && !isObstacleCourse && (
         <div style={{ padding: "12px 16px 0" }}>
           <div style={{ height: 6, background: "#e1e1e8", borderRadius: 3, overflow: "hidden" }}>
             <div
@@ -560,7 +574,7 @@ export default function LiveTestRunnerPage() {
       )}
 
       <div className="screen" style={{ flex: 1, paddingTop: isObstacleCourse ? 12 : undefined }}>
-        {viewMode === "standard" ? (
+        {effectiveViewMode === "standard" ? (
           <LineCard
             current={current}
             isTimerRunning={isTimerRunning}
@@ -570,7 +584,7 @@ export default function LiveTestRunnerPage() {
             patchCurrent={patchCurrent}
             setGradedResult={setGradedResult}
           />
-        ) : viewMode === "checklist" ? (
+        ) : effectiveViewMode === "checklist" ? (
           <ChecklistView
             lineResults={lineResults}
             onGrade={gradeLine}
