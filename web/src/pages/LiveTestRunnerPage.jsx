@@ -147,13 +147,27 @@ export default function LiveTestRunnerPage() {
     await patchLine(lineId, { result, pointsEarned });
   }
 
-  // Used by the Checklist/Tile views to open a line (timer/obstacle-course/instruction)
-  // that can't be graded with a single tap in the Standard single-step card instead.
+  // Used by the Checklist/Tile views to open a line (obstacle-course/instruction) that
+  // can't be graded with a single tap in the Standard single-step card instead.
   function jumpToStandard(lineId) {
     const index = lineResults.findIndex((l) => l.id === lineId);
     if (index === -1) return;
     setCurrentIndex(index);
     setViewMode("standard");
+  }
+
+  // Lets the Checklist/Tile views run a Timer line's Start/Stop inline without leaving the
+  // view (Task 4), by reusing the exact same single-timer path the Standard card uses:
+  // make that line "current" first, then call the existing startTimer(). stopTimer() (passed
+  // straight through as onStopTimer) always operates on `current`, so as long as a second
+  // timer is never started while one is already running, Stop always lands on the right
+  // line. Both views guard this by only enabling a Start/Retry button when no other line's
+  // timer is running (isTimerRunning && current?.id !== that line's id).
+  function onStartTimer(lineId) {
+    const index = lineResults.findIndex((l) => l.id === lineId);
+    if (index === -1) return;
+    setCurrentIndex(index);
+    startTimer();
   }
 
   function startTimer() {
@@ -548,9 +562,27 @@ export default function LiveTestRunnerPage() {
             setGradedResult={setGradedResult}
           />
         ) : viewMode === "checklist" ? (
-          <ChecklistView lineResults={lineResults} onGrade={gradeLine} onJump={jumpToStandard} />
+          <ChecklistView
+            lineResults={lineResults}
+            onGrade={gradeLine}
+            onJump={jumpToStandard}
+            current={current}
+            isTimerRunning={isTimerRunning}
+            elapsed={elapsed}
+            onStartTimer={onStartTimer}
+            onStopTimer={stopTimer}
+          />
         ) : (
-          <TileView lineResults={lineResults} onGrade={gradeLine} onJump={jumpToStandard} />
+          <TileView
+            lineResults={lineResults}
+            onGrade={gradeLine}
+            onJump={jumpToStandard}
+            current={current}
+            isTimerRunning={isTimerRunning}
+            elapsed={elapsed}
+            onStartTimer={onStartTimer}
+            onStopTimer={stopTimer}
+          />
         )}
       </div>
 
