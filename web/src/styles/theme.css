@@ -17,6 +17,10 @@
   --status-fail-muted: #b5555f;
   --radius: 14px;
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* Deeper shadow than --shadow-sm, for surfaces that should read as "raised" above the
+     page (dashboard cards, recruit tiles) rather than flat-bordered like the base .card. */
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.12);
+  --flag-amber: #b45309;
 }
 
 * {
@@ -45,6 +49,20 @@ body {
 
 .screen {
   max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 16px;
+  padding-bottom: 96px;
+}
+
+/* Wide container tier for grid/dashboard/reports pages (recruit grids, admin reports) that
+   need more than the 720px reading/form width to make use of tablet and desktop space.
+   Standalone class, NOT a .screen modifier — use `className="screen--wide"` on its own
+   (do not pair with "screen", since both set max-width/margin/padding and the cascade would
+   just make one win by source order, which is confusing). Same padding/margin as .screen,
+   just a wider cap: full-width up to 1180px, then centered beyond that. */
+.screen--wide {
+  max-width: 1180px;
   margin: 0 auto;
   width: 100%;
   padding: 16px;
@@ -90,6 +108,16 @@ body {
   border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 12px;
+}
+
+/* Additive modifier: use as className="card card--raised". Layers on top of the base .card
+   (defined above, so it wins the cascade at equal specificity) to give the "bubble with
+   depth" look used by the dashboard and recruit tiles — solid opaque surface + a real drop
+   shadow instead of the flat 1px border. Does not replace or redefine .card. */
+.card--raised {
+  border: none;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 button.primary {
@@ -358,6 +386,33 @@ a:visited {
 
 .tile-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  /* Tuned so live-grading tiles (label + status + inline Pass/Fail buttons) get ~2 columns
+     on iPhone Pro/Pro Max (393-430pt) and settle at ~4 columns once the containing .screen
+     hits its 720px cap (11" iPad and up), which keeps the Pass/Fail button pair readable
+     instead of squeezing 5+ columns into a reading-width column. */
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
+}
+
+/* Grid utility for recruit/dashboard listings — pairs with .screen--wide. auto-fill +
+   minmax means the column count adapts to width with no explicit breakpoints: ~2 columns on
+   iPhone Pro/Pro Max (393-430pt), ~4-5 on an 11" iPad portrait (~834pt, capped by
+   .screen--wide's own padding), more on iPad landscape/desktop as .screen--wide's 1180px
+   cap is approached/reached. */
+.recruit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+/* Flag/callout treatment for surfacing an item needing attention (e.g. a recruit with an
+   open dispute or an incomplete test) — standalone surface card, used as className=
+   "flag-panel" (not a .card modifier, since it needs its own left border accent rather than
+   .card's flat border). */
+.flag-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  border-left: 4px solid var(--flag-amber);
 }
