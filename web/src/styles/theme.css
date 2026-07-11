@@ -21,6 +21,10 @@
      page (dashboard cards, recruit tiles) rather than flat-bordered like the base .card. */
   --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.12);
   --flag-amber: #b45309;
+  /* --flag-amber at 14% alpha, precomputed for background fills (e.g. .badge.critical) that
+     need a tint rather than the solid color — kept as one named value instead of a raw
+     rgba(...) literal wherever it's used, so the two never drift apart. */
+  --flag-amber-tint: rgba(180, 83, 9, 0.14);
 }
 
 * {
@@ -398,11 +402,19 @@ a:visited {
    position in lineResults (already sortOrder-ordered) so an evaluator can see step order at
    a glance in the grid, including for timer/obstacle/instruction tiles. Scoped to
    .tile-grid .card rather than redefining .card itself, so dashboard/recruit tiles and other
-   .card usage elsewhere are unaffected. The added right padding keeps the label/status text
-   clear of the badge instead of wrapping under it, down to ~111-150px phone tile widths. */
+   .card usage elsewhere are unaffected. Only `position: relative` here (Task 8 QA fix) — the
+   extra right clearance the badge needs lives on `.tile-label` below, not on the whole card,
+   so it no longer pushes the Pass/Fail button row left-of-center underneath the badge. */
 .tile-grid .card {
   position: relative;
-  padding-right: 34px;
+}
+
+/* Reserves clearance from the top-right sequence badge for the tile's label text only (Task
+   8 QA fix, splitting off from the old whole-card padding-right: 34px). Status text and the
+   Pass/Fail button row below the label aren't near the badge's row, so they stay full-width
+   and centered instead of shifting left to make room for a badge they never overlap. */
+.tile-label {
+  padding-right: 26px;
 }
 
 .tile-seq {
@@ -585,7 +597,7 @@ a:visited {
 }
 
 .badge.critical {
-  background: rgba(180, 83, 9, 0.14);
+  background: var(--flag-amber-tint);
   color: var(--flag-amber);
 }
 

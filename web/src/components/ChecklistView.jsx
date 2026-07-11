@@ -10,7 +10,7 @@ export default function ChecklistView({
   lineResults,
   onGrade,
   onJump,
-  current,
+  runningLineId,
   isTimerRunning,
   elapsed,
   onStartTimer,
@@ -21,13 +21,17 @@ export default function ChecklistView({
       {lineResults.map((line) => {
         const isPlainGraded = line.lineTypeSnapshot === LINE_TYPES.GRADED;
         const isTimer = line.lineTypeSnapshot === LINE_TYPES.TIMER;
-        // This line's own timer is the one currently running — only true for at most one
-        // line at a time, since the page has a single intervalRef/isTimerRunning pair.
-        const isRunningHere = isTimerRunning && current?.id === line.id;
+        // This line's own timer is the one currently running — keyed off runningTimerLineIdRef
+        // (via the runningLineId prop), not `current`, since currentIndex can move off the
+        // running line (e.g. tapping "View" on another line) while the timer keeps running.
+        // Using `current` here previously meant navigating away could make the actually-
+        // running tile show a disabled "Start" instead of "Stop", and make whatever tile
+        // WAS current show as startable even though a timer was already live elsewhere.
+        const isRunningHere = isTimerRunning && runningLineId === line.id;
         // A different line's timer is running. Starting this line's timer right now would
         // reassign the page's single timer mid-flight and strand the other line's run, so
         // Start/Retry are disabled here until that other timer is stopped.
-        const anotherTimerRunning = isTimerRunning && current?.id !== line.id;
+        const anotherTimerRunning = isTimerRunning && runningLineId !== line.id;
         const statusLabel =
           line.lineTypeSnapshot === LINE_TYPES.INSTRUCTION
             ? "N/A"

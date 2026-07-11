@@ -589,7 +589,7 @@ export default function LiveTestRunnerPage() {
             lineResults={lineResults}
             onGrade={gradeLine}
             onJump={jumpToStandard}
-            current={current}
+            runningLineId={runningTimerLineIdRef.current}
             isTimerRunning={isTimerRunning}
             elapsed={elapsed}
             onStartTimer={onStartTimer}
@@ -600,7 +600,7 @@ export default function LiveTestRunnerPage() {
             lineResults={lineResults}
             onGrade={gradeLine}
             onJump={jumpToStandard}
-            current={current}
+            runningLineId={runningTimerLineIdRef.current}
             isTimerRunning={isTimerRunning}
             elapsed={elapsed}
             onStartTimer={onStartTimer}

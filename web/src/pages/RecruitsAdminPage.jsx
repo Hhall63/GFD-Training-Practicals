@@ -102,7 +102,7 @@ export default function RecruitsAdminPage() {
                 <button
                   type="button"
                   className="secondary"
-                  style={{ width: "100%", marginTop: 10, padding: "6px 12px", color: "var(--brand-red)" }}
+                  style={{ width: "100%", marginTop: 10, padding: "12px 12px", color: "var(--brand-red)" }}
                   onClick={() => deactivate(recruit)}
                 >
                   Deactivate
