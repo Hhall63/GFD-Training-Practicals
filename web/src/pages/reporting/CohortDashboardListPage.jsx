@@ -10,7 +10,15 @@ export default function CohortDashboardListPage() {
 
   useEffect(() => {
     getDocs(query(collection(db, "recruits"), where("isActive", "==", true))).then((snap) => {
-      const set = new Set(snap.docs.map((d) => d.data().recruitClassOrCohort).filter(Boolean));
+      // Exclude the built-in practice recruit (Task 6, always cohort "Practice") so its
+      // synthetic cohort never shows up in the real cohort list.
+      const set = new Set(
+        snap.docs
+          .map((d) => d.data())
+          .filter((r) => !r.isPractice)
+          .map((r) => r.recruitClassOrCohort)
+          .filter(Boolean)
+      );
       setCohorts([...set].sort());
     });
   }, []);

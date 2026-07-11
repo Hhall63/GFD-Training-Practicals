@@ -20,7 +20,10 @@ export default function CohortDashboardPage() {
         getDocs(query(collection(db, "recruits"), where("recruitClassOrCohort", "==", decodedCohort), where("isActive", "==", true))),
         getDocs(query(collection(db, "templates"), where("isActive", "==", true))),
       ]);
-      const recruitsList = recruitsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // Exclude the built-in practice recruit (Task 6) — its cohort is always "Practice", so
+      // this shouldn't normally match a real cohort's query, but filter defensively so
+      // practice activity can never leak into a real cohort's dashboard.
+      const recruitsList = recruitsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((r) => !r.isPractice);
       const templatesList = templatesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setRecruits(recruitsList);
       setTemplates(templatesList);
@@ -36,6 +39,9 @@ export default function CohortDashboardPage() {
         const map = {};
         sessionsSnap.docs.forEach((d) => {
           const s = d.data();
+          // Skip practice sessions (Task 6) — the practice recruit's sessions never count
+          // toward a real cohort's readiness. Normal sessions omit this field entirely.
+          if (s.isPractice) return;
           // Later sessions overwrite earlier ones in iteration order isn't guaranteed, so
           // only keep the most recently started one per recruit/template pair.
           const key = `${s.recruitId}_${s.templateId}`;

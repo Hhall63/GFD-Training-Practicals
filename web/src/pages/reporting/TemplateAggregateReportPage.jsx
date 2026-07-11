@@ -22,7 +22,10 @@ export default function TemplateAggregateReportPage() {
       const sessionsSnap = await getDocs(
         query(collection(db, "sessions"), where("templateId", "==", templateId), where("status", "==", "completed"))
       );
-      const sessions = sessionsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // Exclude practice sessions (Task 6) — an evaluator may have run this exact test on
+      // the practice recruit while training, and that run must never count toward the
+      // real pass-rate/step-failure stats.
+      const sessions = sessionsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((s) => !s.isPractice);
       setSessionCount(sessions.length);
       setPassRate(sessions.length ? sessions.filter((s) => s.overallResult === "pass").length / sessions.length : null);
 

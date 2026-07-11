@@ -23,10 +23,12 @@ export default function ExportPage() {
       const recruitMap = {};
       recruitsSnap.docs.forEach((d) => (recruitMap[d.id] = d.data()));
       setRecruitsById(recruitMap);
+      // Exclude practice sessions (Task 6) — the practice recruit exists purely for
+      // evaluator training and must never end up in an exported results file.
       setSessions(
         sessionsSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((s) => s.status === "completed")
+          .filter((s) => s.status === "completed" && !s.isPractice)
       );
       setLoading(false);
     }

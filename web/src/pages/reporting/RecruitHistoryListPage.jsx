@@ -15,12 +15,16 @@ export default function RecruitHistoryListPage() {
         getDocs(query(collection(db, "recruits"), where("isActive", "==", true))),
         getDocs(query(collection(db, "sessions"), where("status", "==", "completed"))),
       ]);
+      // Exclude the built-in practice recruit and any practice sessions (Task 6) so neither
+      // ever appears in the recruit-history list or its session counts.
       const recruitsList = recruitsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((r) => !r.isPractice)
         .sort((a, b) => a.lastName.localeCompare(b.lastName));
       const grouped = {};
       sessionsSnap.docs.forEach((d) => {
         const s = d.data();
+        if (s.isPractice) return;
         (grouped[s.recruitId] ??= []).push(s);
       });
       setRecruits(recruitsList);
