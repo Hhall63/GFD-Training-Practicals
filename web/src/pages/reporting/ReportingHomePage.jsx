@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TopBar from "../../components/TopBar";
 import { buildCommandBoard, loadCommandBoardData } from "../../lib/reportsData";
+import { RESULT } from "../../lib/constants";
 
 const QUICK_LINKS = [
   ["Recruit History", "Full session history per recruit", "/reports/recruits"],
@@ -181,8 +182,8 @@ export default function ReportingHomePage() {
                         </th>
                         {matrix.templates.map((t) => {
                           const entry = matrix.latest.get(`${r.id}_${t.id}`);
-                          const cls = !entry ? "pending" : entry.result === "pass" ? "pass" : "fail";
-                          const label = !entry ? "—" : entry.result === "pass" ? "PASS" : "FAIL";
+                          const cls = !entry ? "pending" : entry.result === RESULT.PASS ? "pass" : "fail";
+                          const label = !entry ? "—" : entry.result === RESULT.PASS ? "PASS" : "FAIL";
                           return (
                             <td key={t.id}>
                               <span className={`readiness-cell ${cls}`}>{label}</span>

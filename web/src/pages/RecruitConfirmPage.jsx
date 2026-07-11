@@ -80,11 +80,16 @@ export default function RecruitConfirmPage() {
   }, [template]);
 
   // Idempotent (setDoc merge on a fixed id) — safe to call on every mount so the built-in
-  // practice recruit always exists for the picker below, with no risk of duplicates. Only
-  // administrators can write recruits/*, so this silently no-ops for evaluators once an
-  // administrator has created it once; failures here are never user-facing.
+  // practice recruit always exists for the picker below, with no risk of duplicates.
+  // firestore.rules lets any active staff member (admins AND evaluators) write this one
+  // fixed doc, so it succeeds for whoever opens the picker first. A failure here is NOT
+  // expected — it means the caller isn't active staff, or rules/PRACTICE_RECRUIT_ID have
+  // drifted — so log it rather than swallow it silently (a silent swallow is exactly what
+  // hid the reserved-id bug before).
   useEffect(() => {
-    ensurePracticeRecruit().catch(() => {});
+    ensurePracticeRecruit().catch((err) =>
+      console.error("Failed to ensure the practice recruit doc:", err)
+    );
   }, []);
 
   useEffect(() => {
