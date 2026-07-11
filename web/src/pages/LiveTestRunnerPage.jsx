@@ -57,6 +57,11 @@ export default function LiveTestRunnerPage() {
   const [noteRequiredReason, setNoteRequiredReason] = useState("stepFailed"); // "stepFailed" | "overallFail"
   const timerStartRef = useRef(null);
   const intervalRef = useRef(null);
+  // Records which line's timer is actually running, independent of currentIndex. Stop must
+  // finalize this line, not `current` — currentIndex can move off the running timer's line
+  // while it's running (e.g. tapping "View" on another line from Checklist/Tile), and without
+  // this ref stopTimer() would silently patch whatever line happens to be current instead.
+  const runningTimerLineIdRef = useRef(null);
   // Whole-test stopwatch (Task 10). Independent of currentIndex/viewMode by design — it
   // starts the instant the template's Overall Timer line loads and keeps running across
   // every view until Stop Test is pressed, unlike the per-step timer above.
@@ -158,19 +163,19 @@ export default function LiveTestRunnerPage() {
 
   // Lets the Checklist/Tile views run a Timer line's Start/Stop inline without leaving the
   // view (Task 4), by reusing the exact same single-timer path the Standard card uses:
-  // make that line "current" first, then call the existing startTimer(). stopTimer() (passed
-  // straight through as onStopTimer) always operates on `current`, so as long as a second
-  // timer is never started while one is already running, Stop always lands on the right
-  // line. Both views guard this by only enabling a Start/Retry button when no other line's
-  // timer is running (isTimerRunning && current?.id !== that line's id).
+  // make that line "current" first, then call the existing startTimer(). stopTimer() always
+  // finalizes runningTimerLineIdRef (set explicitly by startTimer), not `current` — currentIndex
+  // can move off the running line (e.g. tapping "View" on another line) while the timer keeps
+  // running, so Stop must not depend on whatever happens to be current at that moment.
   function onStartTimer(lineId) {
     const index = lineResults.findIndex((l) => l.id === lineId);
     if (index === -1) return;
     setCurrentIndex(index);
-    startTimer();
+    startTimer(lineId);
   }
 
-  function startTimer() {
+  function startTimer(lineId) {
+    runningTimerLineIdRef.current = lineId;
     timerStartRef.current = Date.now();
     setElapsed(0);
     setIsTimerRunning(true);
@@ -182,11 +187,15 @@ export default function LiveTestRunnerPage() {
   async function stopTimer() {
     clearInterval(intervalRef.current);
     setIsTimerRunning(false);
+    const lineId = runningTimerLineIdRef.current;
+    const line = lineResultsRef.current?.find((l) => l.id === lineId);
+    runningTimerLineIdRef.current = null;
+    if (!line) return; // defensive — shouldn't happen while a timer is running
     const finalElapsed = (Date.now() - timerStartRef.current) / 1000;
-    const result = computeTimerResult(finalElapsed, current.passThresholdSecondsSnapshot);
+    const result = computeTimerResult(finalElapsed, line.passThresholdSecondsSnapshot);
     // All-or-nothing: full points for finishing within the time limit, zero otherwise.
-    const pointsEarned = result === RESULT.PASS ? (current.pointsSnapshot ?? 0) : 0;
-    await patchCurrent({ timerElapsedSeconds: finalElapsed, result, pointsEarned });
+    const pointsEarned = result === RESULT.PASS ? (line.pointsSnapshot ?? 0) : 0;
+    await patchLine(lineId, { timerElapsedSeconds: finalElapsed, result, pointsEarned });
   }
 
   function setGradedResult(result) {
@@ -883,7 +892,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
             Stop
           </button>
         ) : current.timerElapsedSeconds == null ? (
-          <button className="primary" style={{ maxWidth: 320 }} onClick={startTimer}>
+          <button className="primary" style={{ maxWidth: 320 }} onClick={() => startTimer(current.id)}>
             Start
           </button>
         ) : (
@@ -892,7 +901,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
               {current.result === RESULT.PASS ? "PASS" : "FAIL"}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="secondary" onClick={startTimer}>Retry</button>
+              <button className="secondary" onClick={() => startTimer(current.id)}>Retry</button>
               <button
                 className="secondary"
                 onClick={() => setGradedResult(current.result === RESULT.PASS ? RESULT.FAIL : RESULT.PASS)}
