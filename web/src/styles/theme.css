@@ -17,6 +17,14 @@
   --status-fail-muted: #b5555f;
   --radius: 14px;
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* Deeper shadow than --shadow-sm, for surfaces that should read as "raised" above the
+     page (dashboard cards, recruit tiles) rather than flat-bordered like the base .card. */
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.12);
+  --flag-amber: #b45309;
+  /* --flag-amber at 14% alpha, precomputed for background fills (e.g. .badge.critical) that
+     need a tint rather than the solid color — kept as one named value instead of a raw
+     rgba(...) literal wherever it's used, so the two never drift apart. */
+  --flag-amber-tint: rgba(180, 83, 9, 0.14);
 }
 
 * {
@@ -45,6 +53,20 @@ body {
 
 .screen {
   max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 16px;
+  padding-bottom: 96px;
+}
+
+/* Wide container tier for grid/dashboard/reports pages (recruit grids, admin reports) that
+   need more than the 720px reading/form width to make use of tablet and desktop space.
+   Standalone class, NOT a .screen modifier — use `className="screen--wide"` on its own
+   (do not pair with "screen", since both set max-width/margin/padding and the cascade would
+   just make one win by source order, which is confusing). Same padding/margin as .screen,
+   just a wider cap: full-width up to 1180px, then centered beyond that. */
+.screen--wide {
+  max-width: 1180px;
   margin: 0 auto;
   width: 100%;
   padding: 16px;
@@ -90,6 +112,16 @@ body {
   border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 12px;
+}
+
+/* Additive modifier: use as className="card card--raised". Layers on top of the base .card
+   (defined above, so it wins the cascade at equal specificity) to give the "bubble with
+   depth" look used by the dashboard and recruit tiles — solid opaque surface + a real drop
+   shadow instead of the flat 1px border. Does not replace or redefine .card. */
+.card--raised {
+  border: none;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 button.primary {
@@ -358,6 +390,339 @@ a:visited {
 
 .tile-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  /* Tuned so live-grading tiles (label + status + inline Pass/Fail buttons) get ~2 columns
+     on iPhone Pro/Pro Max (393-430pt) and settle at ~4 columns once the containing .screen
+     hits its 720px cap (11" iPad and up), which keeps the Pass/Fail button pair readable
+     instead of squeezing 5+ columns into a reading-width column. */
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
+}
+
+/* Sequential order badge for live-grading Tile view (Task 3): numbers each tile 1..N by its
+   position in lineResults (already sortOrder-ordered) so an evaluator can see step order at
+   a glance in the grid, including for timer/obstacle/instruction tiles. Scoped to
+   .tile-grid .card rather than redefining .card itself, so dashboard/recruit tiles and other
+   .card usage elsewhere are unaffected. Only `position: relative` here (Task 8 QA fix) — the
+   extra right clearance the badge needs lives on `.tile-label` below, not on the whole card,
+   so it no longer pushes the Pass/Fail button row left-of-center underneath the badge. */
+.tile-grid .card {
+  position: relative;
+}
+
+/* Reserves clearance from the top-right sequence badge for the tile's label text only (Task
+   8 QA fix, splitting off from the old whole-card padding-right: 34px). Status text and the
+   Pass/Fail button row below the label aren't near the badge's row, so they stay full-width
+   and centered instead of shifting left to make room for a badge they never overlap. */
+.tile-label {
+  padding-right: 26px;
+}
+
+.tile-seq {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--brand-navy);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* Grid utility for recruit/dashboard listings — pairs with .screen--wide. auto-fill +
+   minmax means the column count adapts to width with no explicit breakpoints: ~2 columns on
+   iPhone Pro/Pro Max (393-430pt), ~4 on an 11" iPad portrait (~834pt, capped by
+   .screen--wide's own padding), ~5-6 on iPad landscape/desktop as .screen--wide's 1180px
+   cap is approached/reached. 170px (raised from an initial 150px once real recruit tiles —
+   photo + name + cohort — existed to check it against, then trimmed from 180px so the
+   iPhone Pro's 361px content width still clears 2 columns instead of collapsing to 1)
+   keeps that column count without packing tiles too tightly for a photo + two lines of
+   text to read comfortably. */
+.recruit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+/* Content layout inside a .recruit-grid tile (Task 6). Additive: combine with
+   className="card card--raised recruit-tile" for a whole-tile button (the test picker,
+   where .card/.card--raised already supply background/border/shadow/padding) — or use
+   standalone with an inline style reset when nested inside another element instead of
+   being the button itself (Manage Recruits' tile, which needs a separate Deactivate
+   button alongside the edit action, so only part of the tile can be a <button>). */
+.recruit-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  width: 100%;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+/* Recruit photo/initials read better bigger than the 44px list-row avatar now that each
+   recruit gets a whole tile to itself. */
+.recruit-tile .avatar {
+  width: 72px;
+  height: 72px;
+  font-size: 22px;
+}
+
+.recruit-tile .recruit-tile-name,
+.recruit-tile .recruit-tile-cohort {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Flag/callout treatment for surfacing an item needing attention (e.g. a recruit with an
+   open dispute or an incomplete test) — standalone surface card, used as className=
+   "flag-panel" (not a .card modifier, since it needs its own left border accent rather than
+   .card's flat border). */
+.flag-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  border-left: 4px solid var(--flag-amber);
+}
+
+/* --- Command Board (Reports home, Task 7) -------------------------------------------- */
+
+/* Small uppercase, letter-spaced, muted label — used above a KPI number and anywhere else
+   a data value needs a terse caption without competing with it for weight. */
+.eyebrow {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+/* Section-level heading (navy, bold) used above the Flagged panel, the readiness grid, and
+   the quick-links block — distinct from .eyebrow (which is a small caption on a value, not
+   a section title) so the two never get confused at a glance. */
+.section-heading {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--brand-navy);
+}
+
+/* 2x2 on phone, 1x4 once there's room (iPad portrait and up) per the Command Board KPI row
+   spec. A plain breakpoint (rather than auto-fit/minmax) keeps exactly 4 tiles from ever
+   splitting unevenly (e.g. 3+1) at in-between widths. */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+  animation: kpi-fade-in 320ms ease-out both;
+}
+
+@media (min-width: 700px) {
+  .kpi-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@keyframes kpi-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-row {
+    animation: none;
+  }
+}
+
+.kpi-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+
+/* Small gold accent rule under the eyebrow label — the KPI-row equivalent of the hero
+   framing --brand-gold is used for elsewhere (e.g. the overall-timer banner's gold rule). */
+.kpi-tile .kpi-accent {
+  width: 26px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--brand-gold);
+}
+
+.kpi-tile .kpi-value {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-navy);
+}
+
+.kpi-tile .kpi-value.kpi-value--alert {
+  color: var(--brand-red);
+}
+
+.flagged-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.flagged-row .flagged-row-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.badge.critical {
+  background: var(--flag-amber-tint);
+  color: var(--flag-amber);
+}
+
+/* Wraps the readiness grid in its own horizontal-scroll region so a wide matrix never makes
+   the page body itself scroll sideways — the outer .screen--wide stays put and only this
+   inner box scrolls, on phone as well as desktop once template columns exceed the width. */
+.readiness-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+}
+
+.readiness-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  min-width: 480px;
+}
+
+.readiness-grid th,
+.readiness-grid td {
+  padding: 10px 14px;
+  text-align: center;
+  font-size: 13px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.readiness-grid tbody tr:last-child th,
+.readiness-grid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.readiness-grid thead th {
+  background: var(--surface);
+  color: var(--brand-navy);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* Sticky first column (recruit name) so it stays visible while the row of test columns
+   scrolls horizontally underneath it — the signature interaction of the readiness grid on
+   phone widths, where the full matrix rarely fits. */
+.readiness-grid th.readiness-row-head,
+.readiness-grid thead th.readiness-corner {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+  text-align: left;
+}
+
+.readiness-grid thead th.readiness-corner {
+  z-index: 3;
+}
+
+.readiness-grid th.readiness-row-head {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.readiness-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: white;
+}
+
+.readiness-cell.pass {
+  background: var(--success);
+}
+
+.readiness-cell.fail {
+  background: var(--brand-red);
+}
+
+.readiness-cell.pending {
+  background: var(--border);
+  color: var(--text-secondary);
+}
+
+.readiness-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.readiness-legend .readiness-legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.quick-link-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.quick-link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.quick-link-card .quick-link-title {
+  font-weight: 700;
+  color: var(--brand-navy);
 }

@@ -15,6 +15,7 @@ import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
 import { initials } from "../lib/constants";
 import { compressImageToDataUrl } from "../lib/image";
+import { PRACTICE_RECRUIT_ID } from "../lib/practiceRecruit";
 
 /**
  * The one place a recruit gets created: roster info (name, cohort, badge, photo) and an
@@ -59,44 +60,57 @@ export default function RecruitsAdminPage() {
     await updateDoc(doc(db, "recruits", recruit.id), { isActive: false });
   }
 
-  const filtered = recruits.filter((r) =>
-    `${r.firstName} ${r.lastName}`.toLowerCase().includes(search.toLowerCase())
-  );
+  // The practice recruit is system-managed (seeded/kept alive by the test picker, see
+  // src/lib/practiceRecruit.js) — it's not a real trainee, so it has no place in the roster
+  // an administrator edits or deactivates here.
+  const filtered = recruits
+    .filter((r) => !r.isPractice && r.id !== PRACTICE_RECRUIT_ID)
+    .filter((r) => `${r.firstName} ${r.lastName}`.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="app-shell">
       <TopBar title="Recruits" onBack={() => navigate("/")} showMenu={false} />
-      <div className="screen">
+      <div className="screen--wide">
         <div className="field">
           <input type="text" placeholder="Search recruits" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
         {filtered.length === 0 && <p className="muted">No recruits yet.</p>}
 
-        {filtered.map((recruit) => {
-          const login = loginByRecruitId[recruit.id];
-          return (
-            <div key={recruit.id} className="list-row">
-              {recruit.photoURL ? (
-                <img src={recruit.photoURL} className="avatar" alt="" />
-              ) : (
-                <div className="avatar">{initials(recruit.firstName, recruit.lastName)}</div>
-              )}
-              <div style={{ flex: 1 }} onClick={() => setEditing(recruit)}>
-                <div style={{ fontWeight: 600 }}>{recruit.firstName} {recruit.lastName}</div>
-                <div className="muted">{recruit.recruitClassOrCohort}</div>
-                <div className="muted">{login ? `Portal login: ${login.email}` : "No portal login"}</div>
+        <div className="recruit-grid">
+          {filtered.map((recruit) => {
+            const login = loginByRecruitId[recruit.id];
+            return (
+              <div key={recruit.id} className="card card--raised">
+                <button
+                  type="button"
+                  className="recruit-tile"
+                  style={{ background: "none", border: "none", padding: 0 }}
+                  onClick={() => setEditing(recruit)}
+                >
+                  {recruit.photoURL ? (
+                    <img src={recruit.photoURL} className="avatar" alt="" />
+                  ) : (
+                    <div className="avatar">{initials(recruit.firstName, recruit.lastName)}</div>
+                  )}
+                  <div className="recruit-tile-name" style={{ fontWeight: 600 }}>
+                    {recruit.firstName} {recruit.lastName}
+                  </div>
+                  <div className="muted recruit-tile-cohort">{recruit.recruitClassOrCohort}</div>
+                  <div className="muted recruit-tile-cohort">{login ? `Portal login: ${login.email}` : "No portal login"}</div>
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  style={{ width: "100%", marginTop: 10, padding: "12px 12px", color: "var(--brand-red)" }}
+                  onClick={() => deactivate(recruit)}
+                >
+                  Deactivate
+                </button>
               </div>
-              <button
-                className="secondary"
-                style={{ width: "auto", padding: "6px 12px", color: "var(--brand-red)" }}
-                onClick={() => deactivate(recruit)}
-              >
-                Deactivate
-              </button>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
 
         <button className="primary" style={{ marginTop: 16 }} onClick={() => setEditing({})}>
           + Add Recruit

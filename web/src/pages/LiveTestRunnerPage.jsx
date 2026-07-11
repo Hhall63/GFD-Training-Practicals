@@ -57,6 +57,11 @@ export default function LiveTestRunnerPage() {
   const [noteRequiredReason, setNoteRequiredReason] = useState("stepFailed"); // "stepFailed" | "overallFail"
   const timerStartRef = useRef(null);
   const intervalRef = useRef(null);
+  // Records which line's timer is actually running, independent of currentIndex. Stop must
+  // finalize this line, not `current` — currentIndex can move off the running timer's line
+  // while it's running (e.g. tapping "View" on another line from Checklist/Tile), and without
+  // this ref stopTimer() would silently patch whatever line happens to be current instead.
+  const runningTimerLineIdRef = useRef(null);
   // Whole-test stopwatch (Task 10). Independent of currentIndex/viewMode by design — it
   // starts the instant the template's Overall Timer line loads and keeps running across
   // every view until Stop Test is pressed, unlike the per-step timer above.
@@ -119,6 +124,18 @@ export default function LiveTestRunnerPage() {
   // The obstacle course is a full-screen dashboard with its own controls, so the test
   // chrome (progress bar, "Line X of Y", and the step's own title) just gets in the way.
   const isObstacleCourse = current?.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE;
+  // Template-level (not "current line") check: does ANY line in this session's template
+  // use the obstacle-course dashboard. Checklist/Tile show every line at once, which can't
+  // represent the obstacle course's full-screen dashboard, so any template containing one is
+  // pinned to Standard for its entire run, not just while the obstacle-course line is current.
+  const hasObstacleCourse = !!lineResults?.some((l) => l.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE);
+  // The view actually rendered. Derived (not synced via an effect) so it can never be stale
+  // or bypassed: even if `viewMode` state holds "checklist"/"tile" (e.g. carried in via
+  // router state from RecruitConfirmPage, or via goToNextTest's `state: { initialViewMode }`
+  // when hopping into the next test of a Test Group), this always collapses to "standard"
+  // for an obstacle-course template — there's no code path that reads raw `viewMode` for
+  // rendering, only this.
+  const effectiveViewMode = hasObstacleCourse ? "standard" : viewMode;
 
   // Name-addressed write, shared by patchCurrent (index-addressed, used by the Standard
   // single-step card) and gradeLine (used by the Checklist/Tile views, which grade lines
@@ -147,8 +164,8 @@ export default function LiveTestRunnerPage() {
     await patchLine(lineId, { result, pointsEarned });
   }
 
-  // Used by the Checklist/Tile views to open a line (timer/obstacle-course/instruction)
-  // that can't be graded with a single tap in the Standard single-step card instead.
+  // Used by the Checklist/Tile views to open a line (obstacle-course/instruction) that
+  // can't be graded with a single tap in the Standard single-step card instead.
   function jumpToStandard(lineId) {
     const index = lineResults.findIndex((l) => l.id === lineId);
     if (index === -1) return;
@@ -156,7 +173,21 @@ export default function LiveTestRunnerPage() {
     setViewMode("standard");
   }
 
-  function startTimer() {
+  // Lets the Checklist/Tile views run a Timer line's Start/Stop inline without leaving the
+  // view (Task 4), by reusing the exact same single-timer path the Standard card uses:
+  // make that line "current" first, then call the existing startTimer(). stopTimer() always
+  // finalizes runningTimerLineIdRef (set explicitly by startTimer), not `current` — currentIndex
+  // can move off the running line (e.g. tapping "View" on another line) while the timer keeps
+  // running, so Stop must not depend on whatever happens to be current at that moment.
+  function onStartTimer(lineId) {
+    const index = lineResults.findIndex((l) => l.id === lineId);
+    if (index === -1) return;
+    setCurrentIndex(index);
+    startTimer(lineId);
+  }
+
+  function startTimer(lineId) {
+    runningTimerLineIdRef.current = lineId;
     timerStartRef.current = Date.now();
     setElapsed(0);
     setIsTimerRunning(true);
@@ -168,11 +199,15 @@ export default function LiveTestRunnerPage() {
   async function stopTimer() {
     clearInterval(intervalRef.current);
     setIsTimerRunning(false);
+    const lineId = runningTimerLineIdRef.current;
+    const line = lineResultsRef.current?.find((l) => l.id === lineId);
+    runningTimerLineIdRef.current = null;
+    if (!line) return; // defensive — shouldn't happen while a timer is running
     const finalElapsed = (Date.now() - timerStartRef.current) / 1000;
-    const result = computeTimerResult(finalElapsed, current.passThresholdSecondsSnapshot);
+    const result = computeTimerResult(finalElapsed, line.passThresholdSecondsSnapshot);
     // All-or-nothing: full points for finishing within the time limit, zero otherwise.
-    const pointsEarned = result === RESULT.PASS ? (current.pointsSnapshot ?? 0) : 0;
-    await patchCurrent({ timerElapsedSeconds: finalElapsed, result, pointsEarned });
+    const pointsEarned = result === RESULT.PASS ? (line.pointsSnapshot ?? 0) : 0;
+    await patchLine(lineId, { timerElapsedSeconds: finalElapsed, result, pointsEarned });
   }
 
   function setGradedResult(result) {
@@ -515,11 +550,13 @@ export default function LiveTestRunnerPage() {
         </div>
       )}
 
-      <div style={{ padding: "12px 16px 0", maxWidth: 720, margin: "0 auto", width: "100%" }}>
-        <ViewSwitcher viewMode={viewMode} setViewMode={setViewMode} />
-      </div>
+      {!hasObstacleCourse && (
+        <div style={{ padding: "12px 16px 0", maxWidth: 720, margin: "0 auto", width: "100%" }}>
+          <ViewSwitcher viewMode={viewMode} setViewMode={setViewMode} />
+        </div>
+      )}
 
-      {viewMode === "standard" && !isObstacleCourse && (
+      {effectiveViewMode === "standard" && !isObstacleCourse && (
         <div style={{ padding: "12px 16px 0" }}>
           <div style={{ height: 6, background: "#e1e1e8", borderRadius: 3, overflow: "hidden" }}>
             <div
@@ -537,7 +574,7 @@ export default function LiveTestRunnerPage() {
       )}
 
       <div className="screen" style={{ flex: 1, paddingTop: isObstacleCourse ? 12 : undefined }}>
-        {viewMode === "standard" ? (
+        {effectiveViewMode === "standard" ? (
           <LineCard
             current={current}
             isTimerRunning={isTimerRunning}
@@ -547,10 +584,28 @@ export default function LiveTestRunnerPage() {
             patchCurrent={patchCurrent}
             setGradedResult={setGradedResult}
           />
-        ) : viewMode === "checklist" ? (
-          <ChecklistView lineResults={lineResults} onGrade={gradeLine} onJump={jumpToStandard} />
+        ) : effectiveViewMode === "checklist" ? (
+          <ChecklistView
+            lineResults={lineResults}
+            onGrade={gradeLine}
+            onJump={jumpToStandard}
+            runningLineId={runningTimerLineIdRef.current}
+            isTimerRunning={isTimerRunning}
+            elapsed={elapsed}
+            onStartTimer={onStartTimer}
+            onStopTimer={stopTimer}
+          />
         ) : (
-          <TileView lineResults={lineResults} onGrade={gradeLine} onJump={jumpToStandard} />
+          <TileView
+            lineResults={lineResults}
+            onGrade={gradeLine}
+            onJump={jumpToStandard}
+            runningLineId={runningTimerLineIdRef.current}
+            isTimerRunning={isTimerRunning}
+            elapsed={elapsed}
+            onStartTimer={onStartTimer}
+            onStopTimer={stopTimer}
+          />
         )}
       </div>
 
@@ -851,7 +906,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
             Stop
           </button>
         ) : current.timerElapsedSeconds == null ? (
-          <button className="primary" style={{ maxWidth: 320 }} onClick={startTimer}>
+          <button className="primary" style={{ maxWidth: 320 }} onClick={() => startTimer(current.id)}>
             Start
           </button>
         ) : (
@@ -860,7 +915,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
               {current.result === RESULT.PASS ? "PASS" : "FAIL"}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="secondary" onClick={startTimer}>Retry</button>
+              <button className="secondary" onClick={() => startTimer(current.id)}>Retry</button>
               <button
                 className="secondary"
                 onClick={() => setGradedResult(current.result === RESULT.PASS ? RESULT.FAIL : RESULT.PASS)}

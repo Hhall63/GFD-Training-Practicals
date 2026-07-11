@@ -22,6 +22,20 @@ export default function SessionDetailPage() {
 
   if (!session) return <div className="screen center-column" style={{ paddingTop: 80 }}>Loading…</div>;
 
+  // Defensive: this page is only ever linked to from already-practice-filtered reporting
+  // lists, so a practice session should never actually reach here — but if one somehow does
+  // (e.g. a stale/hand-typed URL), don't let a training run masquerade as a real result.
+  if (session.isPractice) {
+    return (
+      <div className="app-shell">
+        <TopBar title="Session Detail" onBack={() => navigate(-1)} showMenu={false} />
+        <div className="screen center-column" style={{ paddingTop: 40 }}>
+          <p className="muted">This was a practice session and isn't included in reporting.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <TopBar title="Session Detail" onBack={() => navigate(-1)} showMenu={false} />

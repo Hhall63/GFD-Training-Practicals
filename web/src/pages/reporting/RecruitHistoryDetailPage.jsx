@@ -21,7 +21,9 @@ export default function RecruitHistoryDetailPage() {
       .then((snap) => {
         const rows = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((s) => s.status === "completed")
+          // Practice sessions (Task 6) are excluded defensively — a real recruit should
+          // never have any, but this keeps the page correct even if that ever changes.
+          .filter((s) => s.status === "completed" && !s.isPractice)
           .sort((a, b) => (b.startedAt?.toMillis?.() ?? 0) - (a.startedAt?.toMillis?.() ?? 0));
         setSessions(rows);
       })
