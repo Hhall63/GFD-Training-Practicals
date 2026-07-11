@@ -10,7 +10,7 @@ import { sanitizeHtml } from "../lib/richText";
 export default function TileView({ lineResults, onGrade, onJump }) {
   return (
     <div className="tile-grid">
-      {lineResults.map((line) => {
+      {lineResults.map((line, index) => {
         const isPlainGraded = line.lineTypeSnapshot === LINE_TYPES.GRADED;
         const statusClass =
           line.result === RESULT.PASS ? "card--pass" : line.result === RESULT.FAIL ? "card--fail" : "";
@@ -25,6 +25,9 @@ export default function TileView({ lineResults, onGrade, onJump }) {
 
         return (
           <div key={line.id} className={`card ${statusClass}`}>
+            <span className="tile-seq" aria-hidden="true">
+              {index + 1}
+            </span>
             <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(lineDisplayLabel(line)) }} />
             <div className="muted" style={{ marginTop: 6, marginBottom: 8, fontWeight: 600 }}>
               {statusLabel}

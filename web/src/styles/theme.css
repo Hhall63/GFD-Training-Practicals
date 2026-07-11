@@ -394,6 +394,36 @@ a:visited {
   gap: 12px;
 }
 
+/* Sequential order badge for live-grading Tile view (Task 3): numbers each tile 1..N by its
+   position in lineResults (already sortOrder-ordered) so an evaluator can see step order at
+   a glance in the grid, including for timer/obstacle/instruction tiles. Scoped to
+   .tile-grid .card rather than redefining .card itself, so dashboard/recruit tiles and other
+   .card usage elsewhere are unaffected. The added right padding keeps the label/status text
+   clear of the badge instead of wrapping under it, down to ~111-150px phone tile widths. */
+.tile-grid .card {
+  position: relative;
+  padding-right: 34px;
+}
+
+.tile-seq {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--brand-navy);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
 /* Grid utility for recruit/dashboard listings — pairs with .screen--wide. auto-fill +
    minmax means the column count adapts to width with no explicit breakpoints: ~2 columns on
    iPhone Pro/Pro Max (393-430pt), ~4-5 on an 11" iPad portrait (~834pt, capped by
