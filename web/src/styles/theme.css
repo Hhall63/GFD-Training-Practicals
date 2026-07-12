@@ -888,3 +888,149 @@ a:focus-visible {
   background: rgba(18, 18, 58, 0.05);
   border-color: var(--border);
 }
+
+/* --- Admin dashboard ----------------------------------------------------------------- */
+
+.dashboard-canvas {
+  flex: 1;
+  position: relative;
+  background: linear-gradient(160deg, var(--brand-navy), var(--brand-navy-2));
+  overflow: hidden;
+  padding: 24px 20px 40px;
+}
+
+.dashboard-emblem {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(320px, 80%);
+  height: auto;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.dashboard-inner {
+  position: relative;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* Hero action. Full-width, taller, icon badge + title + subtitle + chevron so "Start a Test"
+   is unmistakably the primary thing this screen launches — not one of seven equal tiles.
+   Gold TOP rule (not a side stripe) marks it as primary. */
+.dashboard-primary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  text-align: left;
+  padding: 20px;
+  margin: 0 0 22px;
+  cursor: pointer;
+  font: inherit;
+  border-top: 3px solid var(--brand-gold);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.dashboard-primary-icon {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-navy);
+  color: #fff;
+}
+
+.dashboard-primary-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-primary-title {
+  display: block;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--brand-navy);
+}
+
+.dashboard-primary-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--text-muted-strong);
+}
+
+.dashboard-primary-chevron {
+  flex-shrink: 0;
+  color: var(--brand-navy);
+  opacity: 0.45;
+}
+
+/* Quiet section label on the navy canvas, separating admin management from the hero action. */
+.dashboard-section-label {
+  margin: 0 0 10px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.dashboard-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 96px;
+  margin: 0;
+  padding: 12px 8px;
+  text-align: center;
+  cursor: pointer;
+  font: inherit;
+  color: var(--brand-navy);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.dashboard-tile-label {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* Hover lift only where a real pointer exists (never sticks on touch); press settles it. */
+@media (hover: hover) {
+  .dashboard-primary:hover,
+  .dashboard-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+  }
+}
+
+.dashboard-primary:active,
+.dashboard-tile:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-primary,
+  .dashboard-tile {
+    transition: none;
+  }
+  .dashboard-primary:hover,
+  .dashboard-tile:hover {
+    transform: none;
+  }
+}
