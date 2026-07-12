@@ -271,6 +271,13 @@ export default function LiveTestRunnerPage() {
     // the outcome and offers a manual compose button as backup. Recipients are resolved
     // once here and stored, so the Results screen never re-queries them (a second query
     // could come back empty and wrongly claim no one is subscribed).
+    //
+    // Intentionally NOT gated on sessionData.isPractice: a failed practice-recruit run is
+    // exactly when an evaluator is most likely to be testing this notification pipeline
+    // itself, so it must behave identically to a real recruit's failure. Do not add an
+    // isPractice skip here — practice-recruit sessions are already excluded from every
+    // reporting/history view (CohortDashboardPage, RecruitHistoryListPage, ExportPage,
+    // reportsData.js), which is the correct place for that exclusion, not this send.
     let failureEmail = { status: null, recipients: [], error: null };
     if (overallResult === RESULT.FAIL) {
       failureEmail = await sendFailureEmail(finishedSession, results);
