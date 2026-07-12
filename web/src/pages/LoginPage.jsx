@@ -2,10 +2,39 @@ import { useEffect, useState } from "react";
 import badge from "../assets/gfd-badge.png";
 import { useAuth, IDLE_LOGOUT_FLAG } from "../context/AuthContext";
 
+function AlertIcon({ variant }) {
+  if (variant === "success") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M5 8.2l2 2L11 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  // error / info: warning triangle
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none">
+      <path d="M8 1.5l6.5 11.5H1.5L8 1.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M8 6v3.2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+      <circle cx="8" cy="11.4" r="0.9" fill="currentColor" />
+    </svg>
+  );
+}
+
+function FormAlert({ variant, role = "alert", children }) {
+  return (
+    <div className={`form-alert form-alert--${variant}`} role={role}>
+      <AlertIcon variant={variant} />
+      <span>{children}</span>
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const { login, requestPasswordReset } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -66,67 +95,87 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="screen center-column" style={{ paddingTop: 48 }}>
-      <img src={badge} alt="GFD Badge" style={{ width: 140, marginBottom: 16 }} />
-      <h2 style={{ margin: "0 0 4px" }}>GFD Recruit Testing</h2>
-      <p className="muted" style={{ marginTop: 0 }}>Greensboro Fire Department</p>
+    <div className="login-screen">
+      <img src={badge} alt="Greensboro Fire Department badge" className="login-badge" />
+      <h1 className="login-title">GFD Recruit Testing</h1>
+      <div className="login-accent" aria-hidden="true" />
+      <p className="login-subtitle">Greensboro Fire Department</p>
 
-      {idleLogout && (
-        <p className="muted" style={{ marginTop: 16, maxWidth: 320, textAlign: "center" }}>
-          You were signed out due to inactivity. Please sign in again.
-        </p>
-      )}
-
-      <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 340, marginTop: 24 }}>
-        <div className="field">
-          <input
-            type="email"
-            placeholder="Email"
-            autoCapitalize="none"
-            autoCorrect="off"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
+      <div className="card card--raised login-card">
+        {idleLogout && (
+          <FormAlert variant="info" role="status">
+            You were signed out due to inactivity. Please sign in again.
+          </FormAlert>
+        )}
         {error && (
-          <p style={{ color: "var(--brand-red)", fontSize: 13 }}>
-            Incorrect email or password.
-          </p>
+          <FormAlert variant="error">Incorrect email or password.</FormAlert>
         )}
         {resetSent && (
-          <p style={{ color: "var(--success)", fontSize: 13 }}>
+          <FormAlert variant="success" role="status">
             Password reset email sent — check your inbox (and your spam folder).
-          </p>
+          </FormAlert>
         )}
-        {resetError && (
-          <p style={{ color: "var(--brand-red)", fontSize: 13 }}>{resetError}</p>
-        )}
-        <button className="primary" type="submit" disabled={!email || !password || submitting}>
-          {submitting ? "Signing In…" : "Sign In"}
-        </button>
-        <button
-          type="button"
-          className="secondary"
-          style={{ marginTop: 10 }}
-          onClick={handleForgotPassword}
-          disabled={!email || resetting}
-        >
-          {resetting ? "Sending…" : "Forgot Password?"}
-        </button>
-        <p className="muted" style={{ fontSize: 12, marginTop: 6, marginBottom: 0 }}>
-          Enter your email above, then tap Forgot Password to get a reset link.
-        </p>
-      </form>
+        {resetError && <FormAlert variant="error">{resetError}</FormAlert>}
 
-      <p className="muted" style={{ marginTop: 32, maxWidth: 320 }}>
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label className="field-label" htmlFor="login-email">
+              Email
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="login-password">
+              Password
+            </label>
+            <div className="password-field">
+              <input
+                id="login-password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-pressed={showPassword}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+
+          <button className="primary" type="submit" disabled={!email || !password || submitting}>
+            {submitting ? "Signing In…" : "Sign In"}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            style={{ marginTop: 10 }}
+            onClick={handleForgotPassword}
+            disabled={!email || resetting}
+          >
+            {resetting ? "Sending…" : "Forgot Password?"}
+          </button>
+          <p className="login-hint" style={{ marginTop: 8, marginBottom: 0 }}>
+            Enter your email above, then tap Forgot Password to get a reset link.
+          </p>
+        </form>
+      </div>
+
+      <p className="login-hint" style={{ marginTop: 28, maxWidth: 340, textAlign: "center" }}>
         Accounts are created by a department administrator. Contact your admin if you need
         access.
       </p>
