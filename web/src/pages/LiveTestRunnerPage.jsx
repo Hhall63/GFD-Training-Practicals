@@ -75,6 +75,14 @@ function LiveTestRunnerRun({ sessionId }) {
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const overallStartRef = useRef(null);
   const overallIntervalRef = useRef(null);
+  // 3-2-1 countdown shown before a template's Overall Timer starts. countdownArmedRef is a
+  // one-time latch (a ref, not state) so the countdown is offered exactly once per session.
+  // overallTimerLine's object identity changes again later in the test (every patchLine()
+  // write touches it, e.g. Stop Test finalizing it) — without this latch, the arm-effect
+  // below would fire again on that later change and reopen the countdown mid-test.
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [countdownValue, setCountdownValue] = useState(3);
+  const countdownArmedRef = useRef(false);
 
   useEffect(() => {
     getDoc(doc(db, "sessions", sessionId)).then(async (snap) => {
@@ -100,12 +108,33 @@ function LiveTestRunnerRun({ sessionId }) {
   // up the result/pauseEvents patchLine() writes once Stop Test finalizes it.
   const overallTimerLine = lineResults?.find((l) => l.lineTypeSnapshot === LINE_TYPES.OVERALL_TIMER);
 
+  // Arms the countdown exactly once per session, the first time this session's Overall
+  // Timer line is seen unfinished. Templates without an Overall Timer line never set this —
+  // overallTimerLine stays undefined, so the countdown never shows, same as today.
+  useEffect(() => {
+    if (overallTimerLine && overallTimerLine.result == null && !countdownArmedRef.current) {
+      countdownArmedRef.current = true;
+      setShowCountdown(true);
+    }
+  }, [overallTimerLine]);
+
+  // Ticks the countdown down from 3 to 0, one second at a time, then closes the overlay.
+  useEffect(() => {
+    if (!showCountdown) return;
+    if (countdownValue === 0) {
+      setShowCountdown(false);
+      return;
+    }
+    const timeout = setTimeout(() => setCountdownValue((v) => v - 1), 1000);
+    return () => clearTimeout(timeout);
+  }, [showCountdown, countdownValue]);
+
   // Auto-starts the instant the Overall Timer line is available and hasn't already been
   // finalized (result == null) — independent of currentIndex/viewMode, so switching steps or
   // views never restarts or interrupts it. Re-runs only when overallTimerLine's own object
   // identity changes (i.e. when patchLine touches it), not on every unrelated re-render.
   useEffect(() => {
-    if (overallTimerLine && overallTimerLine.result == null && !isOverallRunning) {
+    if (overallTimerLine && overallTimerLine.result == null && !isOverallRunning && !showCountdown) {
       overallStartRef.current = Date.now();
       setIsOverallRunning(true);
       overallIntervalRef.current = setInterval(() => {
@@ -114,7 +143,7 @@ function LiveTestRunnerRun({ sessionId }) {
     }
     return () => clearInterval(overallIntervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overallTimerLine]);
+  }, [overallTimerLine, showCountdown]);
 
   const current = lineResults?.[currentIndex];
   const isLastLine = lineResults && currentIndex === lineResults.length - 1;
@@ -522,6 +551,26 @@ function LiveTestRunnerRun({ sessionId }) {
 
   return (
     <div className="app-shell">
+      {showCountdown && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1100,
+          }}
+        >
+          <div className="card" style={{ padding: "40px 56px", textAlign: "center" }}>
+            <p className="muted" style={{ marginBottom: 8 }}>Overall Timer starts in</p>
+            <div className="countdown-digit" style={{ fontSize: 72, fontWeight: 700 }}>
+              {countdownValue}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Rendered above/outside Task 8's viewMode branch below, so this whole-test banner and
           its controls show in every view (Standard/Checklist/Tile) and are never affected by
           switching views. */}
