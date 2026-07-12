@@ -24,6 +24,10 @@ import TileView from "../components/TileView";
 
 export default function LiveTestRunnerPage() {
   const { sessionId } = useParams();
+  return <LiveTestRunnerRun key={sessionId} sessionId={sessionId} />;
+}
+
+function LiveTestRunnerRun({ sessionId }) {
   const navigate = useNavigate();
   const location = useLocation();
 
