@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import { getAdminNavItems } from "../lib/navItems";
-import bgImage from "../assets/work-hard-be-humble.jpg";
+import crest from "../assets/work-hard-be-humble.jpg";
 
 // One restrained line-icon per destination so the grid scans in a glance. Keyed by route so
 // the labels/paths stay the single source of truth in navItems.js.
@@ -102,11 +102,19 @@ export default function AdminDashboardPage() {
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <TopBar title="Dashboard" />
       <div className="dashboard-canvas">
-        {/* Contained, low-opacity emblem as a deliberate backdrop accent behind the tiles —
-            not stretched full-bleed. */}
-        <img src={bgImage} alt="" aria-hidden="true" className="dashboard-emblem" />
-
         <div className="dashboard-inner">
+          <div className="card card--raised dashboard-masthead">
+            <img
+              src={crest}
+              alt="Greensboro Fire Department — Work Hard, Be Humble"
+              className="dashboard-masthead-crest"
+            />
+            <div className="dashboard-masthead-text">
+              <span className="dashboard-masthead-title">GFD Recruit Testing</span>
+              <span className="dashboard-masthead-sub">Greensboro Fire Department</span>
+            </div>
+          </div>
+
           <button
             className="card card--raised dashboard-primary"
             onClick={() => navigate("/start-test")}
