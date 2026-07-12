@@ -34,6 +34,9 @@ export default function TemplatesAdminPage() {
           Drafts are visible to administrators only. Publish a test to make it available to
           evaluators (and visible on recruits' status lists).
         </p>
+        <button className="primary" style={{ marginBottom: 16 }} onClick={() => setShowNew(true)}>
+          + New Test Template
+        </button>
         {templates.length === 0 && (
           <p className="muted">No test templates yet. Build your first one to start evaluating recruits.</p>
         )}
@@ -88,10 +91,6 @@ export default function TemplatesAdminPage() {
             </div>
           );
         })}
-
-        <button className="primary" style={{ marginTop: 16 }} onClick={() => setShowNew(true)}>
-          + New Test Template
-        </button>
       </div>
 
       {showNew && (
