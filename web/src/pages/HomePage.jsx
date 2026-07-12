@@ -13,12 +13,14 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Non-admins are only permitted (by the security rules) to query published tests, so
-    // the status filter is part of the query, not just client-side cosmetics. Admins see
-    // everything, with drafts badged.
-    const constraints = [where("isActive", "==", true)];
-    if (!isAdmin) constraints.push(where("status", "==", "published"));
-    const q = query(collection(db, "templates"), ...constraints);
+    // Every account — admin, evaluator, or recruit — only ever sees published tests on this
+    // picker. Drafts are managed and previewed from Manage Tests (TemplatesAdminPage.jsx)
+    // instead, never started as a live test from here.
+    const q = query(
+      collection(db, "templates"),
+      where("isActive", "==", true),
+      where("status", "==", "published")
+    );
     return onSnapshot(q, (snap) => {
       setTemplates(
         snap.docs
@@ -27,7 +29,7 @@ export default function HomePage() {
       );
       setLoading(false);
     });
-  }, [isAdmin]);
+  }, []);
 
   useEffect(() => {
     // Test Groups bundle several existing templates for back-to-back running (Task 9). Only
@@ -66,18 +68,12 @@ export default function HomePage() {
             <div className="muted">Run all tests in this group back-to-back for one recruit.</div>
           </button>
         ))}
-        {templates.map((template) => {
-          const isDraft = isAdmin && (template.status ?? "published") === "draft";
-          return (
-            <button key={template.id} className="test-tile" style={{ display: "block" }} onClick={() => navigate(`/test/${template.id}`)}>
-              <div style={{ fontWeight: 600, fontSize: 16 }}>
-                {template.name}
-                {isDraft && <span className="badge neutral" style={{ marginLeft: 8 }}>Draft</span>}
-              </div>
-              {template.description && <div className="muted">{template.description}</div>}
-            </button>
-          );
-        })}
+        {templates.map((template) => (
+          <button key={template.id} className="test-tile" style={{ display: "block" }} onClick={() => navigate(`/test/${template.id}`)}>
+            <div style={{ fontWeight: 600, fontSize: 16 }}>{template.name}</div>
+            {template.description && <div className="muted">{template.description}</div>}
+          </button>
+        ))}
       </div>
     </div>
   );

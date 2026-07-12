@@ -31,13 +31,15 @@ VITE_USE_EMULATOR=1 npm run dev -- --port 5178 --host 127.0.0.1 --strictPort &
 
 Seed a login (auth emulator accepts any API key; Firestore emulator accepts
 `Authorization: Bearer owner` to bypass rules for seeding). **Note: `UID` is a readonly
-bash variable — name it something else.**
+bash variable — name it something else.** On a machine without `python3` on PATH
+(e.g. plain Windows/Git Bash — the Microsoft Store alias stub isn't a real interpreter),
+parse the JSON with `node -e` instead, since Node is already required for this project:
 
 ```bash
 TESTUID=$(curl -s -X POST "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake" \
   -H "Content-Type: application/json" \
   -d '{"email":"verify.admin@example.com","password":"VerifyBot!2026","returnSecureToken":true}' \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['localId'])")
+  | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).localId))")
 
 curl -s -X PATCH "http://127.0.0.1:8080/v1/projects/gfd-recruit-training/databases/(default)/documents/admins/$TESTUID" \
   -H "Authorization: Bearer owner" -H "Content-Type: application/json" \
@@ -54,10 +56,18 @@ Reset between runs: `curl -X DELETE "http://127.0.0.1:8080/emulator/v1/projects/
 
 ## Driving with Playwright
 
-Global install exists: `require("/opt/node22/lib/node_modules/playwright")`, Chromium at
-`/opt/pw-browsers`. Use a 390x844 viewport (the app is designed phone-first).
+Global install exists in the cloud sandbox this skill was originally written
+against: `require("/opt/node22/lib/node_modules/playwright")`, Chromium at
+`/opt/pw-browsers`. **On a machine without those paths** (e.g. this project run
+locally rather than in that sandbox), install Playwright as a project
+devDependency instead: `npm install -D @playwright/test && npx playwright install
+chromium` (one-time), then `require("@playwright/test")` from `web/` — no explicit
+`executablePath` needed. Use a 390x844 viewport (the app is designed phone-first).
 
 Selector gotchas that have burned a run before:
+- **Login button reads "Sign In", not "Log In"** — `LoginPage.jsx`'s submit button
+  text is `{submitting ? "Signing In…" : "Sign In"}`. Use
+  `button:has-text("Sign In")`.
 - **Every modal is `.card:has(h3)`** — scope all modal fills/clicks to that locator.
   Unscoped `page.fill("textarea", …)` hits the template Description field *behind* the
   modal; unscoped `input[type=number]` hits the Passing Score field.
