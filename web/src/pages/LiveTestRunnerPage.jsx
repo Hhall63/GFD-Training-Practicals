@@ -137,8 +137,10 @@ function LiveTestRunnerRun({ sessionId }) {
 
   // Auto-starts the instant the Overall Timer line is available and hasn't already been
   // finalized (result == null) — independent of currentIndex/viewMode, so switching steps or
-  // views never restarts or interrupts it. Re-runs only when overallTimerLine's own object
-  // identity changes (i.e. when patchLine touches it), not on every unrelated re-render.
+  // views never restarts or interrupts it. Re-runs when overallTimerLine's own object identity
+  // changes (i.e. when patchLine touches it) or when the countdown finishes (showCountdown
+  // flips false) — the actual start/stop decision gates on showCountdownRef (a ref, not this
+  // state) so a sibling effect's setShowCountdown() in the same commit can't race this one.
   useEffect(() => {
     if (overallTimerLine && overallTimerLine.result == null && !isOverallRunning && !showCountdownRef.current) {
       overallStartRef.current = Date.now();
