@@ -7,7 +7,6 @@ import TopBar from "../components/TopBar";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
   const [templates, setTemplates] = useState([]);
   const [testGroups, setTestGroups] = useState([]);
   const [loading, setLoading] = useState(true);
