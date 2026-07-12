@@ -23,6 +23,10 @@ async function main() {
   await page.click('.recruit-tile:has-text("Casey Rivera")');
   await page.click('button:has-text("Begin Test")');
 
+  // A later task (#7) added a 3-2-1 countdown that blocks the test screen until it
+  // finishes — wait it out before grading, or these clicks land on the overlay instead.
+  await page.waitForSelector("text=Overall Timer starts in", { state: "detached", timeout: 5000 });
+
   // Template A: two Graded steps, then the Overall Timer line finalized via Stop Test.
   await page.click('button:has-text("Pass")');
   await page.click('button:has-text("Next")');
@@ -32,8 +36,9 @@ async function main() {
   await page.click('.card:has(h3:has-text("Stop Test?")) button:has-text("Yes, Stop Test")');
   await page.click('.card:has(h3:has-text("Test Complete")) button:has-text("Go to Next Test")');
 
-  // Now on Template B's session.
+  // Now on Template B's session — same countdown gate applies to its own Overall Timer.
   await page.waitForSelector("text=Line 1 of 2", { timeout: 5000 });
+  await page.waitForSelector("text=Overall Timer starts in", { state: "detached", timeout: 5000 });
 
   const bannerBefore = await page.textContent(".overall-timer-banner span");
   await page.waitForTimeout(1500);
