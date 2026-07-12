@@ -5,6 +5,7 @@ import { db } from "../firebase";
 import { createUserAccountWithoutSigningIn } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
+import { sendWelcomeEmail } from "../lib/notify";
 
 // This page only ever manages staff (Administrator/Evaluator) accounts. Recruit accounts
 // are created and managed from Manage Recruits instead, alongside the recruit's roster
@@ -239,6 +240,10 @@ function NewUserModal({ onClose }) {
   const [notifyOnFailures, setNotifyOnFailures] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // null while filling out the form; { email, password, welcomeStatus } once the account
+  // exists — the modal switches to a confirmation view so the admin can see whether the
+  // welcome email went out, and if not, still has the temp password on screen to relay.
+  const [created, setCreated] = useState(null);
 
   const canSubmit = displayName && email && password.length >= 6;
 
@@ -246,21 +251,53 @@ function NewUserModal({ onClose }) {
     setSubmitting(true);
     setError("");
     try {
-      const uid = await createUserAccountWithoutSigningIn(email.trim().toLowerCase(), password);
+      const trimmedEmail = email.trim().toLowerCase();
+      const uid = await createUserAccountWithoutSigningIn(trimmedEmail, password);
       await setDoc(doc(db, "admins", uid), {
-        email: email.trim().toLowerCase(),
+        email: trimmedEmail,
         displayName,
         role,
         isActive: true,
         notifyOnFailures: role === "admin" ? notifyOnFailures : false,
         createdAt: new Date(),
       });
-      onClose();
+      setCreated({ email: trimmedEmail, password, welcomeStatus: "sending" });
+      const result = await sendWelcomeEmail({
+        toEmail: trimmedEmail,
+        toName: displayName,
+        loginEmail: trimmedEmail,
+        tempPassword: password,
+      });
+      setCreated((c) => ({ ...c, welcomeStatus: result.status }));
     } catch (err) {
       setError(err.code === "auth/email-already-in-use" ? "That email is already registered." : "Something went wrong.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (created) {
+    return (
+      <div
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30 }}
+      >
+        <div className="card" style={{ width: 340, background: "white" }}>
+          <h3 style={{ marginTop: 0 }}>User Created</h3>
+          <p style={{ margin: "0 0 8px" }}>{created.email}</p>
+          {created.welcomeStatus === "sending" && <p className="muted">Sending welcome email…</p>}
+          {created.welcomeStatus === "sent" && <p className="muted">Welcome email sent to {created.email}.</p>}
+          {(created.welcomeStatus === "not-configured" || created.welcomeStatus === "failed") && (
+            <p className="muted">
+              Welcome email not sent — share the login email and temporary password (
+              <strong>{created.password}</strong>) with them manually.
+            </p>
+          )}
+          <button className="primary" style={{ marginTop: 12 }} disabled={created.welcomeStatus === "sending"} onClick={onClose}>
+            Done
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
