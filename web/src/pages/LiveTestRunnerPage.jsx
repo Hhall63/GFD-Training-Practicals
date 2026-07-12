@@ -83,6 +83,10 @@ function LiveTestRunnerRun({ sessionId }) {
   const [showCountdown, setShowCountdown] = useState(false);
   const [countdownValue, setCountdownValue] = useState(3);
   const countdownArmedRef = useRef(false);
+  // Mirrors showCountdown but updates synchronously (refs have no commit-boundary delay,
+  // unlike setState). The auto-start effect below reads this instead of the showCountdown
+  // state so it sees the arm-effect's write within the SAME commit, not one render later.
+  const showCountdownRef = useRef(false);
 
   useEffect(() => {
     getDoc(doc(db, "sessions", sessionId)).then(async (snap) => {
@@ -114,6 +118,7 @@ function LiveTestRunnerRun({ sessionId }) {
   useEffect(() => {
     if (overallTimerLine && overallTimerLine.result == null && !countdownArmedRef.current) {
       countdownArmedRef.current = true;
+      showCountdownRef.current = true;
       setShowCountdown(true);
     }
   }, [overallTimerLine]);
@@ -122,6 +127,7 @@ function LiveTestRunnerRun({ sessionId }) {
   useEffect(() => {
     if (!showCountdown) return;
     if (countdownValue === 0) {
+      showCountdownRef.current = false;
       setShowCountdown(false);
       return;
     }
@@ -134,7 +140,7 @@ function LiveTestRunnerRun({ sessionId }) {
   // views never restarts or interrupts it. Re-runs only when overallTimerLine's own object
   // identity changes (i.e. when patchLine touches it), not on every unrelated re-render.
   useEffect(() => {
-    if (overallTimerLine && overallTimerLine.result == null && !isOverallRunning && !showCountdown) {
+    if (overallTimerLine && overallTimerLine.result == null && !isOverallRunning && !showCountdownRef.current) {
       overallStartRef.current = Date.now();
       setIsOverallRunning(true);
       overallIntervalRef.current = setInterval(() => {
