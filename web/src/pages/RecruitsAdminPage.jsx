@@ -75,6 +75,15 @@ export default function RecruitsAdminPage() {
           <input type="text" placeholder="Search recruits" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
+        <button
+          type="button"
+          className="secondary"
+          style={{ width: "auto", padding: "8px 12px", marginBottom: 12 }}
+          onClick={() => navigate("/recruits/deactivated")}
+        >
+          View Deactivated
+        </button>
+
         {filtered.length === 0 && <p className="muted">No recruits yet.</p>}
 
         <div className="recruit-grid">

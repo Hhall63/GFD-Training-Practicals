@@ -11,6 +11,7 @@ import RecruitConfirmPage from "./pages/RecruitConfirmPage";
 import LiveTestRunnerPage from "./pages/LiveTestRunnerPage";
 import ResultsPage from "./pages/ResultsPage";
 import RecruitsAdminPage from "./pages/RecruitsAdminPage";
+import DeactivatedRecruitsPage from "./pages/DeactivatedRecruitsPage";
 import TemplatesAdminPage from "./pages/TemplatesAdminPage";
 import TemplateEditorPage from "./pages/TemplateEditorPage";
 import TestGroupsAdminPage from "./pages/TestGroupsAdminPage";
@@ -102,6 +103,7 @@ export default function App() {
       <Route path="/session-group/:groupId/:recruitId" element={<RequireAuth><RequireStaff><GroupSummaryPage /></RequireStaff></RequireAuth>} />
 
       <Route path="/recruits" element={<RequireAuth><RequireAdminRole><RecruitsAdminPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/recruits/deactivated" element={<RequireAuth><RequireAdminRole><DeactivatedRecruitsPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/templates" element={<RequireAuth><RequireAdminRole><TemplatesAdminPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/templates/:templateId" element={<RequireAuth><RequireAdminRole><TemplateEditorPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/test-groups" element={<RequireAuth><RequireAdminRole><TestGroupsAdminPage /></RequireAdminRole></RequireAuth>} />
