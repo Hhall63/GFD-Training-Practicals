@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, writeBatch } from "firebase/firestore";
 import { db } from "../firebase";
 import { RESULT, SESSION_STATUS } from "./constants";
 
@@ -133,4 +133,50 @@ export function buildCommandBoard({ recruits, templates, sessions }) {
   const kpis = computeKpis({ recruits, sessions, atRiskCount: flagged.length });
   const matrix = computeReadinessMatrix({ recruits, templates, sessions });
   return { kpis, flagged, matrix };
+}
+
+const CLEAR_ALL_BATCH_LIMIT = 500;
+
+/**
+ * Deletes every document in `sessions` (and each session's `lineResults` subcollection) —
+ * the full test-result history for every recruit, all time. Recruits and templates are
+ * untouched. Used by the Reports page's "Clear All Results" action.
+ *
+ * Firestore batches cap at 500 writes, so this commits in chunks rather than one giant
+ * batch. `onProgress`, if given, is called after each session is fully deleted (its
+ * lineResults plus the session doc itself) so a confirmation modal can show live progress
+ * on a large history.
+ */
+export async function clearAllSessions(onProgress) {
+  const sessionsSnap = await getDocs(collection(db, "sessions"));
+  const total = sessionsSnap.docs.length;
+  let done = 0;
+  let batch = writeBatch(db);
+  let opsInBatch = 0;
+
+  async function deleteRef(ref) {
+    batch.delete(ref);
+    opsInBatch += 1;
+    if (opsInBatch >= CLEAR_ALL_BATCH_LIMIT) {
+      await batch.commit();
+      batch = writeBatch(db);
+      opsInBatch = 0;
+    }
+  }
+
+  for (const sessionDoc of sessionsSnap.docs) {
+    const lineResultsSnap = await getDocs(collection(db, "sessions", sessionDoc.id, "lineResults"));
+    for (const lineResultDoc of lineResultsSnap.docs) {
+      await deleteRef(lineResultDoc.ref);
+    }
+    await deleteRef(sessionDoc.ref);
+    done += 1;
+    onProgress?.(done, total);
+  }
+
+  if (opsInBatch > 0) {
+    await batch.commit();
+  }
+
+  return done;
 }
