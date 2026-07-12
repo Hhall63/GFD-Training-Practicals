@@ -51,6 +51,7 @@ export default function TemplatesAdminPage() {
                       {status === "published" ? "Published" : "Draft"}
                     </span>
                   </div>
+                  {template.description && <div className="muted">{template.description}</div>}
                 </div>
                 <button
                   className="secondary"
