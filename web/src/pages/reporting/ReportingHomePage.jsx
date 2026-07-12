@@ -25,13 +25,20 @@ function ClearAllResultsModal({ onClose, onCleared }) {
   const [confirmText, setConfirmText] = useState("");
   const [clearing, setClearing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [error, setError] = useState("");
 
   const canConfirm = confirmText.trim() === "CLEAR" && !clearing;
 
   async function handleConfirm() {
     setClearing(true);
-    await clearAllSessions((done, total) => setProgress({ done, total }));
-    await onCleared();
+    setError("");
+    try {
+      await clearAllSessions((done, total) => setProgress({ done, total }));
+      await onCleared();
+    } catch (err) {
+      setError("Something went wrong while clearing results. Please try again.");
+      setClearing(false);
+    }
   }
 
   return (
@@ -61,6 +68,7 @@ function ClearAllResultsModal({ onClose, onCleared }) {
                 autoCorrect="off"
               />
             </div>
+            {error && <p style={{ color: "var(--brand-red)", fontSize: 13 }}>{error}</p>}
             <div style={{ display: "flex", gap: 8 }}>
               <button className="secondary" onClick={onClose}>
                 Cancel
