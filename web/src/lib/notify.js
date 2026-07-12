@@ -24,6 +24,73 @@ export function isEmailConfigured() {
   return Boolean(EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY);
 }
 
+const EMAILJS_WELCOME_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_WELCOME_TEMPLATE_ID;
+
+export function isWelcomeEmailConfigured() {
+  return Boolean(EMAILJS_SERVICE_ID && EMAILJS_WELCOME_TEMPLATE_ID && EMAILJS_PUBLIC_KEY);
+}
+
+export function buildWelcomeSubject() {
+  return "Your GFD Recruit Testing login";
+}
+
+/** Plain-text welcome message: who this is for, their login, and their temporary
+ * password. Mirrors buildFailureBody's shape (plain text, used directly as the EmailJS
+ * "message" template variable). */
+export function buildWelcomeBody({ toName, loginEmail, tempPassword }) {
+  const lines = [];
+  lines.push(`Hi ${toName},`);
+  lines.push("");
+  lines.push("You've been given a login for GFD Recruit Testing.");
+  lines.push("");
+  lines.push(`Login email: ${loginEmail}`);
+  lines.push(`Temporary password: ${tempPassword}`);
+  lines.push("");
+  lines.push(
+    'We recommend changing your password after you sign in — use "Forgot Password" on the login screen any time.'
+  );
+  lines.push("");
+  lines.push(`Sign in here: ${window.location.origin}/login`);
+  return lines.join("\n");
+}
+
+/**
+ * Attempts automatic delivery of a welcome email via EmailJS, using a separate template
+ * from the failure-report one (unrelated content). Best-effort, same contract as
+ * sendFailureEmail: never throws, always resolves to { status, error }.
+ *   "sent"             emailed successfully
+ *   "not-configured"   EmailJS (or the welcome template specifically) not set up —
+ *                      caller should show the login/password on screen for manual sharing
+ *   "failed"           the send call errored — same manual-sharing fallback as above
+ */
+export async function sendWelcomeEmail({ toEmail, toName, loginEmail, tempPassword }) {
+  if (!isWelcomeEmailConfigured()) return { status: "not-configured", error: null };
+
+  try {
+    const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: EMAILJS_WELCOME_TEMPLATE_ID,
+        user_id: EMAILJS_PUBLIC_KEY,
+        template_params: {
+          to_email: toEmail,
+          subject: buildWelcomeSubject(),
+          message: buildWelcomeBody({ toName, loginEmail, tempPassword }),
+        },
+      }),
+    });
+    if (res.ok) return { status: "sent", error: null };
+    const detail = await res.text().catch(() => "");
+    console.error("EmailJS welcome send failed", res.status, detail);
+    return { status: "failed", error: `EmailJS ${res.status}${detail ? `: ${detail}` : ""}` };
+  } catch (err) {
+    console.error("EmailJS welcome send threw", err);
+    return { status: "failed", error: err?.message ?? "network error" };
+  }
+}
+
 /** Active administrators who checked "Notify with failures" on their account. Sends to the
  * admin's `notificationEmail` when set (so failures can go to a work address that differs
  * from their login), otherwise their login `email`.
