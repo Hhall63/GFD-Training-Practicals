@@ -16,6 +16,7 @@ import TopBar from "../components/TopBar";
 import { initials } from "../lib/constants";
 import { compressImageToDataUrl } from "../lib/image";
 import { PRACTICE_RECRUIT_ID } from "../lib/practiceRecruit";
+import { sendWelcomeEmail } from "../lib/notify";
 
 /**
  * The one place a recruit gets created: roster info (name, cohort, badge, photo) and an
@@ -150,6 +151,7 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
   const [loginPassword, setLoginPassword] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [welcomeStatus, setWelcomeStatus] = useState(null); // null, "sending", "sent", "not-configured", or "failed" — only ever set when a new portal login is created in this save
 
   const wantsNewLogin = !existingLogin && (loginEmail || loginPassword);
   const canSave =
@@ -189,15 +191,25 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
       }
 
       if (wantsNewLogin) {
-        const uid = await createUserAccountWithoutSigningIn(loginEmail.trim().toLowerCase(), loginPassword);
+        const trimmedLoginEmail = loginEmail.trim().toLowerCase();
+        const uid = await createUserAccountWithoutSigningIn(trimmedLoginEmail, loginPassword);
         await setDoc(doc(db, "admins", uid), {
-          email: loginEmail.trim().toLowerCase(),
+          email: trimmedLoginEmail,
           displayName: `${firstName} ${lastName}`,
           role: "recruit",
           recruitId,
           isActive: true,
           createdAt: new Date(),
         });
+        setWelcomeStatus("sending");
+        const result = await sendWelcomeEmail({
+          toEmail: trimmedLoginEmail,
+          toName: `${firstName} ${lastName}`,
+          loginEmail: trimmedLoginEmail,
+          tempPassword: loginPassword,
+        });
+        setWelcomeStatus(result.status);
+        return; // stay open so the admin sees the welcome-email outcome below; they close it themselves
       }
 
       onClose();
@@ -282,12 +294,33 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
 
         {error && <p style={{ color: "var(--brand-red)", fontSize: 13 }}>{error}</p>}
 
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="secondary" onClick={onClose}>Cancel</button>
-          <button className="primary" disabled={!canSave || saving} onClick={handleSave}>
-            {saving ? "Saving…" : "Save"}
+        {welcomeStatus && (
+          <div className="field">
+            {welcomeStatus === "sending" && <p className="muted">Sending welcome email…</p>}
+            {welcomeStatus === "sent" && (
+              <p className="muted">Welcome email sent to {loginEmail.trim().toLowerCase()}.</p>
+            )}
+            {(welcomeStatus === "not-configured" || welcomeStatus === "failed") && (
+              <p className="muted">
+                Welcome email not sent — share the login email and temporary password (
+                <strong>{loginPassword}</strong>) with them manually.
+              </p>
+            )}
+          </div>
+        )}
+
+        {welcomeStatus ? (
+          <button className="primary" style={{ width: "100%" }} disabled={welcomeStatus === "sending"} onClick={onClose}>
+            Done
           </button>
-        </div>
+        ) : (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="secondary" onClick={onClose}>Cancel</button>
+            <button className="primary" disabled={!canSave || saving} onClick={handleSave}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
