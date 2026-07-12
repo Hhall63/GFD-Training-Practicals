@@ -16,6 +16,7 @@ import {
 import { db } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
+import FormAlert from "../components/FormAlert";
 import { initials, LINE_TYPES, RESULT, SESSION_STATUS } from "../lib/constants";
 import { defaultObstacleCourseConfig, seedObstacleTallies } from "../lib/obstacleCourse";
 import { ensurePracticeRecruit, PRACTICE_RECRUIT_ID } from "../lib/practiceRecruit";
@@ -36,7 +37,11 @@ export default function RecruitConfirmPage() {
   const [selected, setSelected] = useState(null);
   const [attemptType, setAttemptType] = useState("first");
   const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState(false);
   const [viewMode, setViewMode] = useState("standard");
+  // True until the first recruits snapshot arrives, so a slow connection reads as "loading"
+  // rather than a false "no recruits configured" empty state.
+  const [recruitsLoading, setRecruitsLoading] = useState(true);
   // Whether the selected template contains an obstacle-course line — checked before the test
   // starts (same query beginTest() runs) so the Display View picker can be hidden and defaulted
   // to Standard for these templates, matching the runner's own always-Standard enforcement.
@@ -105,6 +110,7 @@ export default function RecruitConfirmPage() {
             return a.lastName.localeCompare(b.lastName);
           })
       );
+      setRecruitsLoading(false);
     });
   }, []);
 
@@ -116,6 +122,7 @@ export default function RecruitConfirmPage() {
 
   async function beginTest() {
     setStarting(true);
+    setStartError(false);
     try {
       // `template` is already the right one for either flow: the single template picked
       // by /test/:templateId, or the first template in the group's ordered list for
@@ -183,6 +190,9 @@ export default function RecruitConfirmPage() {
       await batch.commit();
 
       navigate(`/session/${sessionRef.id}/run`, { replace: true, state: { initialViewMode: viewMode } });
+    } catch (err) {
+      console.error("Failed to start test session:", err);
+      setStartError(true);
     } finally {
       setStarting(false);
     }
@@ -217,31 +227,53 @@ export default function RecruitConfirmPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            {filtered.length === 0 && (
-              <p className="muted">No recruits yet. Add recruits from the menu under Manage Recruits.</p>
-            )}
-            <div className="recruit-grid">
-              {filtered.map((recruit) => (
-                <button
-                  key={recruit.id}
-                  className="card card--raised recruit-tile"
-                  onClick={() => setSelected(recruit)}
-                >
-                  {recruit.isPractice && (
-                    <span className="badge neutral">Practice</span>
-                  )}
-                  {recruit.photoURL ? (
-                    <img src={recruit.photoURL} className="avatar" alt="" />
-                  ) : (
-                    <div className="avatar">{initials(recruit.firstName, recruit.lastName)}</div>
-                  )}
-                  <div className="recruit-tile-name" style={{ fontWeight: 600 }}>
-                    {recruit.firstName} {recruit.lastName}
+            {recruitsLoading ? (
+              <div className="recruit-grid" aria-busy="true" aria-label="Loading recruits">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="skeleton-recruit-tile">
+                    <div className="skeleton-block skeleton-block--avatar" />
+                    <div className="skeleton-block skeleton-block--name" />
+                    <div className="skeleton-block skeleton-block--cohort" />
                   </div>
-                  <div className="muted recruit-tile-cohort">{recruit.recruitClassOrCohort}</div>
-                </button>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                {filtered.length === 0 && (
+                  <p className="muted">
+                    {recruits.length === 0
+                      ? "No recruits yet. Add recruits from the menu under Manage Recruits."
+                      : `No recruits match "${search}".`}
+                  </p>
+                )}
+                <div className="recruit-grid">
+                  {filtered.map((recruit) => {
+                    const fullName = `${recruit.firstName} ${recruit.lastName}`;
+                    return (
+                      <button
+                        key={recruit.id}
+                        className="card card--raised recruit-tile"
+                        title={`${fullName} — ${recruit.recruitClassOrCohort}`}
+                        onClick={() => setSelected(recruit)}
+                      >
+                        {recruit.isPractice && (
+                          <span className="badge neutral">Practice</span>
+                        )}
+                        {recruit.photoURL ? (
+                          <img src={recruit.photoURL} className="avatar" alt="" />
+                        ) : (
+                          <div className="avatar">{initials(recruit.firstName, recruit.lastName)}</div>
+                        )}
+                        <div className="recruit-tile-name" style={{ fontWeight: 600 }}>
+                          {fullName}
+                        </div>
+                        <div className="muted recruit-tile-cohort">{recruit.recruitClassOrCohort}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </>
         ) : (
           <div className="center-column" style={{ paddingTop: 24 }}>
@@ -261,13 +293,23 @@ export default function RecruitConfirmPage() {
                 : `Confirm this is the recruit being tested on "${template.name}".`}
             </p>
             <div style={{ width: "100%", maxWidth: 320 }}>
+              {startError && (
+                <FormAlert variant="error">
+                  Couldn't start the test. Check your connection and try again.
+                </FormAlert>
+              )}
               <div className="field" style={{ textAlign: "left" }}>
                 <label>Attempt</label>
-                <select value={attemptType} onChange={(e) => setAttemptType(e.target.value)}>
-                  <option value="first">1st Attempt</option>
-                  {/* Retakes are only administrators' call — evaluators don't see the option. */}
-                  {isAdmin && <option value="retake">Retake</option>}
-                </select>
+                {/* Retakes are only administrators' call. A non-admin has no real choice to
+                    make here, so show static text instead of a dropdown with one option. */}
+                {isAdmin ? (
+                  <select value={attemptType} onChange={(e) => setAttemptType(e.target.value)}>
+                    <option value="first">1st Attempt</option>
+                    <option value="retake">Retake</option>
+                  </select>
+                ) : (
+                  <p style={{ margin: "8px 0 0" }}>1st Attempt</p>
+                )}
               </div>
               {!templateHasObstacleCourse && (
                 <div className="field" style={{ textAlign: "left" }}>
@@ -289,7 +331,14 @@ export default function RecruitConfirmPage() {
               <button className="primary" onClick={beginTest} disabled={starting}>
                 {starting ? "Starting…" : attemptType === "retake" ? "Begin Retake" : "Begin Test"}
               </button>
-              <button className="secondary" style={{ marginTop: 10 }} onClick={() => setSelected(null)}>
+              <button
+                className="secondary"
+                style={{ marginTop: 10 }}
+                onClick={() => {
+                  setSelected(null);
+                  setStartError(false);
+                }}
+              >
                 Choose a Different Recruit
               </button>
               <button className="secondary" style={{ marginTop: 10 }} onClick={() => navigate("/")}>
