@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TopBar from "../../components/TopBar";
-import { buildCommandBoard, loadCommandBoardData } from "../../lib/reportsData";
+import { buildCommandBoard, clearAllSessions, loadCommandBoardData } from "../../lib/reportsData";
 import { RESULT } from "../../lib/constants";
 
 const QUICK_LINKS = [
@@ -21,11 +21,72 @@ function KpiTile({ label, value, alert }) {
   );
 }
 
+function ClearAllResultsModal({ onClose, onCleared }) {
+  const [confirmText, setConfirmText] = useState("");
+  const [clearing, setClearing] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+
+  const canConfirm = confirmText.trim() === "CLEAR" && !clearing;
+
+  async function handleConfirm() {
+    setClearing(true);
+    await clearAllSessions((done, total) => setProgress({ done, total }));
+    await onCleared();
+  }
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30 }}
+      onClick={clearing ? undefined : onClose}
+    >
+      <div className="card" style={{ width: 340, background: "white" }} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ marginTop: 0 }}>Clear All Results</h3>
+        <p className="muted">
+          This permanently deletes all test results for every recruit. Recruits and test
+          templates are not affected. This cannot be undone.
+        </p>
+        {clearing ? (
+          <p className="muted">
+            Deleting… {progress.done} of {progress.total} sessions
+          </p>
+        ) : (
+          <>
+            <div className="field">
+              <label>Type CLEAR to confirm</label>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                autoCapitalize="none"
+                autoCorrect="off"
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="secondary" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                className="primary"
+                style={{ background: "var(--brand-red)" }}
+                disabled={!canConfirm}
+                onClick={handleConfirm}
+              >
+                Delete Everything
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ReportingHomePage() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cohortFilter, setCohortFilter] = useState("All Cohorts");
+  const [showClearModal, setShowClearModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,6 +271,25 @@ export default function ReportingHomePage() {
             </button>
           ))}
         </div>
+
+        <button
+          className="secondary"
+          style={{ marginTop: 16, color: "var(--brand-red)" }}
+          onClick={() => setShowClearModal(true)}
+        >
+          Clear All Results
+        </button>
+
+        {showClearModal && (
+          <ClearAllResultsModal
+            onClose={() => setShowClearModal(false)}
+            onCleared={async () => {
+              const raw = await loadCommandBoardData();
+              setData(raw);
+              setShowClearModal(false);
+            }}
+          />
+        )}
       </div>
     </div>
   );
