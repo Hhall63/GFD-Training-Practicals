@@ -57,7 +57,7 @@ export default function TemplatesAdminPage() {
                   style={{ width: "auto", padding: "6px 12px", color: "var(--brand-red)" }}
                   onClick={() => retire(template)}
                 >
-                  Retire
+                  Delete
                 </button>
               </div>
               <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
