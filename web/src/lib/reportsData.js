@@ -24,12 +24,14 @@ function toMillis(ts) {
  * Practice filtering is client-side (`!doc.isPractice`) rather than a query filter because
  * normal recruits/sessions simply omit the field — Firestore has no `!=` that reliably
  * matches "field is false or absent" without a composite index/backfill.
+ *
+ * Accepts an optional Firestore instance so callers signed into a different Firebase Auth session (e.g. the anonymous Live Dashboard) can load through their own credential — defaults to this app's primary db.
  */
-export async function loadCommandBoardData() {
+export async function loadCommandBoardData(firestoreDb = db) {
   const [recruitsSnap, templatesSnap, sessionsSnap] = await Promise.all([
-    getDocs(query(collection(db, "recruits"), where("isActive", "==", true))),
-    getDocs(query(collection(db, "templates"), where("isActive", "==", true))),
-    getDocs(query(collection(db, "sessions"), where("status", "==", SESSION_STATUS.COMPLETED))),
+    getDocs(query(collection(firestoreDb, "recruits"), where("isActive", "==", true))),
+    getDocs(query(collection(firestoreDb, "templates"), where("isActive", "==", true))),
+    getDocs(query(collection(firestoreDb, "sessions"), where("status", "==", SESSION_STATUS.COMPLETED))),
   ]);
 
   const recruits = recruitsSnap.docs
