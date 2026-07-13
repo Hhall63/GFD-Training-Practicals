@@ -65,6 +65,17 @@ chromium` (one-time), then `require("@playwright/test")` from `web/` — no expl
 `executablePath` needed. Use a 390x844 viewport (the app is designed phone-first).
 
 Selector gotchas that have burned a run before:
+- **An admin-role account lands on `AdminDashboardPage` at `/`, not `HomePage`.**
+  Per `App.jsx`'s root route, `/` renders `role === "admin" ? <AdminDashboardPage/> :
+  isRecruit ? <RecruitHomePage/> : <HomePage/>`. The seeded verify admin has
+  `role: "admin"`, so after login `page.goto("/")` (or waiting on `.test-tile`
+  right after sign-in) will hang forever — there are no test tiles on the admin
+  dashboard. To reach the live-test picker (`.test-tile` elements, "Select a
+  Test") as that account, navigate to **`/start-test`** instead, which is
+  `HomePage` behind `RequireStaff` regardless of role. (Evaluator-role accounts
+  don't have this problem — `/` already resolves to `HomePage` for them — but
+  this project's seeded verify account is admin-role per this skill's own seed
+  commands above.)
 - **Login button reads "Sign In", not "Log In"** — `LoginPage.jsx`'s submit button
   text is `{submitting ? "Signing In…" : "Sign In"}`. Use
   `button:has-text("Sign In")`.
