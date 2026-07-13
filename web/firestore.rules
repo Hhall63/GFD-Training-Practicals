@@ -68,7 +68,11 @@ service cloud.firestore {
       // account and no legitimate reason to read any admin's profile, even their own.
       allow get: if isSignedIn() && !isAnonymousLiveViewer();
       allow list: if isStaff();
-      allow create: if isAdminRole() || (request.auth.uid == adminId && noAdminExistsYet());
+      // The bootstrap self-create path (claiming the first admin slot) is also excluded for
+      // anonymous sessions — not exploitable today since this app already has admins, but the
+      // same class of gap as the `get` exclusion above: a future state with zero admin docs
+      // (fresh install, disaster recovery) must not let an anonymous visitor seize it.
+      allow create: if isAdminRole() || (request.auth.uid == adminId && noAdminExistsYet() && !isAnonymousLiveViewer());
       allow update, delete: if isAdminRole();
     }
 
@@ -83,7 +87,9 @@ service cloud.firestore {
 
     match /recruits/{recruitId} {
       // Staff read the roster to pick who they're testing; a Recruit may read only their
-      // own linked record. Only administrators write.
+      // own linked record. Only administrators write. Anonymous Live Dashboard sessions can
+      // also get/list (read-only) — the command board's readiness matrix needs recruit names,
+      // per the deliberate exposure tradeoff documented on isAnonymousLiveViewer() above.
       allow get: if isStaff() || (isRecruitRole() && myUserDoc().recruitId == recruitId) || isAnonymousLiveViewer();
       allow list: if isStaff() || isAnonymousLiveViewer();
       allow write: if isAdminRole() || (isStaff() && recruitId == 'practice-recruit');
@@ -93,7 +99,9 @@ service cloud.firestore {
       // Drafts are visible to administrators only. Published tests are visible to
       // everyone active (evaluators run them; recruits see them on their status list).
       // Templates created before the draft feature have no `status` field — treated as
-      // published, since they were already live.
+      // published, since they were already live. Anonymous Live Dashboard sessions can also
+      // read (any status) — the command board's readiness matrix needs template names,
+      // per the deliberate exposure tradeoff documented on isAnonymousLiveViewer() above.
       allow read: if isAdminRole()
         || (isActiveUser() && (!('status' in resource.data) || resource.data.status == 'published'))
         || isAnonymousLiveViewer();
@@ -119,6 +127,9 @@ service cloud.firestore {
 
     match /sessions/{sessionId} {
       // Staff run tests and record results. A Recruit may read only their own sessions.
+      // Anonymous Live Dashboard sessions can also read session summaries (result, recruit,
+      // template) for the command board — but never lineResults below, which stay
+      // staff-only (evaluator notes, photo URLs are not part of the deliberate exposure).
       allow read: if isStaff() || (isRecruitRole() && resource.data.recruitId == myUserDoc().recruitId) || isAnonymousLiveViewer();
       allow write: if isStaff();
 
