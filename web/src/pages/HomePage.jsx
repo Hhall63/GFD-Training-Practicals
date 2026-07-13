@@ -23,6 +23,7 @@ export default function HomePage() {
       setTemplates(
         snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((t) => !t.isBatchGrade)
           .sort((a, b) => a.name.localeCompare(b.name))
       );
       setLoading(false);

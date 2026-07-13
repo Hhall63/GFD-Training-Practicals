@@ -13,7 +13,10 @@ export default function TemplatesAdminPage() {
     const q = query(collection(db, "templates"), where("isActive", "==", true));
     return onSnapshot(q, (snap) => {
       setTemplates(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name))
+        snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((t) => !t.isBatchGrade)
+          .sort((a, b) => a.name.localeCompare(b.name))
       );
     });
   }, []);
