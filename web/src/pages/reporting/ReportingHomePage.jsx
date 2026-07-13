@@ -96,6 +96,7 @@ function LiveDashboardLinkCard() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     getDocs(query(collection(db, "publicLiveLinks"), where("active", "==", true))).then((snap) => {
@@ -107,13 +108,20 @@ function LiveDashboardLinkCard() {
   async function regenerate() {
     setBusy(true);
     setCopied(false);
+    setError("");
     try {
       if (activeToken) {
         await updateDoc(doc(db, "publicLiveLinks", activeToken), { active: false });
+        // The old link is now deactivated even if the new one below fails to create — clear
+        // it from state so the UI can't keep showing/copying a link that's dead in Firestore.
+        setActiveToken(null);
       }
       const token = crypto.randomUUID();
       await setDoc(doc(db, "publicLiveLinks", token), { active: true, createdAt: new Date() });
       setActiveToken(token);
+    } catch (err) {
+      setError("Couldn't generate a new link. Try again.");
+      console.error("Failed to regenerate live dashboard link", err);
     } finally {
       setBusy(false);
     }
@@ -127,6 +135,7 @@ function LiveDashboardLinkCard() {
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <h3 style={{ marginTop: 0 }}>Live Dashboard Link</h3>
+      {error && <p style={{ color: "var(--brand-red)", fontSize: 13 }}>{error}</p>}
       {loading ? (
         <p className="muted">Loading…</p>
       ) : activeToken ? (
