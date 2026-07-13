@@ -28,6 +28,7 @@ import TemplateAggregateReportPage from "./pages/reporting/TemplateAggregateRepo
 import CohortDashboardListPage from "./pages/reporting/CohortDashboardListPage";
 import CohortDashboardPage from "./pages/reporting/CohortDashboardPage";
 import ExportPage from "./pages/reporting/ExportPage";
+import LiveDashboardPage from "./pages/LiveDashboardPage";
 
 function FullScreenLoading() {
   return <div className="screen center-column" style={{ paddingTop: 80 }}>Loading…</div>;
@@ -95,6 +96,8 @@ export default function App() {
           )
         }
       />
+
+      <Route path="/live/:token" element={<LiveDashboardPage />} />
 
       <Route path="/" element={<RequireAuth>{role === "admin" ? <AdminDashboardPage /> : isRecruit ? <RecruitHomePage /> : <HomePage />}</RequireAuth>} />
       <Route path="/start-test" element={<RequireAuth><RequireStaff><HomePage /></RequireStaff></RequireAuth>} />
