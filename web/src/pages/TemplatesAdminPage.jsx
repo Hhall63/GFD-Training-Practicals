@@ -51,7 +51,7 @@ export default function TemplatesAdminPage() {
             <div key={template.id} className="card">
               <div className="list-row" style={{ padding: 0, border: "none" }}>
                 <div style={{ flex: 1 }} onClick={() => navigate(`/templates/${template.id}`)}>
-                  <div style={{ fontWeight: 600 }}>
+                  <div style={{ fontWeight: 700, color: "var(--brand-navy)" }}>
                     {template.name}{" "}
                     <span className={`badge ${status === "published" ? "pass" : "neutral"}`}>
                       {status === "published" ? "Published" : "Draft"}
@@ -67,7 +67,7 @@ export default function TemplatesAdminPage() {
                   Delete
                 </button>
               </div>
-              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+              <div className="segmented" style={{ marginTop: 10 }}>
                 {[
                   ["draft", "Draft"],
                   ["published", "Published"],
@@ -75,17 +75,8 @@ export default function TemplatesAdminPage() {
                   <button
                     key={value}
                     type="button"
+                    className={`segment${status === value ? " active" : ""}`}
                     onClick={() => setStatus(template, value)}
-                    style={{
-                      flex: 1,
-                      padding: "8px 4px",
-                      fontSize: 13,
-                      borderRadius: 8,
-                      border: "1px solid var(--border)",
-                      background: status === value ? "var(--brand-navy)" : "white",
-                      color: status === value ? "white" : "var(--text)",
-                      cursor: "pointer",
-                    }}
                   >
                     {label}
                   </button>

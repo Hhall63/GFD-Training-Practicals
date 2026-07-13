@@ -3,7 +3,7 @@
   /* Second gradient stop for .overall-timer-banner — a lighter navy so the whole-test timer
      banner reads as a distinct, richer surface from the flat --brand-navy per-step timer
      banner, without introducing a whole new hue. */
-  --brand-navy-2: #23235c;
+  --brand-navy-2: #1c1c56;
   --brand-red: #c4212f;
   --brand-gold: #d3a85f;
   --bg: #f4f4f7;
@@ -20,10 +20,13 @@
   --status-pass-muted: #6b9e7a;
   --status-fail-muted: #b5555f;
   --radius: 14px;
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 2px 6px rgba(18, 18, 58, 0.12);
   /* Deeper shadow than --shadow-sm, for surfaces that should read as "raised" above the
      page (dashboard cards, recruit tiles) rather than flat-bordered like the base .card. */
-  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 14px rgba(18, 18, 58, 0.18);
+  --status-pass: var(--success);
+  --status-fail: var(--brand-red);
+  --status-progress: var(--brand-gold);
   --flag-amber: #b45309;
   /* --flag-amber at 14% alpha, precomputed for background fills (e.g. .badge.critical) that
      need a tint rather than the solid color — kept as one named value instead of a raw
@@ -88,7 +91,8 @@ body {
      app is installed to the Home Screen (standalone mode) — without it, the bar sits at
      the very top of the screen and the clock/battery/signal icons overlap it. */
   padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
-  background: var(--brand-navy);
+  background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-2));
+  border-bottom: 3px solid var(--brand-gold);
   color: white;
 }
 
@@ -116,6 +120,26 @@ body {
   border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card--pass,
+.card--fail,
+.card--progress {
+  border-left-width: 4px;
+  border-left-style: solid;
+}
+
+.card--pass {
+  border-left-color: var(--status-pass);
+}
+
+.card--fail {
+  border-left-color: var(--status-fail);
+}
+
+.card--progress {
+  border-left-color: var(--status-progress);
 }
 
 /* Additive modifier: use as className="card card--raised". Layers on top of the base .card
@@ -138,24 +162,29 @@ button.primary {
   border: none;
   border-radius: var(--radius);
   cursor: pointer;
+  box-shadow: var(--shadow-md);
 }
 
 button.primary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 button.primary.danger {
   background: var(--brand-red);
+  box-shadow: 0 3px 10px rgba(196, 33, 47, 0.35);
 }
 
 button.primary.success {
   background: var(--success);
+  box-shadow: 0 3px 10px rgba(31, 138, 59, 0.3);
 }
 
 button.primary.warning {
   background: var(--brand-gold);
   color: var(--brand-navy);
+  box-shadow: 0 3px 10px rgba(211, 168, 95, 0.35);
 }
 
 button.primary.pass-muted {
@@ -269,7 +298,41 @@ a:visited {
   padding: 3px 10px;
   border-radius: 999px;
   font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.segmented {
+  display: flex;
+  gap: 6px;
+}
+
+.segment {
+  flex: 1;
+  padding: 8px 4px;
+  font-size: 13px;
   font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.segment.active {
+  background: var(--brand-navy);
+  color: white;
+  border-color: var(--brand-navy);
+  box-shadow: var(--shadow-sm);
 }
 
 .badge.pass {
@@ -314,7 +377,8 @@ a:visited {
   /* Same safe-area clearance as .top-bar — the live test runner has no header above this
      banner, so it needs its own clearance from the iPhone status bar/notch. */
   padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
-  background: var(--brand-navy);
+  background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-2));
+  border-bottom: 3px solid var(--brand-gold);
   color: white;
 }
 

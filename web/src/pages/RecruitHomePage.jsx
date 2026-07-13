@@ -79,8 +79,9 @@ export default function RecruitHomePage() {
         {!loading && templates.length === 0 && <p className="muted">No tests published yet.</p>}
         {templates.map((template) => {
           const status = statusByTemplate[template.id];
+          const cardModifier = status.tone === "pass" ? " card--pass" : status.tone === "fail" ? " card--fail" : "";
           return (
-            <div key={template.id} className="card">
+            <div key={template.id} className={`card${cardModifier}`}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <div>
                   <div style={{ fontWeight: 600 }}>{template.name}</div>

@@ -37,7 +37,7 @@ export default function CourseMap({ markers = [], onTap, onMarkerClick, distance
         width: "100%",
         lineHeight: 0,
         border: "1px solid var(--border)",
-        borderRadius: 10,
+        borderRadius: "var(--radius)",
         // Overlays (distance dropdowns) must never be invisibly clipped, so the rounded-
         // corner crop lives on the diagram wrapper below instead of on this container.
         overflow: "visible",
@@ -45,7 +45,7 @@ export default function CourseMap({ markers = [], onTap, onMarkerClick, distance
         touchAction: "manipulation",
       }}
     >
-      <div style={{ borderRadius: 10, overflow: "hidden", lineHeight: 0, background: "#fff" }}>
+      <div style={{ borderRadius: "var(--radius)", overflow: "hidden", lineHeight: 0, background: "#fff" }}>
         <CourseDiagram />
       </div>
       {distanceSlots?.map((slot) => (

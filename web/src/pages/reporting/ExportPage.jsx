@@ -92,7 +92,9 @@ export default function ExportPage() {
                 {templateNames.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            <p className="muted">{filtered.length} session{filtered.length === 1 ? "" : "s"} will be exported.</p>
+            <p className="muted">
+              <strong style={{ color: "var(--brand-navy)" }}>{filtered.length}</strong> session{filtered.length === 1 ? "" : "s"} will be exported.
+            </p>
             <button className="primary" disabled={filtered.length === 0 || preparing} onClick={handleExport}>
               {preparing ? "Preparing…" : "Download CSV (opens in Excel)"}
             </button>

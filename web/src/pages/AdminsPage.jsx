@@ -82,22 +82,13 @@ export default function AdminsPage() {
           Administrators and Evaluators only. To create a recruit's login, use Manage
           Recruits instead.
         </p>
-        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        <div className="segmented" style={{ marginBottom: 16 }}>
           {ROLE_FILTERS.map(([value, label]) => (
             <button
               key={value}
               type="button"
+              className={`segment${roleFilter === value ? " active" : ""}`}
               onClick={() => setRoleFilter(value)}
-              style={{
-                flex: 1,
-                padding: "8px 4px",
-                fontSize: 13,
-                borderRadius: 8,
-                border: "1px solid var(--border)",
-                background: roleFilter === value ? "var(--brand-navy)" : "white",
-                color: roleFilter === value ? "white" : "var(--text)",
-                cursor: "pointer",
-              }}
             >
               {label}
             </button>
@@ -111,7 +102,7 @@ export default function AdminsPage() {
           const isSelf = user.id === adminDoc?.id;
           return (
             <div key={user.id} className="card">
-              <div style={{ fontWeight: 600 }}>
+              <div style={{ fontWeight: 700, color: "var(--brand-navy)" }}>
                 {user.displayName}{" "}
                 <span className={`badge ${role === "admin" ? "pass" : "neutral"}`}>{ROLE_LABELS[role]}</span>
               </div>
@@ -310,7 +301,7 @@ function NewUserModal({ onClose }) {
 
         <div className="field">
           <label>Role</label>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div className="segmented">
             {[
               ["evaluator", "Evaluator"],
               ["admin", "Admin"],
@@ -318,17 +309,8 @@ function NewUserModal({ onClose }) {
               <button
                 key={value}
                 type="button"
+                className={`segment${role === value ? " active" : ""}`}
                 onClick={() => setRole(value)}
-                style={{
-                  flex: 1,
-                  padding: "8px 4px",
-                  fontSize: 13,
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: role === value ? "var(--brand-navy)" : "white",
-                  color: role === value ? "white" : "var(--text)",
-                  cursor: "pointer",
-                }}
               >
                 {label}
               </button>

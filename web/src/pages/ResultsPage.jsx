@@ -50,27 +50,29 @@ export default function ResultsPage() {
   return (
     <div className="app-shell">
       <div className="screen center-column" style={{ paddingTop: 32 }}>
-        <div style={{ fontSize: 56 }}>{passed ? "✅" : "❌"}</div>
-        <h1 style={{ color: passed ? "var(--success)" : "var(--brand-red)", margin: "4px 0" }}>
-          {passed ? "PASS" : "FAIL"}
-        </h1>
-        {session.criticalFailure && (
-          <p style={{ color: "var(--brand-red)", fontWeight: 700, margin: "0 0 4px" }}>
-            Critical step failed — automatic test failure
-          </p>
-        )}
-        {session.attemptType === "retake" && (
-          <span className="badge neutral" style={{ marginBottom: 4 }}>Retake</span>
-        )}
-        <p style={{ fontWeight: 600, fontSize: 18, margin: "8px 0 2px" }}>{session.recruitName}</p>
-        <p className="muted" style={{ margin: 0 }}>{session.templateName}</p>
-        {session.totalPointsPossible > 0 && (
-          <p style={{ fontWeight: 600, marginTop: 8 }}>
-            {session.totalPointsEarned ?? 0} / {session.totalPointsPossible} points (
-            {Math.round(((session.totalPointsEarned ?? 0) / session.totalPointsPossible) * 100)}% —
-            needed {session.passingPercentageSnapshot}% to pass)
-          </p>
-        )}
+        <div className={`card ${passed ? "card--pass" : "card--fail"}`} style={{ width: "100%", maxWidth: 400 }}>
+          <div style={{ fontSize: 56 }}>{passed ? "✅" : "❌"}</div>
+          <h1 style={{ color: passed ? "var(--success)" : "var(--brand-red)", margin: "4px 0" }}>
+            {passed ? "PASS" : "FAIL"}
+          </h1>
+          {session.criticalFailure && (
+            <p style={{ color: "var(--brand-red)", fontWeight: 700, margin: "0 0 4px" }}>
+              Critical step failed — automatic test failure
+            </p>
+          )}
+          {session.attemptType === "retake" && (
+            <span className="badge neutral" style={{ marginBottom: 4 }}>Retake</span>
+          )}
+          <p style={{ fontWeight: 600, fontSize: 18, margin: "8px 0 2px" }}>{session.recruitName}</p>
+          <p className="muted" style={{ margin: 0 }}>{session.templateName}</p>
+          {session.totalPointsPossible > 0 && (
+            <p style={{ fontWeight: 600, marginTop: 8 }}>
+              {session.totalPointsEarned ?? 0} / {session.totalPointsPossible} points (
+              {Math.round(((session.totalPointsEarned ?? 0) / session.totalPointsPossible) * 100)}% —
+              needed {session.passingPercentageSnapshot}% to pass)
+            </p>
+          )}
+        </div>
 
         {!passed && (
           <div className="card" style={{ width: "100%", maxWidth: 400, marginTop: 8 }}>

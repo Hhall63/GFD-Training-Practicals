@@ -284,7 +284,7 @@ export default function RecruitConfirmPage() {
                 {initials(selected.firstName, selected.lastName)}
               </div>
             )}
-            <h2 style={{ margin: "0 0 4px" }}>{selected.firstName} {selected.lastName}</h2>
+            <h2 style={{ margin: "0 0 4px", color: "var(--brand-navy)" }}>{selected.firstName} {selected.lastName}</h2>
             <p className="muted" style={{ margin: "0 0 4px" }}>{selected.recruitClassOrCohort}</p>
             {selected.badgeOrIdNumber && <p className="muted">ID: {selected.badgeOrIdNumber}</p>}
             <p className="muted" style={{ maxWidth: 320, margin: "16px 0" }}>
