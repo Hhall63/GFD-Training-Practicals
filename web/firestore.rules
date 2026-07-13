@@ -64,7 +64,9 @@ service cloud.firestore {
       // `get` for any signed-in user (needed for the role checks above and to load one's
       // own account). `list` for staff: evaluators need to query the notify-on-failure
       // admin list when a recruit fails a test. Recruits cannot browse accounts.
-      allow get: if isSignedIn();
+      // Anonymous Live Dashboard sessions are explicitly excluded — they have no app
+      // account and no legitimate reason to read any admin's profile, even their own.
+      allow get: if isSignedIn() && !isAnonymousLiveViewer();
       allow list: if isStaff();
       allow create: if isAdminRole() || (request.auth.uid == adminId && noAdminExistsYet());
       allow update, delete: if isAdminRole();
