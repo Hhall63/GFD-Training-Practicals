@@ -1,5 +1,5 @@
 import { initializeApp, deleteApp } from "firebase/app";
-import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signInAnonymously, signOut } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
 // No Firebase Storage here on purpose — Google now requires the paid Blaze plan just to
@@ -49,4 +49,34 @@ export async function createUserAccountWithoutSigningIn(email, password) {
     await signOut(secondaryAuth).catch(() => {});
     await deleteApp(secondaryApp);
   }
+}
+
+/**
+ * The public Live Dashboard (/live/:token, no login) needs its own Firebase Auth session
+ * so an unattended display never disturbs a real admin's session sharing the same browser —
+ * AuthProvider wraps every route on the single primary `auth` singleton above, and signing in
+ * anonymously on it directly would sign that admin out in every other tab of the same
+ * browser. Same secondary-app technique as createUserAccountWithoutSigningIn, except this one
+ * stays alive for the page's lifetime (the caller decides when to tear it down via the
+ * returned cleanup(), typically on unmount) rather than being torn down immediately.
+ *
+ * Returns the secondary app's own `auth` and `db` — callers must read Firestore through this
+ * `db`, not the primary export above, or the reads run under the wrong (or no) credential.
+ */
+export async function signInAnonymouslyOnSecondaryApp() {
+  const secondaryApp = initializeApp(firebaseConfig, `live-dashboard-${Date.now()}`);
+  const secondaryAuth = getAuth(secondaryApp);
+  const secondaryDb = getFirestore(secondaryApp);
+  if (import.meta.env.VITE_USE_EMULATOR === "1") {
+    connectAuthEmulator(secondaryAuth, "http://127.0.0.1:9099", { disableWarnings: true });
+    connectFirestoreEmulator(secondaryDb, "127.0.0.1", 8080);
+  }
+  await signInAnonymously(secondaryAuth);
+
+  async function cleanup() {
+    await signOut(secondaryAuth).catch(() => {});
+    await deleteApp(secondaryApp).catch(() => {});
+  }
+
+  return { auth: secondaryAuth, db: secondaryDb, cleanup };
 }
