@@ -37,6 +37,16 @@ service cloud.firestore {
       return isActiveUser() && myRole() == 'recruit';
     }
 
+    // Anonymous Firebase Auth session used only by the public, no-login Live Dashboard
+    // (/live/:token). Rules can't see the URL/token — that check happens in
+    // LiveDashboardPage.jsx itself by reading the publicLiveLinks doc below. This function
+    // only proves "this request is an anonymous session", which is why read access granted
+    // to it below is a deliberate, documented widening (see the design spec) rather than a
+    // real per-link access boundary.
+    function isAnonymousLiveViewer() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
     // There's no server here, so the very first admin account has to bootstrap itself the
     // first time the app is ever opened. Once meta/appState.firstAdminCreated is true, this
     // door closes and every account after that must be created by an existing administrator.
@@ -60,11 +70,20 @@ service cloud.firestore {
       allow update, delete: if isAdminRole();
     }
 
+    match /publicLiveLinks/{token} {
+      // The token itself is the secret — never listed by an anonymous viewer, only fetched
+      // by exact id (LiveDashboardPage does a single getDoc, never a query). Admins can list
+      // to find "the current active link" for the Reports-home control.
+      allow get: if true;
+      allow list: if isAdminRole();
+      allow write: if isAdminRole();
+    }
+
     match /recruits/{recruitId} {
       // Staff read the roster to pick who they're testing; a Recruit may read only their
       // own linked record. Only administrators write.
-      allow get: if isStaff() || (isRecruitRole() && myUserDoc().recruitId == recruitId);
-      allow list: if isStaff();
+      allow get: if isStaff() || (isRecruitRole() && myUserDoc().recruitId == recruitId) || isAnonymousLiveViewer();
+      allow list: if isStaff() || isAnonymousLiveViewer();
       allow write: if isAdminRole() || (isStaff() && recruitId == 'practice-recruit');
     }
 
@@ -74,7 +93,8 @@ service cloud.firestore {
       // Templates created before the draft feature have no `status` field — treated as
       // published, since they were already live.
       allow read: if isAdminRole()
-        || (isActiveUser() && (!('status' in resource.data) || resource.data.status == 'published'));
+        || (isActiveUser() && (!('status' in resource.data) || resource.data.status == 'published'))
+        || isAnonymousLiveViewer();
       allow write: if isAdminRole();
 
       match /lines/{lineId} {
@@ -97,7 +117,7 @@ service cloud.firestore {
 
     match /sessions/{sessionId} {
       // Staff run tests and record results. A Recruit may read only their own sessions.
-      allow read: if isStaff() || (isRecruitRole() && resource.data.recruitId == myUserDoc().recruitId);
+      allow read: if isStaff() || (isRecruitRole() && resource.data.recruitId == myUserDoc().recruitId) || isAnonymousLiveViewer();
       allow write: if isStaff();
 
       match /lineResults/{lineResultId} {
