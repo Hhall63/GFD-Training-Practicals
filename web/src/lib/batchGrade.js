@@ -73,6 +73,11 @@ export async function createBatchGradeTemplate(name) {
  * both pass the existence check below, they write identical content to the same doc ID —
  * the race becomes a harmless redundant write instead of a duplicate document. This is what
  * makes ensureBatchGradeSeedTemplates safe under React StrictMode's double-invoke.
+ *
+ * The template doc and its one line doc are written in a single batch, not as two separate
+ * setDoc calls — otherwise a crash/network drop between them could strand a template with no
+ * line, and since only the template doc's existence is checked, no future call would ever
+ * retry the missing line.
  */
 async function seedOneBatchGradeTemplate(name, index) {
   const templateId = `batch-seed-${index}`;
@@ -80,20 +85,22 @@ async function seedOneBatchGradeTemplate(name, index) {
   const existing = await getDoc(templateRef);
   if (existing.exists()) return; // already seeded, by this call or a concurrent one
   const now = new Date();
-  await setDoc(templateRef, {
+  const batch = writeBatch(db);
+  batch.set(templateRef, {
     name,
     isActive: true,
     isBatchGrade: true,
     passingPercentage: 100,
     createdAt: now,
   });
-  await setDoc(doc(db, "templates", templateId, "lines", "line0"), {
+  batch.set(doc(db, "templates", templateId, "lines", "line0"), {
     lineType: LINE_TYPES.GRADED,
     lineText: name,
     points: 1,
     isCritical: false,
     sortOrder: 0,
   });
+  await batch.commit();
 }
 
 /**
