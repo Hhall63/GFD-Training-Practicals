@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { collection, doc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { db } from "../../firebase";
 import TopBar from "../../components/TopBar";
 import { buildCommandBoard, clearAllSessions, loadCommandBoardData } from "../../lib/reportsData";
 import { RESULT } from "../../lib/constants";
@@ -89,6 +91,83 @@ function ClearAllResultsModal({ onClose, onCleared }) {
   );
 }
 
+function LiveDashboardLinkCard() {
+  const [activeToken, setActiveToken] = useState(null); // token string, or null if none active
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    getDocs(query(collection(db, "publicLiveLinks"), where("active", "==", true))).then((snap) => {
+      setActiveToken(snap.empty ? null : snap.docs[0].id);
+      setLoading(false);
+    });
+  }, []);
+
+  async function regenerate() {
+    setBusy(true);
+    setCopied(false);
+    try {
+      if (activeToken) {
+        await updateDoc(doc(db, "publicLiveLinks", activeToken), { active: false });
+      }
+      const token = crypto.randomUUID();
+      await setDoc(doc(db, "publicLiveLinks", token), { active: true, createdAt: new Date() });
+      setActiveToken(token);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copyLink() {
+    const url = `${window.location.origin}/live/${activeToken}`;
+    navigator.clipboard.writeText(url).then(() => setCopied(true));
+  }
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <h3 style={{ marginTop: 0 }}>Live Dashboard Link</h3>
+      {loading ? (
+        <p className="muted">Loading…</p>
+      ) : activeToken ? (
+        <>
+          <p className="muted" style={{ wordBreak: "break-all" }}>
+            {`${window.location.origin}/live/${activeToken}`}
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="secondary" style={{ width: "auto", padding: "8px 12px" }} onClick={copyLink}>
+              {copied ? "Copied!" : "Copy"}
+            </button>
+            <button
+              className="secondary"
+              style={{ width: "auto", padding: "8px 12px", color: "var(--brand-red)" }}
+              disabled={busy}
+              onClick={regenerate}
+            >
+              {busy ? "Regenerating…" : "Regenerate Link"}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="muted">
+            No active link yet. Anyone with this link can view the command board with no login —
+            share it only with a trusted display.
+          </p>
+          <button
+            className="primary"
+            style={{ width: "auto", padding: "10px 16px" }}
+            disabled={busy}
+            onClick={regenerate}
+          >
+            {busy ? "Generating…" : "Generate Link"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ReportingHomePage() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
@@ -139,6 +218,7 @@ export default function ReportingHomePage() {
     <div className="app-shell">
       <TopBar title="Reports" onBack={() => navigate("/")} showMenu={false} />
       <div className="screen--wide">
+        <LiveDashboardLinkCard />
         {noRecruits ? (
           <div className="card">
             <p className="muted" style={{ margin: 0 }}>
