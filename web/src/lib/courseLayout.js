@@ -30,7 +30,7 @@ export const CONES = [
   ...col(804, 76, 498, 9), ...col(1056, 76, 498, 9),
   ...row(76, 804, 876, 3), ...row(76, 948, 1056, 4),
   ...row(498, 804, 876, 3), ...row(498, 948, 1056, 4),
-  ...col(924, 124, 443, 5),
+  ...col(924, 124, 443, 4),
 ];
 
 // Faint guide lines behind the cones, so the lanes read as lanes.
