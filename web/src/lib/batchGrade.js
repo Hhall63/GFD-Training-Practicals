@@ -2,9 +2,11 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
   writeBatch,
@@ -65,9 +67,41 @@ export async function createBatchGradeTemplate(name) {
 }
 
 /**
- * Seeds the 17 default Batch Grade templates the first time anyone opens BatchGradePage.
- * Idempotent by existence check (not per-name upsert): if even one isBatchGrade template
- * already exists, this is a no-op, so it's safe to call on every mount.
+ * Seeds one Batch Grade template at a fixed, deterministic doc ID derived from its index in
+ * BATCH_GRADE_SEED_NAMES (not a slugified name — simpler, no collision edge cases). Uses
+ * setDoc (last-write-wins overwrite) instead of addDoc so that even if two concurrent callers
+ * both pass the existence check below, they write identical content to the same doc ID —
+ * the race becomes a harmless redundant write instead of a duplicate document. This is what
+ * makes ensureBatchGradeSeedTemplates safe under React StrictMode's double-invoke.
+ */
+async function seedOneBatchGradeTemplate(name, index) {
+  const templateId = `batch-seed-${index}`;
+  const templateRef = doc(db, "templates", templateId);
+  const existing = await getDoc(templateRef);
+  if (existing.exists()) return; // already seeded, by this call or a concurrent one
+  const now = new Date();
+  await setDoc(templateRef, {
+    name,
+    isActive: true,
+    isBatchGrade: true,
+    passingPercentage: 100,
+    createdAt: now,
+  });
+  await setDoc(doc(db, "templates", templateId, "lines", "line0"), {
+    lineType: LINE_TYPES.GRADED,
+    lineText: name,
+    points: 1,
+    isCritical: false,
+    sortOrder: 0,
+  });
+}
+
+/**
+ * Seeds the 18 default Batch Grade templates the first time anyone opens BatchGradePage.
+ * Keeps the cheap existence-check fast path (skips the whole operation on every normal page
+ * load after the first successful seed), but each individual seed write is now idempotent by
+ * fixed doc ID (see seedOneBatchGradeTemplate), so even if two calls both get past this check
+ * concurrently, the result is still exactly one doc per seed name.
  */
 export async function ensureBatchGradeSeedTemplates() {
   const existing = await getDocs(
@@ -75,9 +109,9 @@ export async function ensureBatchGradeSeedTemplates() {
   );
   if (!existing.empty) return;
 
-  for (const name of BATCH_GRADE_SEED_NAMES) {
-    await createBatchGradeTemplateDoc(name);
-  }
+  await Promise.all(
+    BATCH_GRADE_SEED_NAMES.map((name, index) => seedOneBatchGradeTemplate(name, index))
+  );
 }
 
 /**
