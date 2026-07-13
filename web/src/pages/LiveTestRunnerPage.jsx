@@ -59,6 +59,13 @@ function LiveTestRunnerRun({ sessionId }) {
   const [showNoteRequired, setShowNoteRequired] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteRequiredReason, setNoteRequiredReason] = useState("stepFailed"); // "stepFailed" | "overallFail"
+  // Which line the Note Required modal's "Save & Continue" writes to, and what to run
+  // afterward. Standard view always targets `current` and resumes via proceed() (set at each
+  // call site in advance()). Checklist/Tile submitAll() targets whichever line actually needs
+  // the note (out-of-order grading means that's not necessarily `current`) and resumes via
+  // submitAll() itself, so a second missing note (or the overall-fail note) is caught next.
+  const noteTargetIdRef = useRef(null);
+  const noteContinuationRef = useRef(null);
   const timerStartRef = useRef(null);
   const intervalRef = useRef(null);
   // Records which line's timer is actually running, independent of currentIndex. Stop must
@@ -524,6 +531,8 @@ function LiveTestRunnerRun({ sessionId }) {
     // A failed step must be documented before moving on — a blocking pop-up (with a note
     // field) rather than a silently disabled button.
     if (current.result === RESULT.FAIL && !hasFailNote()) {
+      noteTargetIdRef.current = current.id;
+      noteContinuationRef.current = proceed;
       setNoteDraft(current.note ?? "");
       setNoteRequiredReason("stepFailed");
       setShowNoteRequired(true);
@@ -537,6 +546,8 @@ function LiveTestRunnerRun({ sessionId }) {
     if (isLastLine && current.lineTypeSnapshot !== LINE_TYPES.INSTRUCTION && !hasFailNote()) {
       const { overallResult } = computeSessionOutcome(lineResultsRef.current ?? lineResults);
       if (overallResult === RESULT.FAIL) {
+        noteTargetIdRef.current = current.id;
+        noteContinuationRef.current = proceed;
         setNoteDraft(current.note ?? "");
         setNoteRequiredReason("overallFail");
         setShowNoteRequired(true);
@@ -544,6 +555,47 @@ function LiveTestRunnerRun({ sessionId }) {
       }
     }
     await proceed();
+  }
+
+  // Checklist/Tile equivalent of advance(): those views let the evaluator grade every line
+  // out of order with no notion of "current line," so — unlike Standard, which walks forward
+  // one line at a time via currentIndex — this checks the *whole* lineResults array at once
+  // and, once nothing is missing, submits directly instead of stepping through a hidden index
+  // the evaluator never sees (that mismatch was the root cause of the footer's Next/Submit
+  // button appearing to do nothing from these views: it was silently advancing currentIndex,
+  // which neither view renders).
+  async function submitAll() {
+    const results = lineResultsRef.current ?? lineResults;
+
+    const failMissingNote = results.find(
+      (l) => l.result === RESULT.FAIL && !(l.photoURLs?.length > 0 || !!l.note)
+    );
+    if (failMissingNote) {
+      noteTargetIdRef.current = failMissingNote.id;
+      noteContinuationRef.current = submitAll;
+      setNoteDraft(failMissingNote.note ?? "");
+      setNoteRequiredReason("stepFailed");
+      setShowNoteRequired(true);
+      return;
+    }
+
+    // Same convention as Standard's last-line gate: the overall-fail note lives on the
+    // final line in template order.
+    const { overallResult } = computeSessionOutcome(results);
+    if (overallResult === RESULT.FAIL) {
+      const lastLine = results[results.length - 1];
+      const lastHasNote = lastLine.photoURLs?.length > 0 || !!lastLine.note;
+      if (!lastHasNote) {
+        noteTargetIdRef.current = lastLine.id;
+        noteContinuationRef.current = submitAll;
+        setNoteDraft(lastLine.note ?? "");
+        setNoteRequiredReason("overallFail");
+        setShowNoteRequired(true);
+        return;
+      }
+    }
+
+    await finishSessionAndContinue();
   }
 
   function returnToHome() {
@@ -690,9 +742,23 @@ function LiveTestRunnerRun({ sessionId }) {
         <button className="secondary" style={{ maxWidth: 140 }} onClick={() => setShowReturnConfirm(true)}>
           Return to Home
         </button>
-        <button className="primary" onClick={advance} disabled={!canAdvance()} style={{ flex: 1 }}>
-          {isLastLine ? "Submit" : "Next"}
-        </button>
+        {effectiveViewMode === "standard" ? (
+          <button className="primary" onClick={advance} disabled={!canAdvance()} style={{ flex: 1 }}>
+            {isLastLine ? "Submit" : "Next"}
+          </button>
+        ) : (
+          // Checklist/Tile grade every line out of order with no currentIndex-driven "next
+          // line," so unlike Standard there's no intermediate "Next" step — just Submit once
+          // every line has a result.
+          <button
+            className="primary"
+            onClick={submitAll}
+            disabled={!lineResults.every((l) => l.result != null)}
+            style={{ flex: 1 }}
+          >
+            Submit
+          </button>
+        )}
       </div>
 
       {showReturnConfirm && (
@@ -819,9 +885,9 @@ function LiveTestRunnerRun({ sessionId }) {
                 style={{ flex: 1 }}
                 disabled={!noteDraft.trim()}
                 onClick={async () => {
-                  await patchCurrent({ note: noteDraft.trim() });
+                  await patchLine(noteTargetIdRef.current ?? current.id, { note: noteDraft.trim() });
                   setShowNoteRequired(false);
-                  await proceed();
+                  await (noteContinuationRef.current ?? proceed)();
                 }}
               >
                 Save & Continue
