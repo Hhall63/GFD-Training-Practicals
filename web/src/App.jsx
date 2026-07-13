@@ -15,6 +15,8 @@ import DeactivatedRecruitsPage from "./pages/DeactivatedRecruitsPage";
 import TemplatesAdminPage from "./pages/TemplatesAdminPage";
 import TemplateEditorPage from "./pages/TemplateEditorPage";
 import TestGroupsAdminPage from "./pages/TestGroupsAdminPage";
+import BatchGradePage from "./pages/BatchGradePage";
+import BatchGradeRosterPage from "./pages/BatchGradeRosterPage";
 import GroupSummaryPage from "./pages/GroupSummaryPage";
 import AdminsPage from "./pages/AdminsPage";
 import ReportingHomePage from "./pages/reporting/ReportingHomePage";
@@ -107,6 +109,8 @@ export default function App() {
       <Route path="/templates" element={<RequireAuth><RequireAdminRole><TemplatesAdminPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/templates/:templateId" element={<RequireAuth><RequireAdminRole><TemplateEditorPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/test-groups" element={<RequireAuth><RequireAdminRole><TestGroupsAdminPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/batch-grade" element={<RequireAuth><RequireAdminRole><BatchGradePage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/batch-grade/:templateId" element={<RequireAuth><RequireAdminRole><BatchGradeRosterPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/admins" element={<RequireAuth><RequireAdminRole><AdminsPage /></RequireAdminRole></RequireAuth>} />
 
       <Route path="/reports" element={<RequireAuth><RequireAdminRole><ReportingHomePage /></RequireAdminRole></RequireAuth>} />
