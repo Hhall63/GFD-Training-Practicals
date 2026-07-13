@@ -50,6 +50,14 @@ function Icon({ name, size = 24 }) {
           <polyline points="2 12 12 17 22 12" />
         </svg>
       );
+    case "batchGrade":
+      return (
+        <svg {...stroke}>
+          <rect x="5" y="3" width="14" height="18" rx="2" />
+          <path d="M9 3h6v2a1 1 0 0 1-1 1H10a1 1 0 0 1-1-1V3z" />
+          <path d="M9 13l2 2 4-4" />
+        </svg>
+      );
     case "reports":
       return (
         <svg {...stroke}>
@@ -89,6 +97,7 @@ const ICON_BY_PATH = {
   "/recruits": "recruits",
   "/templates": "tests",
   "/test-groups": "groups",
+  "/batch-grade": "batchGrade",
   "/reports": "reports",
   "/admins?new=1": "addUser",
   "/admins": "users",
