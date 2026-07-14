@@ -4,6 +4,7 @@ import { useAuth } from "./context/AuthContext";
 import LoginPage from "./pages/LoginPage";
 import SetupAdminPage from "./pages/SetupAdminPage";
 import ConnectionErrorPage from "./pages/ConnectionErrorPage";
+import ForceChangePasswordPage from "./pages/ForceChangePasswordPage";
 import HomePage from "./pages/HomePage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import RecruitHomePage from "./pages/RecruitHomePage";
@@ -41,6 +42,9 @@ function RequireAuth({ children }) {
   if (loading) return <FullScreenLoading />;
   if (!adminDoc) {
     return <Navigate to={anyAdminExists ? "/login" : "/setup"} replace />;
+  }
+  if (adminDoc.mustChangePassword) {
+    return <ForceChangePasswordPage />;
   }
   return children;
 }

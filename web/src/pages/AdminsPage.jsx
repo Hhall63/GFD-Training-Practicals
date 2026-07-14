@@ -251,6 +251,7 @@ function NewUserModal({ onClose }) {
         isActive: true,
         notifyOnFailures: role === "admin" ? notifyOnFailures : false,
         createdAt: new Date(),
+        mustChangePassword: true,
       });
       setCreated({ email: trimmedEmail, password, welcomeStatus: "sending" });
       const result = await sendWelcomeEmail({
