@@ -200,6 +200,7 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
           recruitId,
           isActive: true,
           createdAt: new Date(),
+          mustChangePassword: true,
         });
         setWelcomeStatus("sending");
         const result = await sendWelcomeEmail({

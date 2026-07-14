@@ -4,6 +4,9 @@ import {
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
   onAuthStateChanged,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase";
@@ -115,6 +118,31 @@ export function AuthProvider({ children }) {
     await sendPasswordResetEmail(auth, email.trim().toLowerCase());
   }
 
+  /** Self-service password change for an already-signed-in user: verifies the current
+   * password via reauthentication (Firebase's updatePassword throws requires-recent-login
+   * otherwise), then sets the new one. If this account had a pending forced first-login
+   * change, clears that flag both in Firestore and in local state — adminDoc comes from a
+   * one-time getDoc, not a live listener (see the effect above), so the flag wouldn't
+   * otherwise update until the next sign-in. Clearing the flag is best-effort: the password
+   * change itself has already durably succeeded by this point, and the next sign-in re-reads
+   * mustChangePassword fresh from Firestore anyway, so a failure here shouldn't be reported
+   * to the caller as a failed password change (that would be misleading and can trap the user
+   * in a confusing retry loop on the forced first-login screen). */
+  async function changeOwnPassword(currentPassword, newPassword) {
+    const user = auth.currentUser;
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+    await updatePassword(user, newPassword);
+    if (adminDoc?.mustChangePassword) {
+      try {
+        await updateDoc(doc(db, "admins", user.uid), { mustChangePassword: false });
+        setAdminDoc((d) => (d ? { ...d, mustChangePassword: false } : d));
+      } catch (err) {
+        console.error("Failed to clear mustChangePassword after password change", err);
+      }
+    }
+  }
+
   /** Used only by the one-time Setup Admin screen, when no admin exists yet. */
   async function createFirstAdmin({ uid, email, displayName }) {
     await setDoc(doc(db, "admins", uid), {
@@ -152,6 +180,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
         requestPasswordReset,
+        changeOwnPassword,
         createFirstAdmin,
       }}
     >
