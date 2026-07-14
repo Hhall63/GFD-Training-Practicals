@@ -111,13 +111,19 @@ export function computeKpis({ recruits, sessions, atRiskCount }) {
 }
 
 /**
- * Cohort readiness matrix: recruit rows x active-template columns, each cell the result of
- * the latest completed session for that recruit/template pair (or absent = not tested).
+ * Cohort readiness matrix: recruit rows x attempted-template columns, each cell the result
+ * of the latest completed session for that recruit/template pair (or absent = not tested).
  * Mirrors CohortDashboardPage's "keep only the most recently started session per pair"
  * merge, just across every active recruit instead of one cohort at a time.
+ *
+ * Columns are restricted to templates with at least one completed session anywhere in
+ * `sessions` — an active-but-never-run template doesn't get a column. This keeps the matrix
+ * growing with real testing activity instead of front-loading every configured template
+ * (including ones nobody's attempted yet) as a wall of "not tested" cells from day one.
  */
 export function computeReadinessMatrix({ recruits, templates, sessions }) {
   const latest = new Map(); // `${recruitId}_${templateId}` -> { result, startedAtMs }
+  const attemptedTemplateIds = new Set();
   for (const s of sessions) {
     const key = `${s.recruitId}_${s.templateId}`;
     const startedAtMs = toMillis(s.startedAt);
@@ -125,8 +131,10 @@ export function computeReadinessMatrix({ recruits, templates, sessions }) {
     if (!existing || startedAtMs > existing.startedAtMs) {
       latest.set(key, { result: s.overallResult, startedAtMs });
     }
+    attemptedTemplateIds.add(s.templateId);
   }
-  return { recruits, templates, latest };
+  const attemptedTemplates = templates.filter((t) => attemptedTemplateIds.has(t.id));
+  return { recruits, templates: attemptedTemplates, latest };
 }
 
 /** Composes the three derived views the Command Board renders from one shared data load. */

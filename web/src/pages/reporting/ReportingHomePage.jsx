@@ -338,8 +338,10 @@ export default function ReportingHomePage() {
               </span>
             </div>
 
-            {matrix.templates.length === 0 ? (
+            {data.templates.length === 0 ? (
               <p className="muted">No active tests configured yet.</p>
+            ) : matrix.templates.length === 0 ? (
+              <p className="muted">No tests attempted yet — this will populate once testing begins.</p>
             ) : matrixRecruits.length === 0 ? (
               <p className="muted">No recruits in this cohort.</p>
             ) : (
