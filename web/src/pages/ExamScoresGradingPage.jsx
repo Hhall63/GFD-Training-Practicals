@@ -85,9 +85,12 @@ export default function ExamScoresGradingPage() {
   async function handleSaveAll() {
     setSaving(true);
     const errors = {};
+    const succeededRecruitIds = new Set();
     for (const recruit of recruits) {
       const d = draftFor(recruit.id);
       const existing = grades.get(recruit.id);
+      let originalFailed = false;
+      let retakeFailed = false;
 
       if (d.score !== "" && d.score != null) {
         const score = Number(d.score);
@@ -107,7 +110,7 @@ export default function ExamScoresGradingPage() {
           }
         } catch (err) {
           console.error("Failed to save exam score", recruit.id, err);
-          errors[recruit.id] = "Failed to save — try again.";
+          originalFailed = true;
         }
       }
 
@@ -129,14 +132,27 @@ export default function ExamScoresGradingPage() {
           }
         } catch (err) {
           console.error("Failed to save exam retest score", recruit.id, err);
-          errors[recruit.id] = "Failed to save retest — try again.";
+          retakeFailed = true;
         }
+      }
+
+      if (originalFailed || retakeFailed) {
+        const parts = [];
+        if (originalFailed) parts.push("score");
+        if (retakeFailed) parts.push("retest");
+        errors[recruit.id] = `Failed to save ${parts.join(" and ")} — try again.`;
+      } else {
+        succeededRecruitIds.add(recruit.id);
       }
     }
     setRowErrors(errors);
     const refreshed = await loadExamGrades(templateId);
     setGrades(refreshed);
-    setDrafts({});
+    setDrafts((prev) => {
+      const next = { ...prev };
+      for (const id of succeededRecruitIds) delete next[id];
+      return next;
+    });
     setSaving(false);
   }
 
