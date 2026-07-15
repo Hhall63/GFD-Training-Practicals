@@ -43,6 +43,12 @@ export function computeTimerResult(elapsedSeconds, passThresholdSeconds) {
   return elapsedSeconds <= passThresholdSeconds ? RESULT.PASS : RESULT.FAIL;
 }
 
+/** Written exams are always scored out of 100; compares the recruit's score against the
+ * exam's passing percentage the same way computeTimerResult compares an elapsed time. */
+export function computeExamResult(score, passingPercentage) {
+  return score >= passingPercentage ? RESULT.PASS : RESULT.FAIL;
+}
+
 export function formatSeconds(seconds) {
   return (Math.round(seconds * 10) / 10).toFixed(1);
 }
