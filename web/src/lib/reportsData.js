@@ -145,6 +145,24 @@ export function buildCommandBoard({ recruits, templates, sessions }) {
   return { kpis, flagged, matrix };
 }
 
+/**
+ * "Which grade counts" rule shared by RecruitHomePage's own-status view, the recruit
+ * transcript builder, and the class report: given every completed session for one
+ * recruit+template pair, the latest retake (if any) is what counts; otherwise the latest
+ * first attempt. Returns both sessions separately (not just the effective one) so a caller
+ * that needs to show a retake's own date/evaluator alongside the original — e.g. the
+ * transcript's retake sub-line — has both available.
+ */
+export function resolveEffectiveSession(sessionsForOneTemplate) {
+  const byTime = (a, b) => (a.startedAt?.toMillis?.() ?? 0) - (b.startedAt?.toMillis?.() ?? 0);
+  const firsts = sessionsForOneTemplate.filter((s) => (s.attemptType ?? "first") === "first").sort(byTime);
+  const retakes = sessionsForOneTemplate.filter((s) => s.attemptType === "retake").sort(byTime);
+  return {
+    original: firsts.length > 0 ? firsts[firsts.length - 1] : null,
+    retake: retakes.length > 0 ? retakes[retakes.length - 1] : null,
+  };
+}
+
 const CLEAR_ALL_BATCH_LIMIT = 500;
 
 /**

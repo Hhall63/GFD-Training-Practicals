@@ -4,6 +4,7 @@ import { db } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
 import { RESULT, SESSION_STATUS } from "../lib/constants";
+import { resolveEffectiveSession } from "../lib/reportsData";
 
 /**
  * What a signed-in Recruit sees: every published test, each tagged with their own status —
@@ -47,18 +48,14 @@ export default function RecruitHomePage() {
       const completed = sessions.filter(
         (s) => s.templateId === template.id && s.status === SESSION_STATUS.COMPLETED
       );
-      const byTime = (a, b) => (a.startedAt?.toMillis?.() ?? 0) - (b.startedAt?.toMillis?.() ?? 0);
-      const firsts = completed.filter((s) => (s.attemptType ?? "first") === "first").sort(byTime);
-      const retakes = completed.filter((s) => s.attemptType === "retake").sort(byTime);
+      const { original, retake } = resolveEffectiveSession(completed);
 
-      if (retakes.length > 0) {
-        const latest = retakes[retakes.length - 1];
-        map[template.id] = latest.overallResult === RESULT.PASS
+      if (retake) {
+        map[template.id] = retake.overallResult === RESULT.PASS
           ? { label: "Retake — Pass", tone: "pass" }
           : { label: "Retake — Fail", tone: "fail" };
-      } else if (firsts.length > 0) {
-        const latest = firsts[firsts.length - 1];
-        map[template.id] = latest.overallResult === RESULT.PASS
+      } else if (original) {
+        map[template.id] = original.overallResult === RESULT.PASS
           ? { label: "Passed", tone: "pass" }
           : { label: "Failed", tone: "fail" };
       } else {
