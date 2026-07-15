@@ -27,6 +27,7 @@ import ReportingHomePage from "./pages/reporting/ReportingHomePage";
 import RecruitHistoryListPage from "./pages/reporting/RecruitHistoryListPage";
 import RecruitHistoryDetailPage from "./pages/reporting/RecruitHistoryDetailPage";
 import TranscriptSummaryPage from "./pages/reporting/TranscriptSummaryPage";
+import TranscriptCompletePage from "./pages/reporting/TranscriptCompletePage";
 import SessionDetailPage from "./pages/reporting/SessionDetailPage";
 import TemplateReportListPage from "./pages/reporting/TemplateReportListPage";
 import TemplateAggregateReportPage from "./pages/reporting/TemplateAggregateReportPage";
@@ -131,6 +132,7 @@ export default function App() {
       <Route path="/reports/recruits" element={<RequireAuth><RequireAdminRole><RecruitHistoryListPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/recruits/:recruitId" element={<RequireAuth><RequireAdminRole><RecruitHistoryDetailPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/recruits/:recruitId/transcript/summary" element={<RequireAuth><RequireAdminRole><TranscriptSummaryPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/recruits/:recruitId/transcript/complete" element={<RequireAuth><RequireAdminRole><TranscriptCompletePage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/sessions/:sessionId" element={<RequireAuth><RequireAdminRole><SessionDetailPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/templates" element={<RequireAuth><RequireAdminRole><TemplateReportListPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/templates/:templateId" element={<RequireAuth><RequireAdminRole><TemplateAggregateReportPage /></RequireAdminRole></RequireAuth>} />
