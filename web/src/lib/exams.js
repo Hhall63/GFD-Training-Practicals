@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   query,
+  Timestamp,
   updateDoc,
   where,
   writeBatch,
@@ -48,10 +49,14 @@ export async function createExamTemplate({ name, category }) {
 }
 
 /** `examDate` is a "YYYY-MM-DD" string from an <input type="date">. Noon local time avoids
- * any UTC-conversion day-shift that constructing at midnight would risk. */
+ * any UTC-conversion day-shift that constructing at midnight would risk. Returns a real
+ * Firestore Timestamp (not a plain Date) so it already has a working .toDate()/.toMillis()
+ * the moment it's created — recordExamScore passes this same in-memory value straight into
+ * sendFailureEmail() on a FAIL, before Firestore has round-tripped it, so a plain Date here
+ * would silently show "now" in the failure email instead of the actual exam date. */
 function examDateToTimestamp(examDate) {
   const [year, month, day] = examDate.split("-").map(Number);
-  return new Date(year, month - 1, day, 12, 0, 0);
+  return Timestamp.fromDate(new Date(year, month - 1, day, 12, 0, 0));
 }
 
 /**
