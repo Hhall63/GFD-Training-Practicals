@@ -51,6 +51,23 @@ export default function RecruitHistoryDetailPage() {
           </div>
         </div>
 
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <button
+            className="secondary"
+            style={{ width: "auto", padding: "8px 14px" }}
+            onClick={() => navigate(`/reports/recruits/${recruitId}/transcript/summary`)}
+          >
+            Print Summary Transcript
+          </button>
+          <button
+            className="secondary"
+            style={{ width: "auto", padding: "8px 14px" }}
+            onClick={() => navigate(`/reports/recruits/${recruitId}/transcript/complete`)}
+          >
+            Print Complete Transcript
+          </button>
+        </div>
+
         <h4>Sessions</h4>
         {sessions.length === 0 && <p className="muted">No completed tests yet.</p>}
         {sessions.map((session) => (
