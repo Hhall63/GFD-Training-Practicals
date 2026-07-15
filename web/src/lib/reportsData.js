@@ -163,6 +163,78 @@ export function resolveEffectiveSession(sessionsForOneTemplate) {
   };
 }
 
+/**
+ * Builds the printable line items for one recruit's tests/exams: groups their completed,
+ * non-practice sessions by templateId, reduces each group through resolveEffectiveSession to
+ * find the original attempt and (if present) the retake, and attaches each template's own
+ * name/includeInSummaryTranscript flag.
+ *
+ * With no `templateIds`, returns the Summary/Complete transcript split: `core` (templates
+ * flagged includeInSummaryTranscript) and `remaining` (every other template the recruit has
+ * actually completed — never-attempted templates are omitted entirely).
+ *
+ * With `templateIds` given (the class report case), returns a flat `items` array restricted
+ * to just those template ids, in the order given, skipping any the recruit hasn't completed.
+ */
+export async function buildTranscriptLineItems({ recruitId, templateIds = null }) {
+  const [sessionsSnap, templatesSnap] = await Promise.all([
+    getDocs(query(collection(db, "sessions"), where("recruitId", "==", recruitId))),
+    getDocs(collection(db, "templates")),
+  ]);
+
+  const templatesById = new Map(templatesSnap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]));
+  const sessions = sessionsSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((s) => s.status === SESSION_STATUS.COMPLETED && !s.isPractice);
+
+  const byTemplate = new Map(); // templateId -> sessions[]
+  for (const s of sessions) {
+    if (!byTemplate.has(s.templateId)) byTemplate.set(s.templateId, []);
+    byTemplate.get(s.templateId).push(s);
+  }
+
+  function toLineItem(templateId, group) {
+    if (!group || group.length === 0) return null;
+    const { original, retake } = resolveEffectiveSession(group);
+    if (!original) return null;
+    const template = templatesById.get(templateId);
+    return {
+      templateId,
+      templateName: template?.name ?? original.templateName,
+      original: {
+        result: original.overallResult,
+        dateMs: original.startedAt?.toMillis?.() ?? 0,
+        evaluatorName: original.evaluatorName,
+      },
+      retake: retake
+        ? {
+            result: retake.overallResult,
+            dateMs: retake.startedAt?.toMillis?.() ?? 0,
+            evaluatorName: retake.evaluatorName,
+          }
+        : null,
+    };
+  }
+
+  if (templateIds) {
+    const items = templateIds.map((id) => toLineItem(id, byTemplate.get(id))).filter(Boolean);
+    return { items };
+  }
+
+  const core = [];
+  const remaining = [];
+  for (const [templateId, group] of byTemplate.entries()) {
+    const item = toLineItem(templateId, group);
+    if (!item) continue;
+    const template = templatesById.get(templateId);
+    if (template?.includeInSummaryTranscript) core.push(item);
+    else remaining.push(item);
+  }
+  core.sort((a, b) => a.templateName.localeCompare(b.templateName));
+  remaining.sort((a, b) => a.templateName.localeCompare(b.templateName));
+  return { core, remaining };
+}
+
 const CLEAR_ALL_BATCH_LIMIT = 500;
 
 /**
