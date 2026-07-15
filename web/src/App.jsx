@@ -19,6 +19,7 @@ import TestGroupsAdminPage from "./pages/TestGroupsAdminPage";
 import BatchGradePage from "./pages/BatchGradePage";
 import BatchGradeRosterPage from "./pages/BatchGradeRosterPage";
 import ExamsAdminPage from "./pages/ExamsAdminPage";
+import ExamScoresPage from "./pages/ExamScoresPage";
 import GroupSummaryPage from "./pages/GroupSummaryPage";
 import AdminsPage from "./pages/AdminsPage";
 import ReportingHomePage from "./pages/reporting/ReportingHomePage";
@@ -120,6 +121,7 @@ export default function App() {
       <Route path="/batch-grade" element={<RequireAuth><RequireAdminRole><BatchGradePage /></RequireAdminRole></RequireAuth>} />
       <Route path="/batch-grade/:templateId" element={<RequireAuth><RequireAdminRole><BatchGradeRosterPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/exams" element={<RequireAuth><RequireAdminRole><ExamsAdminPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/exam-scores" element={<RequireAuth><RequireAdminRole><ExamScoresPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/admins" element={<RequireAuth><RequireAdminRole><AdminsPage /></RequireAdminRole></RequireAuth>} />
 
       <Route path="/reports" element={<RequireAuth><RequireAdminRole><ReportingHomePage /></RequireAdminRole></RequireAuth>} />
