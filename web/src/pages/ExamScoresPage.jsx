@@ -40,16 +40,20 @@ export default function ExamScoresPage() {
   }, []);
 
   useEffect(() => {
-    getDocs(query(collection(db, "recruits"), where("isActive", "==", true))).then((snap) => {
-      const set = new Set(
-        snap.docs
-          .map((d) => d.data())
-          .filter((r) => !r.isPractice)
-          .map((r) => r.recruitClassOrCohort)
-          .filter(Boolean)
-      );
-      setCohorts(["All", ...[...set].sort()]);
-    });
+    getDocs(query(collection(db, "recruits"), where("isActive", "==", true)))
+      .then((snap) => {
+        const set = new Set(
+          snap.docs
+            .map((d) => d.data())
+            .filter((r) => !r.isPractice)
+            .map((r) => r.recruitClassOrCohort)
+            .filter(Boolean)
+        );
+        setCohorts(["All", ...[...set].sort()]);
+      })
+      .catch((err) => {
+        console.error("Failed to load cohorts", err);
+      });
   }, []);
 
   return (
