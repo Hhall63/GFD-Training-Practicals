@@ -10,6 +10,7 @@ const QUICK_LINKS = [
   ["Recruit History", "Full session history per recruit", "/reports/recruits"],
   ["Test Pass Rates", "Failure rate by step, per test", "/reports/templates"],
   ["Cohort Dashboard", "Training matrix by cohort", "/reports/cohorts"],
+  ["Class Reports", "Saved multi-test reports by cohort", "/reports/class"],
   ["Export to Excel", "Download raw results as CSV", "/reports/export"],
 ];
 
