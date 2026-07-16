@@ -142,5 +142,12 @@ service cloud.firestore {
         allow read, write: if isStaff();
       }
     }
+
+    match /classReportFilters/{filterId} {
+      // Saved report queries (name + cohort + selected test/exam ids) for the Class Report
+      // builder. Purely a Reports-section admin tool — same admin-only access as every other
+      // /reports collection.
+      allow read, write: if isAdminRole();
+    }
   }
 }
