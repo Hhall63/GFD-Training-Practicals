@@ -34,6 +34,7 @@ import TemplateAggregateReportPage from "./pages/reporting/TemplateAggregateRepo
 import CohortDashboardListPage from "./pages/reporting/CohortDashboardListPage";
 import CohortDashboardPage from "./pages/reporting/CohortDashboardPage";
 import ExportPage from "./pages/reporting/ExportPage";
+import ClassReportsListPage from "./pages/reporting/ClassReportsListPage";
 import LiveDashboardPage from "./pages/LiveDashboardPage";
 
 function FullScreenLoading() {
@@ -139,6 +140,7 @@ export default function App() {
       <Route path="/reports/cohorts" element={<RequireAuth><RequireAdminRole><CohortDashboardListPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/cohorts/:cohort" element={<RequireAuth><RequireAdminRole><CohortDashboardPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/export" element={<RequireAuth><RequireAdminRole><ExportPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/class" element={<RequireAuth><RequireAdminRole><ClassReportsListPage /></RequireAdminRole></RequireAuth>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
