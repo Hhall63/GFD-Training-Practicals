@@ -64,7 +64,7 @@ export default function ClassReportsListPage() {
                 style={{ width: "auto", padding: "6px 12px", color: "var(--brand-red)" }}
                 onClick={() => handleDeactivate(filter)}
               >
-                Delete
+                Deactivate
               </button>
             </div>
           </div>
@@ -94,6 +94,15 @@ function NewClassReportModal({ cohorts, templates, onClose, onCreated }) {
   const [cohort, setCohort] = useState(cohorts[0] ?? "");
   const [pickedIds, setPickedIds] = useState([]);
   const [saving, setSaving] = useState(false);
+
+  // cohorts loads asynchronously in the parent and can still be [] at the moment this modal
+  // mounts (e.g. opened immediately after page load) — without this, `cohort` would be stuck
+  // at "" forever once cohorts populates, since useState's initializer only runs once.
+  useEffect(() => {
+    if (!cohort && cohorts.length > 0) {
+      setCohort(cohorts[0]);
+    }
+  }, [cohorts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleTemplate(templateId) {
     setPickedIds((prev) =>

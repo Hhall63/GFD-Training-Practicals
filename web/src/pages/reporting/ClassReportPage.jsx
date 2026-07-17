@@ -11,11 +11,20 @@ export default function ClassReportPage() {
   const { filterId } = useParams();
   const navigate = useNavigate();
   const [filter, setFilter] = useState(null);
+  const [notFound, setNotFound] = useState(false);
   const [recruitReports, setRecruitReports] = useState(null); // [{ recruit, items }]
 
   useEffect(() => {
     async function load() {
       const filterSnap = await getDoc(doc(db, "classReportFilters", filterId));
+      // A stale/typo'd/deleted-doc filterId must not crash the page or spin forever:
+      // exists() catches the "no such doc" case, and !isActive catches a report that
+      // was "Deleted" from the list page (soft-deactivated, not hard-deleted) — once
+      // deactivated it should no longer be viewable even via a bookmarked direct link.
+      if (!filterSnap.exists() || filterSnap.data().isActive === false) {
+        setNotFound(true);
+        return;
+      }
       const filterData = { id: filterSnap.id, ...filterSnap.data() };
       setFilter(filterData);
 
@@ -29,13 +38,18 @@ export default function ClassReportPage() {
       const recruits = recruitsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((r) => !r.isPractice)
-        .sort((a, b) => a.lastName.localeCompare(b.lastName));
+        .sort((a, b) => (a.lastName ?? "").localeCompare(b.lastName ?? ""));
 
       const reports = await Promise.all(
         recruits.map(async (recruit) => {
+          // templateIds defaults to [] (not undefined/null) so buildTranscriptLineItems
+          // always takes its `{ items }` branch, never the unfiltered `{ core, remaining }`
+          // branch meant for the full-transcript pages — a filter doc missing this field
+          // (e.g. hand-written outside the New Class Report modal) would otherwise crash
+          // the `items.length` check below.
           const { items } = await buildTranscriptLineItems({
             recruitId: recruit.id,
-            templateIds: filterData.templateIds,
+            templateIds: filterData.templateIds ?? [],
           });
           return { recruit, items };
         })
@@ -44,6 +58,14 @@ export default function ClassReportPage() {
     }
     load();
   }, [filterId]);
+
+  if (notFound) {
+    return (
+      <div className="screen center-column" style={{ paddingTop: 80 }}>
+        <p className="muted">This class report no longer exists.</p>
+      </div>
+    );
+  }
 
   if (!filter || !recruitReports) {
     return <div className="screen center-column" style={{ paddingTop: 80 }}>Loading…</div>;
