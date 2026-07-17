@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { addDoc, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
+import Modal from "../components/Modal";
 
 export default function TestGroupsAdminPage() {
   const navigate = useNavigate();
@@ -136,24 +137,8 @@ function NewTestGroupModal({ templates, onClose }) {
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 30,
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="card"
-        style={{ width: 340, background: "white", maxHeight: "90vh", overflowY: "auto" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 style={{ marginTop: 0 }}>New Test Group</h3>
+    <Modal titleId="new-test-group-title" onClose={onClose}>
+      <h3 id="new-test-group-title" style={{ marginTop: 0 }}>New Test Group</h3>
         <div className="field">
           <input
             type="text"
@@ -224,7 +209,6 @@ function NewTestGroupModal({ templates, onClose }) {
             {saving ? "Creating…" : "Create"}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

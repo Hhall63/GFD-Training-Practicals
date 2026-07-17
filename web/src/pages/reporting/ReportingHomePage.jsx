@@ -10,15 +10,25 @@ const QUICK_LINKS = [
   ["Recruit History", "Full session history per recruit", "/reports/recruits"],
   ["Test Pass Rates", "Failure rate by step, per test", "/reports/templates"],
   ["Cohort Dashboard", "Training matrix by cohort", "/reports/cohorts"],
+  ["Class Reports", "Saved multi-test reports by cohort", "/reports/class"],
   ["Export to Excel", "Download raw results as CSV", "/reports/export"],
 ];
 
-function KpiTile({ label, value, alert }) {
+function KpiTile({ label, value, alert, empty }) {
   return (
-    <div className="card card--raised kpi-tile">
+    <div
+      className="card card--raised kpi-tile"
+      aria-label={empty ? `${label}: No tests recorded yet` : undefined}
+    >
       <span className="eyebrow">{label}</span>
       <span className="kpi-accent" aria-hidden="true" />
-      <span className={`kpi-value${alert ? " kpi-value--alert" : ""}`}>{value}</span>
+      {empty ? (
+        <span className="muted" style={{ fontSize: 15, fontWeight: 600 }}>
+          No tests yet
+        </span>
+      ) : (
+        <span className={`kpi-value${alert ? " kpi-value--alert" : ""}`}>{value}</span>
+      )}
     </div>
   );
 }
@@ -134,13 +144,13 @@ function LiveDashboardLinkCard() {
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <h3 style={{ marginTop: 0 }}>Live Dashboard Link</h3>
+      <h2 className="section-heading" style={{ marginTop: 0 }}>Live Dashboard Link</h2>
       {error && <p style={{ color: "var(--brand-red)", fontSize: 13 }}>{error}</p>}
       {loading ? (
         <p className="muted">Loading…</p>
       ) : activeToken ? (
         <>
-          <p className="muted" style={{ wordBreak: "break-all" }}>
+          <p className="muted" style={{ wordBreak: "break-all", maxWidth: "60ch" }}>
             {`${window.location.origin}/live/${activeToken}`}
           </p>
           <div style={{ display: "flex", gap: 8 }}>
@@ -159,7 +169,7 @@ function LiveDashboardLinkCard() {
         </>
       ) : (
         <>
-          <p className="muted">
+          <p className="muted" style={{ maxWidth: "60ch" }}>
             No active link yet. Anyone with this link can view the command board with no login —
             share it only with a trusted display.
           </p>
@@ -218,6 +228,7 @@ export default function ReportingHomePage() {
 
   const { kpis, flagged, matrix } = board;
   const noRecruits = data.recruits.length === 0;
+  const noSessionsYet = data.sessions.length === 0;
   const matrixRecruits =
     cohortFilter === "All Cohorts"
       ? matrix.recruits
@@ -227,7 +238,6 @@ export default function ReportingHomePage() {
     <div className="app-shell">
       <TopBar title="Reports" onBack={() => navigate("/")} showMenu={false} />
       <div className="screen--wide">
-        <LiveDashboardLinkCard />
         {noRecruits ? (
           <div className="card">
             <p className="muted" style={{ margin: 0 }}>
@@ -237,14 +247,37 @@ export default function ReportingHomePage() {
           </div>
         ) : (
           <>
+            {noSessionsYet && (
+              <div className="card card--raised" style={{ marginBottom: 16 }}>
+                <h2 className="section-heading" style={{ marginTop: 0 }}>Ready to test</h2>
+                <p className="muted">
+                  {kpis.activeRecruitCount} recruit{kpis.activeRecruitCount === 1 ? "" : "s"} active, no tests
+                  recorded yet. Run a test to start populating the command board.
+                </p>
+                <button
+                  className="primary"
+                  style={{ width: "auto", padding: "10px 16px" }}
+                  onClick={() => navigate("/start-test")}
+                >
+                  Start a Test
+                </button>
+              </div>
+            )}
+
             <div className="kpi-row">
               <KpiTile label="Active Recruits" value={kpis.activeRecruitCount} />
               <KpiTile
                 label="Overall Pass %"
                 value={kpis.overallPassRate == null ? "—" : `${Math.round(kpis.overallPassRate * 100)}%`}
+                empty={noSessionsYet}
               />
-              <KpiTile label="Tests This Week" value={kpis.testsThisWeek} />
-              <KpiTile label="At-Risk" value={kpis.atRiskCount} alert={kpis.atRiskCount > 0} />
+              <KpiTile label="Tests This Week" value={kpis.testsThisWeek} empty={noSessionsYet} />
+              <KpiTile
+                label="At-Risk"
+                value={kpis.atRiskCount}
+                alert={kpis.atRiskCount > 0}
+                empty={noSessionsYet}
+              />
             </div>
 
             <div className="flag-panel">
@@ -253,7 +286,9 @@ export default function ReportingHomePage() {
               </h2>
               {flagged.length === 0 ? (
                 <p className="muted" style={{ margin: 0 }}>
-                  No flagged recruits — everyone&rsquo;s on track.
+                  {noSessionsYet
+                    ? "No tests recorded yet — nothing to flag."
+                    : "No flagged recruits — everyone’s on track."}
                 </p>
               ) : (
                 flagged.map((f) => (
@@ -299,13 +334,15 @@ export default function ReportingHomePage() {
                 Fail
               </span>
               <span>
-                <span className="readiness-legend-dot" style={{ background: "var(--border)" }} />
+                <span className="readiness-legend-dot" style={{ background: "var(--text-secondary)" }} />
                 Not tested
               </span>
             </div>
 
-            {matrix.templates.length === 0 ? (
+            {data.templates.length === 0 ? (
               <p className="muted">No active tests configured yet.</p>
+            ) : matrix.templates.length === 0 ? (
+              <p className="muted">No tests attempted yet — this will populate once testing begins.</p>
             ) : matrixRecruits.length === 0 ? (
               <p className="muted">No recruits in this cohort.</p>
             ) : (
@@ -369,13 +406,21 @@ export default function ReportingHomePage() {
           ))}
         </div>
 
+        <LiveDashboardLinkCard />
+
         <button
           className="secondary"
           style={{ marginTop: 16, color: "var(--brand-red)" }}
+          disabled={noSessionsYet}
           onClick={() => setShowClearModal(true)}
         >
           Clear All Results
         </button>
+        {noSessionsYet && (
+          <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>
+            Nothing to clear yet.
+          </p>
+        )}
 
         {showClearModal && (
           <ClearAllResultsModal

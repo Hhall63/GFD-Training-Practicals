@@ -111,13 +111,19 @@ export function computeKpis({ recruits, sessions, atRiskCount }) {
 }
 
 /**
- * Cohort readiness matrix: recruit rows x active-template columns, each cell the result of
- * the latest completed session for that recruit/template pair (or absent = not tested).
+ * Cohort readiness matrix: recruit rows x attempted-template columns, each cell the result
+ * of the latest completed session for that recruit/template pair (or absent = not tested).
  * Mirrors CohortDashboardPage's "keep only the most recently started session per pair"
  * merge, just across every active recruit instead of one cohort at a time.
+ *
+ * Columns are restricted to templates with at least one completed session anywhere in
+ * `sessions` — an active-but-never-run template doesn't get a column. This keeps the matrix
+ * growing with real testing activity instead of front-loading every configured template
+ * (including ones nobody's attempted yet) as a wall of "not tested" cells from day one.
  */
 export function computeReadinessMatrix({ recruits, templates, sessions }) {
   const latest = new Map(); // `${recruitId}_${templateId}` -> { result, startedAtMs }
+  const attemptedTemplateIds = new Set();
   for (const s of sessions) {
     const key = `${s.recruitId}_${s.templateId}`;
     const startedAtMs = toMillis(s.startedAt);
@@ -125,8 +131,10 @@ export function computeReadinessMatrix({ recruits, templates, sessions }) {
     if (!existing || startedAtMs > existing.startedAtMs) {
       latest.set(key, { result: s.overallResult, startedAtMs });
     }
+    attemptedTemplateIds.add(s.templateId);
   }
-  return { recruits, templates, latest };
+  const attemptedTemplates = templates.filter((t) => attemptedTemplateIds.has(t.id));
+  return { recruits, templates: attemptedTemplates, latest };
 }
 
 /** Composes the three derived views the Command Board renders from one shared data load. */
@@ -135,6 +143,96 @@ export function buildCommandBoard({ recruits, templates, sessions }) {
   const kpis = computeKpis({ recruits, sessions, atRiskCount: flagged.length });
   const matrix = computeReadinessMatrix({ recruits, templates, sessions });
   return { kpis, flagged, matrix };
+}
+
+/**
+ * "Which grade counts" rule shared by RecruitHomePage's own-status view, the recruit
+ * transcript builder, and the class report: given every completed session for one
+ * recruit+template pair, the latest retake (if any) is what counts; otherwise the latest
+ * first attempt. Returns both sessions separately (not just the effective one) so a caller
+ * that needs to show a retake's own date/evaluator alongside the original — e.g. the
+ * transcript's retake sub-line — has both available.
+ */
+export function resolveEffectiveSession(sessionsForOneTemplate) {
+  const byTime = (a, b) => (a.startedAt?.toMillis?.() ?? 0) - (b.startedAt?.toMillis?.() ?? 0);
+  const firsts = sessionsForOneTemplate.filter((s) => (s.attemptType ?? "first") === "first").sort(byTime);
+  const retakes = sessionsForOneTemplate.filter((s) => s.attemptType === "retake").sort(byTime);
+  return {
+    original: firsts.length > 0 ? firsts[firsts.length - 1] : null,
+    retake: retakes.length > 0 ? retakes[retakes.length - 1] : null,
+  };
+}
+
+/**
+ * Builds the printable line items for one recruit's tests/exams: groups their completed,
+ * non-practice sessions by templateId, reduces each group through resolveEffectiveSession to
+ * find the original attempt and (if present) the retake, and attaches each template's own
+ * name/includeInSummaryTranscript flag.
+ *
+ * With no `templateIds`, returns the Summary/Complete transcript split: `core` (templates
+ * flagged includeInSummaryTranscript) and `remaining` (every other template the recruit has
+ * actually completed — never-attempted templates are omitted entirely).
+ *
+ * With `templateIds` given (the class report case), returns a flat `items` array restricted
+ * to just those template ids, in the order given, skipping any the recruit hasn't completed.
+ */
+export async function buildTranscriptLineItems({ recruitId, templateIds = null }) {
+  const [sessionsSnap, templatesSnap] = await Promise.all([
+    getDocs(query(collection(db, "sessions"), where("recruitId", "==", recruitId))),
+    getDocs(collection(db, "templates")),
+  ]);
+
+  const templatesById = new Map(templatesSnap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]));
+  const sessions = sessionsSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((s) => s.status === SESSION_STATUS.COMPLETED && !s.isPractice);
+
+  const byTemplate = new Map(); // templateId -> sessions[]
+  for (const s of sessions) {
+    if (!byTemplate.has(s.templateId)) byTemplate.set(s.templateId, []);
+    byTemplate.get(s.templateId).push(s);
+  }
+
+  function toLineItem(templateId, group) {
+    if (!group || group.length === 0) return null;
+    const { original, retake } = resolveEffectiveSession(group);
+    if (!original) return null;
+    const template = templatesById.get(templateId);
+    return {
+      templateId,
+      templateName: template?.name ?? original.templateName,
+      original: {
+        result: original.overallResult,
+        dateMs: original.startedAt?.toMillis?.() ?? 0,
+        evaluatorName: original.evaluatorName,
+      },
+      retake: retake
+        ? {
+            result: retake.overallResult,
+            dateMs: retake.startedAt?.toMillis?.() ?? 0,
+            evaluatorName: retake.evaluatorName,
+          }
+        : null,
+    };
+  }
+
+  if (templateIds) {
+    const items = templateIds.map((id) => toLineItem(id, byTemplate.get(id))).filter(Boolean);
+    return { items };
+  }
+
+  const core = [];
+  const remaining = [];
+  for (const [templateId, group] of byTemplate.entries()) {
+    const item = toLineItem(templateId, group);
+    if (!item) continue;
+    const template = templatesById.get(templateId);
+    if (template?.includeInSummaryTranscript) core.push(item);
+    else remaining.push(item);
+  }
+  core.sort((a, b) => a.templateName.localeCompare(b.templateName));
+  remaining.sort((a, b) => a.templateName.localeCompare(b.templateName));
+  return { core, remaining };
 }
 
 const CLEAR_ALL_BATCH_LIMIT = 500;

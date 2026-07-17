@@ -73,7 +73,12 @@ service cloud.firestore {
       // same class of gap as the `get` exclusion above: a future state with zero admin docs
       // (fresh install, disaster recovery) must not let an anonymous visitor seize it.
       allow create: if isAdminRole() || (request.auth.uid == adminId && noAdminExistsYet() && !isAnonymousLiveViewer());
-      allow update, delete: if isAdminRole();
+      allow update: if isAdminRole()
+        || (isSignedIn()
+            && request.auth.uid == adminId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mustChangePassword'])
+            && request.resource.data.mustChangePassword == false);
+      allow delete: if isAdminRole();
     }
 
     match /publicLiveLinks/{token} {
@@ -136,6 +141,13 @@ service cloud.firestore {
       match /lineResults/{lineResultId} {
         allow read, write: if isStaff();
       }
+    }
+
+    match /classReportFilters/{filterId} {
+      // Saved report queries (name + cohort + selected test/exam ids) for the Class Report
+      // builder. Purely a Reports-section admin tool — same admin-only access as every other
+      // /reports collection.
+      allow read, write: if isAdminRole();
     }
   }
 }

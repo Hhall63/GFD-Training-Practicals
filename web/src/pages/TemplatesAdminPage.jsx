@@ -15,7 +15,7 @@ export default function TemplatesAdminPage() {
       setTemplates(
         snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((t) => !t.isBatchGrade)
+          .filter((t) => !t.isBatchGrade && !t.isWrittenExam)
           .sort((a, b) => a.name.localeCompare(b.name))
       );
     });

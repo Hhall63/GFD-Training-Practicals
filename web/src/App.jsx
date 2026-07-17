@@ -4,6 +4,7 @@ import { useAuth } from "./context/AuthContext";
 import LoginPage from "./pages/LoginPage";
 import SetupAdminPage from "./pages/SetupAdminPage";
 import ConnectionErrorPage from "./pages/ConnectionErrorPage";
+import ForceChangePasswordPage from "./pages/ForceChangePasswordPage";
 import HomePage from "./pages/HomePage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import RecruitHomePage from "./pages/RecruitHomePage";
@@ -17,17 +18,24 @@ import TemplateEditorPage from "./pages/TemplateEditorPage";
 import TestGroupsAdminPage from "./pages/TestGroupsAdminPage";
 import BatchGradePage from "./pages/BatchGradePage";
 import BatchGradeRosterPage from "./pages/BatchGradeRosterPage";
+import ExamsAdminPage from "./pages/ExamsAdminPage";
+import ExamScoresPage from "./pages/ExamScoresPage";
+import ExamScoresGradingPage from "./pages/ExamScoresGradingPage";
 import GroupSummaryPage from "./pages/GroupSummaryPage";
 import AdminsPage from "./pages/AdminsPage";
 import ReportingHomePage from "./pages/reporting/ReportingHomePage";
 import RecruitHistoryListPage from "./pages/reporting/RecruitHistoryListPage";
 import RecruitHistoryDetailPage from "./pages/reporting/RecruitHistoryDetailPage";
+import TranscriptSummaryPage from "./pages/reporting/TranscriptSummaryPage";
+import TranscriptCompletePage from "./pages/reporting/TranscriptCompletePage";
 import SessionDetailPage from "./pages/reporting/SessionDetailPage";
 import TemplateReportListPage from "./pages/reporting/TemplateReportListPage";
 import TemplateAggregateReportPage from "./pages/reporting/TemplateAggregateReportPage";
 import CohortDashboardListPage from "./pages/reporting/CohortDashboardListPage";
 import CohortDashboardPage from "./pages/reporting/CohortDashboardPage";
 import ExportPage from "./pages/reporting/ExportPage";
+import ClassReportsListPage from "./pages/reporting/ClassReportsListPage";
+import ClassReportPage from "./pages/reporting/ClassReportPage";
 import LiveDashboardPage from "./pages/LiveDashboardPage";
 
 function FullScreenLoading() {
@@ -41,6 +49,9 @@ function RequireAuth({ children }) {
   if (loading) return <FullScreenLoading />;
   if (!adminDoc) {
     return <Navigate to={anyAdminExists ? "/login" : "/setup"} replace />;
+  }
+  if (adminDoc.mustChangePassword) {
+    return <ForceChangePasswordPage />;
   }
   return children;
 }
@@ -114,17 +125,24 @@ export default function App() {
       <Route path="/test-groups" element={<RequireAuth><RequireAdminRole><TestGroupsAdminPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/batch-grade" element={<RequireAuth><RequireAdminRole><BatchGradePage /></RequireAdminRole></RequireAuth>} />
       <Route path="/batch-grade/:templateId" element={<RequireAuth><RequireAdminRole><BatchGradeRosterPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/exams" element={<RequireAuth><RequireAdminRole><ExamsAdminPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/exam-scores" element={<RequireAuth><RequireAdminRole><ExamScoresPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/exam-scores/:templateId" element={<RequireAuth><RequireAdminRole><ExamScoresGradingPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/admins" element={<RequireAuth><RequireAdminRole><AdminsPage /></RequireAdminRole></RequireAuth>} />
 
       <Route path="/reports" element={<RequireAuth><RequireAdminRole><ReportingHomePage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/recruits" element={<RequireAuth><RequireAdminRole><RecruitHistoryListPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/recruits/:recruitId" element={<RequireAuth><RequireAdminRole><RecruitHistoryDetailPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/recruits/:recruitId/transcript/summary" element={<RequireAuth><RequireAdminRole><TranscriptSummaryPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/recruits/:recruitId/transcript/complete" element={<RequireAuth><RequireAdminRole><TranscriptCompletePage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/sessions/:sessionId" element={<RequireAuth><RequireAdminRole><SessionDetailPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/templates" element={<RequireAuth><RequireAdminRole><TemplateReportListPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/templates/:templateId" element={<RequireAuth><RequireAdminRole><TemplateAggregateReportPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/cohorts" element={<RequireAuth><RequireAdminRole><CohortDashboardListPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/cohorts/:cohort" element={<RequireAuth><RequireAdminRole><CohortDashboardPage /></RequireAdminRole></RequireAuth>} />
       <Route path="/reports/export" element={<RequireAuth><RequireAdminRole><ExportPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/class" element={<RequireAuth><RequireAdminRole><ClassReportsListPage /></RequireAdminRole></RequireAuth>} />
+      <Route path="/reports/class/:filterId" element={<RequireAuth><RequireAdminRole><ClassReportPage /></RequireAdminRole></RequireAuth>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

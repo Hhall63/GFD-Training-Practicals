@@ -1,0 +1,89 @@
+/* web/src/styles/print.css
+ * Layout for the printable recruit transcript and class report pages. These pages render
+ * with no app chrome (no TopBar/nav) — this file covers both their on-screen appearance and
+ * their @media print rules (page size, hiding non-printing controls, per-recruit page
+ * breaks on the class report).
+ */
+
+.transcript-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--brand-gold);
+}
+
+.transcript-header img {
+  height: 50px;
+  width: auto;
+}
+
+.transcript-header h2 {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+  font-size: 18px;
+  color: var(--brand-navy);
+}
+
+.transcript-recruit-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.transcript-photo {
+  width: 110px;
+  height: 110px;
+  font-size: 32px;
+}
+
+.transcript-line-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.transcript-line-item-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.transcript-line-item-name {
+  flex: 1;
+  min-width: 160px;
+  font-weight: 600;
+}
+
+.transcript-line-item-retake {
+  margin-top: 4px;
+  padding-left: 12px;
+  font-size: 12px;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  @page {
+    size: letter;
+    margin: 0.5in;
+  }
+
+  body {
+    background: white;
+  }
+
+  /* Adjacent-sibling combinator (not :first-of-type) because the printable page's own
+     TranscriptHeader renders a wrapping <div> before the first .class-report-recruit block,
+     which would otherwise make that first recruit div the *second* div of its type and
+     defeat a `:first-of-type` reset — causing a spurious blank leading page in print. */
+  .class-report-recruit + .class-report-recruit {
+    break-before: page;
+  }
+}

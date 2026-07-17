@@ -32,6 +32,10 @@
      need a tint rather than the solid color — kept as one named value instead of a raw
      rgba(...) literal wherever it's used, so the two never drift apart. */
   --flag-amber-tint: rgba(180, 83, 9, 0.14);
+  /* Shared modal backdrop tint — used by components/Modal.jsx. Existing hand-rolled overlays
+     elsewhere in the app inline rgba(0,0,0,0.4) directly; new modals built on the shared
+     Modal component use this named value instead. */
+  --overlay-scrim: rgba(0, 0, 0, 0.4);
 }
 
 * {

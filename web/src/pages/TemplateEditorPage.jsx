@@ -103,6 +103,18 @@ export default function TemplateEditorPage() {
               </span>
             </div>
           </div>
+
+          <div className="field" style={{ marginBottom: 0, marginTop: 14 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "var(--text)" }}>
+              <input
+                type="checkbox"
+                checked={!!template.includeInSummaryTranscript}
+                onChange={(e) => saveDetails("includeInSummaryTranscript", e.target.checked)}
+                style={{ width: "auto", margin: 0 }}
+              />
+              Include on Summary Transcript
+            </label>
+          </div>
         </div>
 
         <h4>Test Steps, In Order</h4>
