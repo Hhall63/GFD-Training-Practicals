@@ -130,7 +130,11 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   }
 
   // Lets the evaluator undo a mis-tap. Recomputes result/autoFail through the normal commit()
-  // path, so removing it correctly reverts the step to PASS when it was the only trigger.
+  // path, so removing it correctly reverts the step to PASS when it was the only trigger (and
+  // correctly leaves the step FAILed if the cone/time trigger is also active). Deliberately
+  // does not touch current.note — notes are free-form concatenated text with no marker
+  // linkage, so there's no reliable way to strip only the sentence this trigger appended.
+  // The evaluator can edit the note by hand via the attachment panel if it's now stale.
   function removeAggressiveDriving() {
     commit({ ...tallies, markers: markers.filter((m) => m.type !== "aggressiveDriving") });
   }
