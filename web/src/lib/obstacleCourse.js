@@ -1,7 +1,9 @@
 /**
  * Scoring logic for the "Obstacle Course" line type — the GFD SRFF Promotional Process
  * driving/EVD evaluation. It is scored by a tiered driving time (base score) minus
- * per-penalty deductions, with two independent automatic-failure triggers.
+ * per-penalty deductions, with three independent automatic-failure triggers: too many cone
+ * penalties, too much total time, and an evaluator-flagged aggressive-driving critical
+ * failure.
  *
  * The course itself (penalty values, time tiers, and auto-fail thresholds) is a FIXED
  * department form, so it is baked in here rather than configured per template — the
@@ -24,6 +26,11 @@ export const MARKER_TYPES = [
   { key: "cone", label: "Cone hit", short: "C", points: 4, color: "#c4212f" },
   { key: "line", label: "Line crossed", short: "L", points: 2, color: "#1f6feb" },
   { key: "stopLine", label: "Stop line hit", short: "S", points: 10, color: "#7d2ae8" },
+  // A discrete, deliberate critical event rather than a per-obstacle penalty — worth no
+  // points on its own (it isn't a deduction, it's an outright course failure) and excluded
+  // from TAP_MARKER_TYPES below since it needs its own confirm-with-required-note flow, not
+  // the free-tap-anywhere behavior the other penalty types get.
+  { key: "aggressiveDriving", label: "Aggressive Driving (Critical Failure)", short: "AD", points: 0, color: "#111111" },
   { key: "dist0", label: 'Stopped 0"–12"', short: "⓪", points: 0, color: "#2f9e44" },
   { key: "dist1", label: 'Stopped 12"–24"', short: "①", points: 2, color: "#d98200" },
   { key: "dist2", label: 'Stopped 25"–36"', short: "②", points: 4, color: "#d98200" },
@@ -48,8 +55,12 @@ export const DISTANCE_SLOTS = [
 ];
 
 // The mode buttons on the live runner only cover penalties placed by a free tap anywhere
-// on the course; stopping-distance tiers are graded from the DISTANCE_SLOTS dropdowns instead.
-export const TAP_MARKER_TYPES = MARKER_TYPES.filter((m) => !m.key.startsWith("dist"));
+// on the course; stopping-distance tiers are graded from the DISTANCE_SLOTS dropdowns
+// instead, and Aggressive Driving gets its own dedicated confirm-with-note button instead
+// of a tap-to-place mode.
+export const TAP_MARKER_TYPES = MARKER_TYPES.filter(
+  (m) => !m.key.startsWith("dist") && m.key !== "aggressiveDriving"
+);
 
 // Both obstacle-2 and obstacle-5 stopping distances must be recorded before a run can be
 // finished. Returns the obstacle numbers still missing a distance tier (including the
@@ -108,8 +119,6 @@ function scoreForTime(timeTiers, totalSeconds) {
   return 0;
 }
 
-/** Turns raw tallies into a final 0–100 score plus the two automatic-failure flags — the
- * one place the math lives, shared by the live runner, results/reporting, and CSV. */
 export function computeObstacleCourseScore(config, tallies) {
   const cfg = config ?? defaultObstacleCourseConfig();
   const totalSeconds = tallies?.totalSeconds ?? 0;
@@ -127,6 +136,7 @@ export function computeObstacleCourseScore(config, tallies) {
 
   const autoFailCones = totalCones >= (cfg.maxConePenalties ?? Infinity);
   const autoFailTime = totalSeconds >= (cfg.maxTotalSeconds ?? Infinity);
+  const autoFailAggressiveDriving = markers.some((m) => m.type === "aggressiveDriving");
   const score = Math.max(0, Math.round(baseScore - deductions));
 
   return {
@@ -137,7 +147,8 @@ export function computeObstacleCourseScore(config, tallies) {
     markerCount: markers.length,
     autoFailCones,
     autoFailTime,
-    autoFail: autoFailCones || autoFailTime,
+    autoFailAggressiveDriving,
+    autoFail: autoFailCones || autoFailTime || autoFailAggressiveDriving,
     score,
   };
 }
@@ -171,6 +182,9 @@ export function summarizeObstacleCourseLines(config, tallies) {
   }
   if (scoring.autoFailTime) {
     lines.push(`AUTOMATIC FAILURE: total time ${formatClock(tallies?.totalSeconds)} exceeded ${formatClock(config?.maxTotalSeconds ?? 390)}`);
+  }
+  if (scoring.autoFailAggressiveDriving) {
+    lines.push("AUTOMATIC FAILURE: Aggressive driving critical failure");
   }
   return lines;
 }

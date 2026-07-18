@@ -43,6 +43,11 @@ export default function ObstacleCourseSummary({ config, tallies }) {
           AUTOMATIC FAILURE: total time {formatClock(tallies.totalSeconds)} ≥ {formatClock(cfg.maxTotalSeconds)}
         </div>
       )}
+      {scoring.autoFailAggressiveDriving && (
+        <div style={{ color: "var(--brand-red)", fontWeight: 600, fontSize: 13 }}>
+          AUTOMATIC FAILURE: Aggressive driving critical failure
+        </div>
+      )}
     </div>
   );
 }
