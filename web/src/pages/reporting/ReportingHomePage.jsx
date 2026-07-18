@@ -7,7 +7,7 @@ import { buildCommandBoard, clearAllSessions, loadCommandBoardData } from "../..
 import { RESULT } from "../../lib/constants";
 
 const QUICK_LINKS = [
-  ["Recruit History", "Full session history per recruit", "/reports/recruits"],
+  ["Recruit Transcript", "Full session history per recruit", "/reports/recruits"],
   ["Test Pass Rates", "Failure rate by step, per test", "/reports/templates"],
   ["Cohort Dashboard", "Training matrix by cohort", "/reports/cohorts"],
   ["Class Reports", "Saved multi-test reports by cohort", "/reports/class"],

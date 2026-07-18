@@ -14,7 +14,15 @@ async function main() {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 
     console.log("Navigating to login...");
-    await page.goto(`${BASE_URL}/login`, { waitUntil: "networkidle" });
+    // NOTE: timeout raised from Playwright's 30s default to 75s. This app keeps a live
+    // Firestore Listen long-poll channel open (checking meta/appState / the admin doc)
+    // from the moment the page loads, even pre-login. Against the real emulator (not a
+    // proxied sandbox where that channel resets quickly) the channel doesn't yield a
+    // networkidle-qualifying gap until its ~60s long-poll cycle completes, so the default
+    // 30s timeout fires before the login form is ever reachable — unrelated to this task's
+    // selector fix. (See web/.verify/verify-classreport-print-pagination.cjs for the same
+    // workaround.)
+    await page.goto(`${BASE_URL}/login`, { waitUntil: "networkidle", timeout: 75000 });
 
     console.log("Logging in...");
     await page.fill("#login-email", "verify.admin@example.com");
@@ -23,12 +31,20 @@ async function main() {
     await page.waitForURL(BASE_URL + "/", { timeout: 10000 });
 
     console.log("Navigating to Reports...");
-    await page.click('button:has-text("Menu")');
+    // NOTE: selector fixed from `button:has-text("Menu")` (0 matches — the button's
+    // rendered text is the "⋯" glyph; "Menu" is only its aria-label, which :has-text()
+    // does not match) to the aria-label attribute selector. This was a pre-existing,
+    // unrelated bug in this script (confirmed independently of this task's rename) that
+    // blocked it from ever reaching the Reports page in this local emulator environment.
+    await page.click('button[aria-label="Menu"]');
     await page.click('text=Reports');
-    await page.waitForSelector('text=Recruit History', { timeout: 5000 });
+    // Updated alongside the line-31 selector fix: this quick-link's visible label is now
+    // "Recruit Transcript" (Task 2 rename), so the "page has loaded" check below must look
+    // for the new label rather than the old one.
+    await page.waitForSelector('text=Recruit Transcript', { timeout: 5000 });
 
     console.log("Navigating to Recruit History...");
-    await page.click('button:has-text("Recruit History")');
+    await page.click('button:has-text("Recruit Transcript")');
     await page.waitForSelector('.list-row', { timeout: 5000 });
 
     // Click on the first recruit in the list
@@ -58,7 +74,11 @@ async function main() {
     // Test Summary Transcript button navigation
     console.log("Clicking Print Summary Transcript button...");
     await page.click('button:has-text("Print Summary Transcript")');
-    await page.waitForSelector('text=Summary Transcript', { timeout: 5000 });
+    // NOTE: was `text=Summary Transcript`, which never matches — TranscriptSummaryPage /
+    // TranscriptHeader render no such literal text (only "Print Summary Transcript" button
+    // labels elsewhere reference that phrase). Pre-existing, unrelated bug; wait on the
+    // shared TranscriptHeader marker instead to confirm the page actually rendered.
+    await page.waitForSelector('.transcript-header', { timeout: 5000 });
     const currentUrl = page.url();
     if (!currentUrl.includes("/transcript/summary")) {
       throw new Error(`Expected URL to contain "/transcript/summary", got "${currentUrl}"`);
@@ -72,7 +92,9 @@ async function main() {
 
     console.log("Clicking Print Complete Transcript button...");
     await page.click('button:has-text("Print Complete Transcript")');
-    await page.waitForSelector('text=Complete Transcript', { timeout: 5000 });
+    // Same pre-existing bug as the Summary Transcript check above: no literal "Complete
+    // Transcript" text is ever rendered on this page.
+    await page.waitForSelector('.transcript-header', { timeout: 5000 });
     const currentUrl2 = page.url();
     if (!currentUrl2.includes("/transcript/complete")) {
       throw new Error(`Expected URL to contain "/transcript/complete", got "${currentUrl2}"`);
