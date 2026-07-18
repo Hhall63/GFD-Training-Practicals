@@ -188,10 +188,10 @@ export async function recordBatchGradeResult({ template, recruit, evaluatorName,
 }
 
 /**
- * Reverses a batch-grade result recorded by recordBatchGradeResult: deletes the session's
- * lineResults doc(s) first, then the session doc itself, in one batch so a mid-way failure
- * can't strand an orphaned lineResults doc under a deleted session. Does not attempt to
- * recall a failure-notification email that may have already been sent — see
+ * Reverses a batch-grade result recorded by recordBatchGradeResult: batches the session's
+ * lineResults doc delete(s) with the session doc's own delete so the whole set commits
+ * atomically — no ordering dependency, just no partial deletion if it fails. Does not
+ * attempt to recall a failure-notification email that may have already been sent — see
  * docs/superpowers/plans/2026-07-18-batch-grade-undo-plan.md.
  */
 export async function deleteBatchGradeResult(sessionId) {
