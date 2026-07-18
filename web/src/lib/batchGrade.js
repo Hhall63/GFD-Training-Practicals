@@ -186,3 +186,18 @@ export async function recordBatchGradeResult({ template, recruit, evaluatorName,
 
   return { sessionId: sessionRef.id, failureEmailStatus: failureEmail.status };
 }
+
+/**
+ * Reverses a batch-grade result recorded by recordBatchGradeResult: deletes the session's
+ * lineResults doc(s) first, then the session doc itself, in one batch so a mid-way failure
+ * can't strand an orphaned lineResults doc under a deleted session. Does not attempt to
+ * recall a failure-notification email that may have already been sent — see
+ * docs/superpowers/plans/2026-07-18-batch-grade-undo-plan.md.
+ */
+export async function deleteBatchGradeResult(sessionId) {
+  const lineResultsSnap = await getDocs(collection(db, "sessions", sessionId, "lineResults"));
+  const batch = writeBatch(db);
+  lineResultsSnap.docs.forEach((d) => batch.delete(d.ref));
+  batch.delete(doc(db, "sessions", sessionId));
+  await batch.commit();
+}
