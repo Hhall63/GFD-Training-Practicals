@@ -271,7 +271,15 @@ function LiveTestRunnerRun({ sessionId }) {
     // could be finished via Submit on that closing line while the Overall Timer line itself
     // sits ungraded — silently dropping its result/elapsed time/pause history from the report.
     if (isLastLine && overallTimerLine && overallTimerLine.result == null) return false;
-    if (current.lineTypeSnapshot === LINE_TYPES.INSTRUCTION) return true;
+    // Instruction and Overall Timer cards both have nothing to grade inline (Overall Timer is
+    // only ever graded by the sticky Stop Test banner, which works independently of
+    // currentIndex in every view) — so neither should block moving to the next line. The
+    // guard above already stops the *test* from finishing while a non-last-position Overall
+    // Timer is ungraded doesn't apply here since it's scoped to isLastLine; this only
+    // unblocks stepping past it mid-template.
+    if (current.lineTypeSnapshot === LINE_TYPES.INSTRUCTION || current.lineTypeSnapshot === LINE_TYPES.OVERALL_TIMER) {
+      return true;
+    }
     // A result must be recorded first. The note-required-on-failure rule is enforced with a
     // blocking pop-up in advance() (like the distance gate), rather than by silently
     // disabling this button — so the evaluator gets a clear prompt instead of a dead button.
