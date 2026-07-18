@@ -7,7 +7,7 @@ import TopBar from "../components/TopBar";
 import { initials, RESULT } from "../lib/constants";
 import { compressImageToDataUrl } from "../lib/image";
 import { PRACTICE_RECRUIT_ID } from "../lib/practiceRecruit";
-import { recordBatchGradeResult } from "../lib/batchGrade";
+import { deleteBatchGradeResult, recordBatchGradeResult } from "../lib/batchGrade";
 
 export default function BatchGradeRosterPage() {
   const { templateId } = useParams();
@@ -15,7 +15,9 @@ export default function BatchGradeRosterPage() {
   const { adminDoc } = useAuth();
   const [template, setTemplate] = useState(null);
   const [recruits, setRecruits] = useState([]);
-  const [gradedByRecruitId, setGradedByRecruitId] = useState({}); // recruitId -> "pass" | "fail"
+  const [gradedByRecruitId, setGradedByRecruitId] = useState({}); // recruitId -> { result: "pass"|"fail", sessionId }
+  const [pendingUndo, setPendingUndo] = useState(null); // recruit currently confirming undo, or null
+  const [undoingRecruitId, setUndoingRecruitId] = useState(null);
   const [failTarget, setFailTarget] = useState(null); // recruit currently being fail-noted, or null
   const [savingRecruitId, setSavingRecruitId] = useState(null);
 
@@ -40,7 +42,7 @@ export default function BatchGradeRosterPage() {
   async function gradePass(recruit) {
     setSavingRecruitId(recruit.id);
     try {
-      await recordBatchGradeResult({
+      const { sessionId } = await recordBatchGradeResult({
         template,
         recruit,
         evaluatorName: adminDoc.displayName,
@@ -48,7 +50,7 @@ export default function BatchGradeRosterPage() {
         note: null,
         photoURLs: [],
       });
-      setGradedByRecruitId((prev) => ({ ...prev, [recruit.id]: RESULT.PASS }));
+      setGradedByRecruitId((prev) => ({ ...prev, [recruit.id]: { result: RESULT.PASS, sessionId } }));
     } finally {
       setSavingRecruitId(null);
     }
@@ -57,7 +59,7 @@ export default function BatchGradeRosterPage() {
   async function confirmFail(recruit, note, photoURLs) {
     setSavingRecruitId(recruit.id);
     try {
-      await recordBatchGradeResult({
+      const { sessionId } = await recordBatchGradeResult({
         template,
         recruit,
         evaluatorName: adminDoc.displayName,
@@ -65,11 +67,34 @@ export default function BatchGradeRosterPage() {
         note,
         photoURLs,
       });
-      setGradedByRecruitId((prev) => ({ ...prev, [recruit.id]: RESULT.FAIL }));
+      setGradedByRecruitId((prev) => ({ ...prev, [recruit.id]: { result: RESULT.FAIL, sessionId } }));
       setFailTarget(null);
     } finally {
       setSavingRecruitId(null);
     }
+  }
+
+  async function confirmUndo() {
+    const recruit = pendingUndo;
+    if (!recruit) return;
+    const graded = gradedByRecruitId[recruit.id];
+    if (!graded) return;
+    setUndoingRecruitId(recruit.id);
+    try {
+      await deleteBatchGradeResult(graded.sessionId);
+      setGradedByRecruitId((prev) => {
+        const next = { ...prev };
+        delete next[recruit.id];
+        return next;
+      });
+      setPendingUndo(null);
+    } finally {
+      setUndoingRecruitId(null);
+    }
+  }
+
+  function cancelUndo() {
+    setPendingUndo(null);
   }
 
   if (!template) {
@@ -84,6 +109,7 @@ export default function BatchGradeRosterPage() {
         <div className="recruit-grid">
           {recruits.map((recruit) => {
             const graded = gradedByRecruitId[recruit.id];
+            const gradedResult = graded?.result;
             const isSaving = savingRecruitId === recruit.id;
             return (
               <div key={recruit.id} className="card card--raised">
@@ -102,12 +128,22 @@ export default function BatchGradeRosterPage() {
                 </div>
 
                 {graded ? (
-                  <span
-                    className={`badge ${graded === RESULT.PASS ? "pass" : "fail"}`}
-                    style={{ display: "block", textAlign: "center", marginTop: 10 }}
-                  >
-                    {graded === RESULT.PASS ? "PASS" : "FAIL"}
-                  </span>
+                  <div style={{ marginTop: 10 }}>
+                    <span
+                      className={`badge ${gradedResult === RESULT.PASS ? "pass" : "fail"}`}
+                      style={{ display: "block", textAlign: "center" }}
+                    >
+                      {gradedResult === RESULT.PASS ? "PASS" : "FAIL"}
+                    </span>
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{ width: "100%", marginTop: 6, padding: "4px 8px" }}
+                      onClick={() => setPendingUndo(recruit)}
+                    >
+                      Undo
+                    </button>
+                  </div>
                 ) : (
                   <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                     <button
@@ -142,6 +178,50 @@ export default function BatchGradeRosterPage() {
           onClose={() => setFailTarget(null)}
           onConfirm={(note, photoURLs) => confirmFail(failTarget, note, photoURLs)}
         />
+      )}
+
+      {pendingUndo && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: 12 }}>Undo Grade?</h3>
+            <p className="muted" style={{ marginBottom: 20 }}>
+              {pendingUndo.firstName} {pendingUndo.lastName}'s{" "}
+              {gradedByRecruitId[pendingUndo.id]?.result === RESULT.PASS ? "PASS" : "FAIL"} result
+              for {template.name} will be permanently deleted and this recruit will show as
+              ungraded again.
+              {gradedByRecruitId[pendingUndo.id]?.result === RESULT.FAIL && (
+                <>
+                  <br />
+                  <br />
+                  If a failure-notification email already went out, this does not recall it.
+                </>
+              )}
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button className="secondary" style={{ flex: 1 }} onClick={cancelUndo}>
+                Cancel
+              </button>
+              <button
+                className="primary danger"
+                style={{ flex: 1 }}
+                disabled={undoingRecruitId === pendingUndo.id}
+                onClick={confirmUndo}
+              >
+                {undoingRecruitId === pendingUndo.id ? "Undoing…" : "Yes, Undo"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
