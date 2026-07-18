@@ -78,12 +78,4 @@
   body {
     background: white;
   }
-
-  /* Adjacent-sibling combinator (not :first-of-type) because the printable page's own
-     TranscriptHeader renders a wrapping <div> before the first .class-report-recruit block,
-     which would otherwise make that first recruit div the *second* div of its type and
-     defeat a `:first-of-type` reset — causing a spurious blank leading page in print. */
-  .class-report-recruit + .class-report-recruit {
-    break-before: page;
-  }
 }

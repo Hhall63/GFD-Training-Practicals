@@ -166,7 +166,7 @@ export function buildFailureBody(session, lineResults) {
       lines.push(`    Evaluator comments: ${line.note}`);
     }
     if (line.photoURLs?.length > 0) {
-      lines.push(`    Photos: ${line.photoURLs.length} attached — view in the app (Reports > Recruit History)`);
+      lines.push(`    Photos: ${line.photoURLs.length} attached — view in the app (Reports > Recruit Transcript)`);
     }
   }
 
