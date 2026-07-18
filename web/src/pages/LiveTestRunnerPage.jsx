@@ -274,9 +274,9 @@ function LiveTestRunnerRun({ sessionId }) {
     // Instruction and Overall Timer cards both have nothing to grade inline (Overall Timer is
     // only ever graded by the sticky Stop Test banner, which works independently of
     // currentIndex in every view) — so neither should block moving to the next line. The
-    // guard above already stops the *test* from finishing while a non-last-position Overall
-    // Timer is ungraded doesn't apply here since it's scoped to isLastLine; this only
-    // unblocks stepping past it mid-template.
+    // guard immediately above already blocks finishing the test while the Overall Timer is
+    // ungraded; it's scoped to isLastLine, so it doesn't interfere here — this branch only
+    // unblocks stepping past the timer mid-template, never finishing while it's ungraded.
     if (current.lineTypeSnapshot === LINE_TYPES.INSTRUCTION || current.lineTypeSnapshot === LINE_TYPES.OVERALL_TIMER) {
       return true;
     }
