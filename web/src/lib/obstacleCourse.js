@@ -119,6 +119,8 @@ function scoreForTime(timeTiers, totalSeconds) {
   return 0;
 }
 
+/** Turns raw tallies into a final 0–100 score plus the three automatic-failure flags — the
+ * one place the math lives, shared by the live runner, results/reporting, and CSV. */
 export function computeObstacleCourseScore(config, tallies) {
   const cfg = config ?? defaultObstacleCourseConfig();
   const totalSeconds = tallies?.totalSeconds ?? 0;
