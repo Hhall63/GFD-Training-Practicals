@@ -33,6 +33,8 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   const startRef = useRef(null); // Date.now() when the current running segment began
   const accumulatedRef = useRef(0); // seconds banked from prior run segments (pause/resume)
   const intervalRef = useRef(null);
+  const [showAggressiveDrivingConfirm, setShowAggressiveDrivingConfirm] = useState(false);
+  const [aggressiveDrivingNote, setAggressiveDrivingNote] = useState("");
 
   useEffect(() => () => clearInterval(intervalRef.current), []);
 
@@ -44,6 +46,7 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   }, []);
 
   const markers = tallies.markers ?? [];
+  const hasAggressiveDriving = markers.some((m) => m.type === "aggressiveDriving");
   const displaySeconds = isRunning || isPaused ? liveElapsed : tallies.totalSeconds ?? 0;
   const scoring = computeObstacleCourseScore(config, { ...tallies, totalSeconds: displaySeconds });
   const started = tallies.totalSeconds != null || isRunning || isPaused;
@@ -112,6 +115,30 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
     commit({ ...tallies, markers: next });
   }
 
+  // Confirms the critical failure: folds a positionless aggressiveDriving marker into the
+  // tally (so computeObstacleCourseScore's autoFail picks it up the same way it already does
+  // for the two existing triggers) and appends the required note onto the line's own `note`
+  // field — the same field LiveTestRunnerPage's fail-note gate and the failure email already
+  // read, so this note shows up everywhere a normal fail-note does with no extra wiring.
+  async function confirmAggressiveDriving() {
+    const trimmed = aggressiveDrivingNote.trim();
+    if (!trimmed) return;
+    await commit({ ...tallies, markers: [...markers, { type: "aggressiveDriving" }] });
+    await patchCurrent({ note: current.note ? `${current.note}\n\n${trimmed}` : trimmed });
+    setAggressiveDrivingNote("");
+    setShowAggressiveDrivingConfirm(false);
+  }
+
+  // Lets the evaluator undo a mis-tap. Recomputes result/autoFail through the normal commit()
+  // path, so removing it correctly reverts the step to PASS when it was the only trigger (and
+  // correctly leaves the step FAILed if the cone/time trigger is also active). Deliberately
+  // does not touch current.note — notes are free-form concatenated text with no marker
+  // linkage, so there's no reliable way to strip only the sentence this trigger appended.
+  // The evaluator can edit the note by hand via the attachment panel if it's now stale.
+  function removeAggressiveDriving() {
+    commit({ ...tallies, markers: markers.filter((m) => m.type !== "aggressiveDriving") });
+  }
+
   const distanceSlots = DISTANCE_SLOTS.map((slot) => ({
     ...slot,
     value: markers.find((m) => m.x === slot.x && m.y === slot.y)?.type ?? "",
@@ -177,6 +204,43 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
         Stopping distances are graded from the dropdowns on the map.
       </p>
 
+      {hasAggressiveDriving ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            background: "#1a1a1a",
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: 13,
+            padding: "10px 12px",
+            borderRadius: 8,
+            marginBottom: 10,
+          }}
+        >
+          <span>🚨 Aggressive Driving recorded — this recruit fails the course</span>
+          <button
+            type="button"
+            className="secondary"
+            style={{ width: "auto", padding: "4px 10px", flexShrink: 0 }}
+            onClick={removeAggressiveDriving}
+          >
+            Remove
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="primary danger"
+          style={{ width: "100%", marginBottom: 10 }}
+          onClick={() => setShowAggressiveDrivingConfirm(true)}
+        >
+          🚨 Aggressive Driving — Critical Failure
+        </button>
+      )}
+
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
         {TAP_MARKER_TYPES.map((mt) => (
           <button
@@ -235,6 +299,57 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
       )}
 
       <CourseMap markers={markers} onTap={addMarker} onMarkerClick={removeMarker} distanceSlots={distanceSlots} />
+
+      {showAggressiveDrivingConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowAggressiveDrivingConfirm(false)}
+        >
+          <div className="card" style={{ maxWidth: 340, padding: 24, textAlign: "left" }}>
+            <h3 style={{ marginBottom: 8 }}>Aggressive Driving — Critical Failure</h3>
+            <p className="muted" style={{ marginTop: 0, marginBottom: 12 }}>
+              This immediately fails the recruit on this course, regardless of score. Add a
+              note explaining what happened before confirming.
+            </p>
+            <textarea
+              autoFocus
+              rows={3}
+              placeholder="What did the recruit do?"
+              value={aggressiveDrivingNote}
+              onChange={(e) => setAggressiveDrivingNote(e.target.value)}
+              style={{ width: "100%" }}
+            />
+            <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+              <button
+                className="secondary"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  setShowAggressiveDrivingConfirm(false);
+                  setAggressiveDrivingNote("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="primary danger"
+                style={{ flex: 1 }}
+                disabled={!aggressiveDrivingNote.trim()}
+                onClick={confirmAggressiveDriving}
+              >
+                Confirm Critical Failure
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
