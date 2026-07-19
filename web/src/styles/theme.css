@@ -104,10 +104,24 @@ body {
   height: 28px;
 }
 
+.top-bar-heading {
+  flex: 1;
+  min-width: 0;
+}
+
 .top-bar h1 {
   font-size: 17px;
   margin: 0;
-  flex: 1;
+}
+
+/* Test/template name's description, shown directly under the TopBar title (e.g. the Batch
+   Grade Roster header) — same "name then muted subtitle" convention used everywhere else a
+   test name is listed (HomePage's test-tile, TemplatesAdminPage), just recolored for the
+   dark top-bar surface instead of the light card surface. */
+.top-bar-subtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .top-bar button.icon-button {
@@ -116,6 +130,13 @@ body {
   color: white;
   font-size: 22px;
   cursor: pointer;
+  /* Glove-ready per PRODUCT.md: a comfortable 44x44px minimum hit area, not just whatever
+     the 22px glyph's own box happens to render at. */
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .card {
@@ -295,6 +316,40 @@ a:visited {
 
 .test-tile:active {
   background: rgba(18, 18, 58, 0.12);
+}
+
+/* Custom listbox trigger — replaces a native <select> wherever the picked option needs to
+   show a name + muted description together (native <option> can only ever hold plain text,
+   so a real form control here is a structural dead end, not just a styling one). Matches the
+   existing input/select field chrome so it reads as "the form field", just openable. */
+.picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.picker-trigger-text {
+  min-width: 0;
+}
+
+.picker-trigger-placeholder {
+  color: var(--text-secondary);
+}
+
+.picker-trigger-chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
 }
 
 .badge {

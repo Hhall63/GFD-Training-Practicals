@@ -103,7 +103,12 @@ export default function BatchGradeRosterPage() {
 
   return (
     <div className="app-shell">
-      <TopBar title={template.name} onBack={() => navigate("/batch-grade")} showMenu={false} />
+      <TopBar
+        title={template.name}
+        subtitle={template.description}
+        onBack={() => navigate("/batch-grade")}
+        showMenu={false}
+      />
       <div className="screen--wide">
         {recruits.length === 0 && <p className="muted">No active recruits to grade.</p>}
         <div className="recruit-grid">

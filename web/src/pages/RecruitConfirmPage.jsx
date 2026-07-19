@@ -144,6 +144,7 @@ export default function RecruitConfirmPage() {
         recruitName: `${selected.firstName} ${selected.lastName}`,
         templateId: template.id,
         templateName: template.name,
+        ...(template.description ? { templateDescription: template.description } : {}),
         evaluatorName: adminDoc.displayName,
         attemptType, // "first" | "retake" (retake is admin-only, enforced in the UI below)
         startedAt: serverTimestamp(),

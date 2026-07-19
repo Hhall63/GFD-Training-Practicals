@@ -57,14 +57,14 @@ export default function RecruitHistoryDetailPage() {
             style={{ width: "auto", padding: "8px 14px" }}
             onClick={() => navigate(`/reports/recruits/${recruitId}/transcript/summary`)}
           >
-            Print Summary Transcript
+            Print Summary Transcript (Core Tests)
           </button>
           <button
             className="secondary"
             style={{ width: "auto", padding: "8px 14px" }}
             onClick={() => navigate(`/reports/recruits/${recruitId}/transcript/complete`)}
           >
-            Print Complete Transcript
+            Print Complete Transcript (All Tests)
           </button>
         </div>
 
@@ -74,7 +74,10 @@ export default function RecruitHistoryDetailPage() {
           <button key={session.id} className="list-row" onClick={() => navigate(`/reports/sessions/${session.id}`)}>
             <div style={{ flex: 1 }}>
               <div>{session.templateName}</div>
-              <div className="muted">
+              {session.templateDescription && (
+                <div className="muted">{session.templateDescription}</div>
+              )}
+              <div className="muted" style={{ fontSize: 12 }}>
                 {session.startedAt?.toDate?.().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) ?? ""}
               </div>
             </div>

@@ -480,6 +480,7 @@ function LiveTestRunnerRun({ sessionId }) {
         recruitName: sessionData.recruitName,
         templateId: nextTemplate.id,
         templateName: nextTemplate.name,
+        ...(nextTemplate.description ? { templateDescription: nextTemplate.description } : {}),
         evaluatorName: sessionData.evaluatorName,
         attemptType: sessionData.attemptType,
         startedAt: serverTimestamp(),
