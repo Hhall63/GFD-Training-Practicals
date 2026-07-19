@@ -158,15 +158,18 @@ function NewTestGroupModal({ templates, onClose }) {
         {templates.map((template) => (
           <label
             key={template.id}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", cursor: "pointer" }}
+            style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 0", cursor: "pointer" }}
           >
             <input
               type="checkbox"
               checked={pickedIds.includes(template.id)}
               onChange={() => toggleTemplate(template.id)}
-              style={{ width: "auto", margin: 0 }}
+              style={{ width: "auto", margin: 0, marginTop: 3 }}
             />
-            {template.name}
+            <span>
+              <div>{template.name}</div>
+              {template.description && <div className="muted">{template.description}</div>}
+            </span>
           </label>
         ))}
 

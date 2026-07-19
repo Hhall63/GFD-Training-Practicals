@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { RESULT } from "../lib/constants";
+import { compressImageToDataUrl } from "../lib/image";
 import CourseMap from "./CourseMap";
 import {
   computeObstacleCourseScore,
@@ -35,6 +36,7 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
   const intervalRef = useRef(null);
   const [showAggressiveDrivingConfirm, setShowAggressiveDrivingConfirm] = useState(false);
   const [aggressiveDrivingNote, setAggressiveDrivingNote] = useState("");
+  const [aggressiveDrivingPhotos, setAggressiveDrivingPhotos] = useState([]);
 
   useEffect(() => () => clearInterval(intervalRef.current), []);
 
@@ -117,16 +119,29 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
 
   // Confirms the critical failure: folds a positionless aggressiveDriving marker into the
   // tally (so computeObstacleCourseScore's autoFail picks it up the same way it already does
-  // for the two existing triggers) and appends the required note onto the line's own `note`
-  // field — the same field LiveTestRunnerPage's fail-note gate and the failure email already
-  // read, so this note shows up everywhere a normal fail-note does with no extra wiring.
+  // for the two existing triggers) and appends the required note (plus any optional photos)
+  // onto the line's own `note`/`photoURLs` fields — the same fields LiveTestRunnerPage's
+  // fail-note gate and the failure email already read, so this shows up everywhere a normal
+  // fail-note does with no extra wiring.
   async function confirmAggressiveDriving() {
     const trimmed = aggressiveDrivingNote.trim();
     if (!trimmed) return;
     await commit({ ...tallies, markers: [...markers, { type: "aggressiveDriving" }] });
-    await patchCurrent({ note: current.note ? `${current.note}\n\n${trimmed}` : trimmed });
+    await patchCurrent({
+      note: current.note ? `${current.note}\n\n${trimmed}` : trimmed,
+      photoURLs: [...(current.photoURLs ?? []), ...aggressiveDrivingPhotos],
+    });
     setAggressiveDrivingNote("");
+    setAggressiveDrivingPhotos([]);
     setShowAggressiveDrivingConfirm(false);
+  }
+
+  async function handleAggressiveDrivingPhoto(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await compressImageToDataUrl(file);
+    setAggressiveDrivingPhotos((prev) => [...prev, dataUrl]);
+    e.target.value = "";
   }
 
   // Lets the evaluator undo a mis-tap. Recomputes result/autoFail through the normal commit()
@@ -327,6 +342,18 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
               onChange={(e) => setAggressiveDrivingNote(e.target.value)}
               style={{ width: "100%" }}
             />
+            <div className="field" style={{ marginTop: 10 }}>
+              <label>Photo (optional)</label>
+              {aggressiveDrivingPhotos.map((url) => (
+                <img
+                  key={url}
+                  src={url}
+                  alt=""
+                  style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8, marginRight: 8 }}
+                />
+              ))}
+              <input type="file" accept="image/*" capture="environment" onChange={handleAggressiveDrivingPhoto} />
+            </div>
             <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
               <button
                 className="secondary"
@@ -334,6 +361,7 @@ export default function ObstacleCourseRunner({ current, patchCurrent }) {
                 onClick={() => {
                   setShowAggressiveDrivingConfirm(false);
                   setAggressiveDrivingNote("");
+                  setAggressiveDrivingPhotos([]);
                 }}
               >
                 Cancel

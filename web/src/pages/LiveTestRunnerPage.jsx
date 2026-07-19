@@ -58,12 +58,11 @@ function LiveTestRunnerRun({ sessionId }) {
   const [missingDistanceObstacles, setMissingDistanceObstacles] = useState([]);
   const [showNoteRequired, setShowNoteRequired] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
-  const [noteRequiredReason, setNoteRequiredReason] = useState("stepFailed"); // "stepFailed" | "overallFail"
+  const [noteDraftPhotos, setNoteDraftPhotos] = useState([]);
   // Which line the Note Required modal's "Save & Continue" writes to, and what to run
-  // afterward. Standard view always targets `current` and resumes via proceed() (set at each
-  // call site in advance()). Checklist/Tile submitAll() targets whichever line actually needs
-  // the note (out-of-order grading means that's not necessarily `current`) and resumes via
-  // submitAll() itself, so a second missing note (or the overall-fail note) is caught next.
+  // afterward. Standard view always targets `current` and resumes via proceed(). Checklist/
+  // Tile submitAll() targets the last line in template order (where the overall-fail note
+  // always lives) and resumes via submitAll() itself.
   const noteTargetIdRef = useRef(null);
   const noteContinuationRef = useRef(null);
   const timerStartRef = useRef(null);
@@ -355,6 +354,14 @@ function LiveTestRunnerRun({ sessionId }) {
     return current.photoURLs?.length > 0 || !!current.note;
   }
 
+  async function handleNoteDraftPhoto(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await compressImageToDataUrl(file);
+    setNoteDraftPhotos((prev) => [...prev, dataUrl]);
+    e.target.value = "";
+  }
+
   // The one real "end the session" path in this page: computes/records the pass-fail
   // outcome via finishSession(), then either shows Task 9's Test Group continuation popup
   // or navigates to the results screen. Shared by proceed() (normal last-line completion)
@@ -537,28 +544,19 @@ function LiveTestRunnerRun({ sessionId }) {
         return;
       }
     }
-    // A failed step must be documented before moving on — a blocking pop-up (with a note
-    // field) rather than a silently disabled button.
-    if (current.result === RESULT.FAIL && !hasFailNote()) {
-      noteTargetIdRef.current = current.id;
-      noteContinuationRef.current = proceed;
-      setNoteDraft(current.note ?? "");
-      setNoteRequiredReason("stepFailed");
-      setShowNoteRequired(true);
-      return;
-    }
     // The obstacle course (and any scored step) only sets its own result to FAIL on a hard
     // auto-fail trigger — a low but non-auto-fail score still reports PASS on the step even
     // though it can drag the overall test below the passing percentage. So on the last line,
-    // also preview the overall outcome and require a note if the *test* is about to fail,
-    // even when this step's own result isn't FAIL.
+    // preview the overall outcome and require one note if the *test* is about to fail — this
+    // is the only note the Live Test Runner ever requires; an individual failed step never
+    // blocks on its own (its AttachmentCapture box is always optional — see LineCard below).
     if (isLastLine && current.lineTypeSnapshot !== LINE_TYPES.INSTRUCTION && !hasFailNote()) {
       const { overallResult } = computeSessionOutcome(lineResultsRef.current ?? lineResults);
       if (overallResult === RESULT.FAIL) {
         noteTargetIdRef.current = current.id;
         noteContinuationRef.current = proceed;
         setNoteDraft(current.note ?? "");
-        setNoteRequiredReason("overallFail");
+        setNoteDraftPhotos(current.photoURLs ?? []);
         setShowNoteRequired(true);
         return;
       }
@@ -576,20 +574,9 @@ function LiveTestRunnerRun({ sessionId }) {
   async function submitAll() {
     const results = lineResultsRef.current ?? lineResults;
 
-    const failMissingNote = results.find(
-      (l) => l.result === RESULT.FAIL && !(l.photoURLs?.length > 0 || !!l.note)
-    );
-    if (failMissingNote) {
-      noteTargetIdRef.current = failMissingNote.id;
-      noteContinuationRef.current = submitAll;
-      setNoteDraft(failMissingNote.note ?? "");
-      setNoteRequiredReason("stepFailed");
-      setShowNoteRequired(true);
-      return;
-    }
-
-    // Same convention as Standard's last-line gate: the overall-fail note lives on the
-    // final line in template order.
+    // Same convention as Standard's last-line gate: the overall-fail note lives on the final
+    // line in template order. This is the only note Checklist/Tile ever requires — an
+    // individual failed line never blocks Submit on its own.
     const { overallResult } = computeSessionOutcome(results);
     if (overallResult === RESULT.FAIL) {
       const lastLine = results[results.length - 1];
@@ -598,7 +585,7 @@ function LiveTestRunnerRun({ sessionId }) {
         noteTargetIdRef.current = lastLine.id;
         noteContinuationRef.current = submitAll;
         setNoteDraft(lastLine.note ?? "");
-        setNoteRequiredReason("overallFail");
+        setNoteDraftPhotos(lastLine.photoURLs ?? []);
         setShowNoteRequired(true);
         return;
       }
@@ -873,9 +860,8 @@ function LiveTestRunnerRun({ sessionId }) {
           <div className="card" style={{ maxWidth: 340, padding: "24px", textAlign: "left" }}>
             <h3 style={{ marginBottom: 8 }}>Note Required</h3>
             <p className="muted" style={{ marginTop: 0, marginBottom: 12 }}>
-              {noteRequiredReason === "overallFail"
-                ? "This test does not meet the passing score. Add a note explaining what happened before submitting."
-                : "This step was failed. Add a note explaining what happened before continuing."}
+              This test does not meet the passing score. Add a note explaining what happened
+              before submitting.
             </p>
             <textarea
               autoFocus
@@ -885,6 +871,18 @@ function LiveTestRunnerRun({ sessionId }) {
               onChange={(e) => setNoteDraft(e.target.value)}
               style={{ width: "100%" }}
             />
+            <div className="field" style={{ marginTop: 10 }}>
+              <label>Photo (optional)</label>
+              {noteDraftPhotos.map((url) => (
+                <img
+                  key={url}
+                  src={url}
+                  alt=""
+                  style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8, marginRight: 8 }}
+                />
+              ))}
+              <input type="file" accept="image/*" capture="environment" onChange={handleNoteDraftPhoto} />
+            </div>
             <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
               <button className="secondary" style={{ flex: 1 }} onClick={() => setShowNoteRequired(false)}>
                 Cancel
@@ -894,7 +892,10 @@ function LiveTestRunnerRun({ sessionId }) {
                 style={{ flex: 1 }}
                 disabled={!noteDraft.trim()}
                 onClick={async () => {
-                  await patchLine(noteTargetIdRef.current ?? current.id, { note: noteDraft.trim() });
+                  await patchLine(noteTargetIdRef.current ?? current.id, {
+                    note: noteDraft.trim(),
+                    photoURLs: noteDraftPhotos,
+                  });
                   setShowNoteRequired(false);
                   await (noteContinuationRef.current ?? proceed)();
                 }}
@@ -1067,7 +1068,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
               </button>
             </div>
             {current.result && (
-              <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={current.result === RESULT.FAIL} />
+              <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={false} />
             )}
           </>
         )}
@@ -1135,7 +1136,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
         </button>
       </div>
       {current.result && (
-        <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={current.result === RESULT.FAIL} />
+        <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={false} />
       )}
     </div>
   );
