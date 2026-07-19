@@ -632,7 +632,7 @@ function LiveTestRunnerRun({ sessionId }) {
           switching views. */}
       {overallTimerLine && (
         <div className="overall-timer-banner">
-          <span>
+          <span className="overall-timer-readout">
             Overall Timer: {formatSeconds(overallElapsed)}s
             {overallTimerLine.result != null && (
               <span
@@ -649,10 +649,10 @@ function LiveTestRunnerRun({ sessionId }) {
                 className="secondary"
                 onClick={isOverallRunning ? pauseOverallTimer : resumeOverallTimer}
               >
-                {isOverallRunning ? "Pause" : "Resume"}
+                {isOverallRunning ? "⏸ Pause" : "▶ Resume"}
               </button>
               <button className="primary danger" onClick={handleStopTestClick}>
-                Stop Test
+                ⏹ Stop Test
               </button>
             </div>
           )}
