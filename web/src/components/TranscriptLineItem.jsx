@@ -5,22 +5,37 @@ function formatDate(dateMs) {
   return dateMs ? new Date(dateMs).toLocaleDateString("en-US", { dateStyle: "medium" }) : "";
 }
 
+/** One result row — used for both the original attempt and, when present, the retake, so the
+ * two render at identical size/format instead of the retake being a shrunken footnote. */
+function ResultRow({ label, result, dateMs, evaluatorName }) {
+  return (
+    <div className="transcript-line-item-main">
+      <span className="transcript-line-item-name">{label}</span>
+      <span className={`badge ${result === RESULT.PASS ? "pass" : "fail"}`}>
+        {result === RESULT.PASS ? "PASS" : "FAIL"}
+      </span>
+      <span className="muted">{formatDate(dateMs)}</span>
+      <span className="muted">{evaluatorName}</span>
+    </div>
+  );
+}
+
 export default function TranscriptLineItem({ item }) {
   return (
     <div className="transcript-line-item">
-      <div className="transcript-line-item-main">
-        <span className="transcript-line-item-name">{item.templateName}</span>
-        <span className={`badge ${item.original.result === RESULT.PASS ? "pass" : "fail"}`}>
-          {item.original.result === RESULT.PASS ? "PASS" : "FAIL"}
-        </span>
-        <span className="muted">{formatDate(item.original.dateMs)}</span>
-        <span className="muted">{item.original.evaluatorName}</span>
-      </div>
+      <ResultRow
+        label={item.templateName}
+        result={item.original.result}
+        dateMs={item.original.dateMs}
+        evaluatorName={item.original.evaluatorName}
+      />
       {item.retake && (
-        <div className="transcript-line-item-retake muted">
-          Retake: {formatDate(item.retake.dateMs)} —{" "}
-          {item.retake.result === RESULT.PASS ? "PASS" : "FAIL"} — by {item.retake.evaluatorName}
-        </div>
+        <ResultRow
+          label="Retake"
+          result={item.retake.result}
+          dateMs={item.retake.dateMs}
+          evaluatorName={item.retake.evaluatorName}
+        />
       )}
     </div>
   );
