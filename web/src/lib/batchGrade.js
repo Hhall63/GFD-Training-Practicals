@@ -42,10 +42,11 @@ export const BATCH_GRADE_SEED_NAMES = [
   "Setting Up a Drop Tank Drafting Operation",
 ];
 
-async function createBatchGradeTemplateDoc(name) {
+async function createBatchGradeTemplateDoc(name, description) {
   const now = new Date();
   const templateRef = await addDoc(collection(db, "templates"), {
     name,
+    ...(description ? { description } : {}),
     isActive: true,
     isBatchGrade: true,
     passingPercentage: 100,
@@ -58,12 +59,12 @@ async function createBatchGradeTemplateDoc(name) {
     isCritical: false,
     sortOrder: 0,
   });
-  return { id: templateRef.id, name };
+  return { id: templateRef.id, name, ...(description ? { description } : {}) };
 }
 
 /** Public "Add New" entry point — one template, called from BatchGradePage. */
-export async function createBatchGradeTemplate(name) {
-  return createBatchGradeTemplateDoc(name);
+export async function createBatchGradeTemplate(name, description) {
+  return createBatchGradeTemplateDoc(name, description);
 }
 
 /**
@@ -136,6 +137,7 @@ export async function recordBatchGradeResult({ template, recruit, evaluatorName,
     recruitName: `${recruit.firstName} ${recruit.lastName}`,
     templateId: template.id,
     templateName: template.name,
+    ...(template.description ? { templateDescription: template.description } : {}),
     evaluatorName,
     attemptType: "first",
     startedAt: serverTimestamp(),

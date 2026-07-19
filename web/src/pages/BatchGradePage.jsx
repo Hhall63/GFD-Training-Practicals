@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
+import Modal from "../components/Modal";
 import { ensureBatchGradeSeedTemplates, createBatchGradeTemplate } from "../lib/batchGrade";
 
 export default function BatchGradePage() {
@@ -10,6 +11,7 @@ export default function BatchGradePage() {
   const [templates, setTemplates] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [showAddNew, setShowAddNew] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     ensureBatchGradeSeedTemplates();
@@ -28,6 +30,8 @@ export default function BatchGradePage() {
     });
   }, []);
 
+  const selectedTemplate = templates.find((t) => t.id === selectedId) ?? null;
+
   return (
     <div className="app-shell">
       <TopBar title="Batch Grade" onBack={() => navigate("/")} showMenu={false} />
@@ -39,14 +43,34 @@ export default function BatchGradePage() {
 
         <div className="field">
           <label>Test</label>
-          <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-            <option value="">Select a test…</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+          <button type="button" className="picker-trigger" onClick={() => setPickerOpen(true)}>
+            <span className="picker-trigger-text">
+              {selectedTemplate ? (
+                <>
+                  <div style={{ fontWeight: 600 }}>{selectedTemplate.name}</div>
+                  {selectedTemplate.description && (
+                    <div className="muted">{selectedTemplate.description}</div>
+                  )}
+                </>
+              ) : (
+                <span className="picker-trigger-placeholder">Select a test…</span>
+              )}
+            </span>
+            <svg
+              className="picker-trigger-chevron"
+              width={20}
+              height={20}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.75}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
         </div>
 
         <button className="secondary" style={{ marginBottom: 16 }} onClick={() => setShowAddNew(true)}>
@@ -61,6 +85,31 @@ export default function BatchGradePage() {
           Start Grading
         </button>
       </div>
+
+      {pickerOpen && (
+        <Modal titleId="test-picker-title" onClose={() => setPickerOpen(false)} maxWidth={420}>
+          <h3 id="test-picker-title" style={{ marginTop: 0 }}>Select a Test</h3>
+          {templates.length === 0 && <p className="muted">No tests available yet.</p>}
+          <div role="listbox" aria-labelledby="test-picker-title" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+            {templates.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="option"
+                aria-selected={t.id === selectedId}
+                className="test-tile"
+                onClick={() => {
+                  setSelectedId(t.id);
+                  setPickerOpen(false);
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 16 }}>{t.name}</div>
+                {t.description && <div className="muted">{t.description}</div>}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
 
       {showAddNew && (
         <AddNewBatchTestModal
@@ -77,12 +126,13 @@ export default function BatchGradePage() {
 
 function AddNewBatchTestModal({ onClose, onCreated }) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function handleCreate() {
     setSaving(true);
     try {
-      const created = await createBatchGradeTemplate(name.trim());
+      const created = await createBatchGradeTemplate(name.trim(), description.trim());
       onCreated(created.id);
     } finally {
       setSaving(false);
@@ -97,11 +147,21 @@ function AddNewBatchTestModal({ onClose, onCreated }) {
       <div className="card" style={{ width: 320, background: "white" }} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginTop: 0 }}>Add Batch Grade Test</h3>
         <div className="field">
+          <label>Skill Name</label>
           <input
             type="text"
-            placeholder="Skill Name (e.g. Ladder Raise)"
+            placeholder="e.g. Ladder Raise"
             value={name}
             onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label>Description (optional)</label>
+          <textarea
+            rows={2}
+            placeholder="What does this skill require? Shown to evaluators when picking a test."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
           />
         </div>
         <div style={{ display: "flex", gap: 8 }}>

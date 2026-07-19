@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { getAdminNavItems } from "../lib/navItems";
 import ChangePasswordForm from "./ChangePasswordForm";
 
-export default function TopBar({ title = "GFD Recruit Testing", showMenu = true, onBack }) {
+export default function TopBar({ title = "GFD Recruit Testing", subtitle, showMenu = true, onBack }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
@@ -24,7 +24,10 @@ export default function TopBar({ title = "GFD Recruit Testing", showMenu = true,
         </button>
       )}
       <img src={badge} alt="GFD Badge" />
-      <h1>{title}</h1>
+      <div className="top-bar-heading">
+        <h1>{title}</h1>
+        {subtitle && <div className="top-bar-subtitle">{subtitle}</div>}
+      </div>
       {showMenu && (
         <div style={{ position: "relative" }}>
           <button className="icon-button" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
