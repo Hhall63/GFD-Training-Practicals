@@ -9,6 +9,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   writeBatch,
 } from "firebase/firestore";
@@ -59,12 +60,18 @@ function LiveTestRunnerRun({ sessionId }) {
   const [showNoteRequired, setShowNoteRequired] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteDraftPhotos, setNoteDraftPhotos] = useState([]);
-  // Which line the Note Required modal's "Save & Continue" writes to, and what to run
-  // afterward. Standard view always targets `current` and resumes via proceed(). Checklist/
-  // Tile submitAll() targets the last line in template order (where the overall-fail note
-  // always lives) and resumes via submitAll() itself.
-  const noteTargetIdRef = useRef(null);
+  // What to run after the Note Required modal's "Save & Continue" saves the note:
+  // proceed() for Standard view's last-line gate, submitAll() for Checklist/Tile's.
   const noteContinuationRef = useRef(null);
+  // The single test-level note/photos (staff-only sessions/{id}/testNotes/main doc), shown
+  // in the persistent banner below and required (via the Note Required modal) when the
+  // computed overall result is a FAIL. Defaults match what a freshly-seeded doc looks like,
+  // so the banner renders sensibly even before the initial fetch resolves.
+  const [testNote, setTestNote] = useState({ note: "", photoURLs: [] });
+  // Same stale-closure guard as lineResultsRef: finishSession()/advance()/submitAll() need
+  // the just-patched note even when they run inside the same handler that patched it, before
+  // a re-render has happened.
+  const testNoteRef = useRef({ note: "", photoURLs: [] });
   const timerStartRef = useRef(null);
   const intervalRef = useRef(null);
   // Records which line's timer is actually running, independent of currentIndex. Stop must
@@ -110,6 +117,13 @@ function LiveTestRunnerRun({ sessionId }) {
         setLineResults(results);
       }
     );
+    // Sessions created before this field existed have no testNotes/main doc — default to
+    // the same empty shape a freshly-seeded doc has, rather than leaving state undefined.
+    getDoc(doc(db, "sessions", sessionId, "testNotes", "main")).then((snap) => {
+      const data = snap.exists() ? snap.data() : { note: "", photoURLs: [] };
+      testNoteRef.current = data;
+      setTestNote(data);
+    });
   }, [sessionId]);
 
   useEffect(() => () => clearInterval(intervalRef.current), []);
@@ -199,6 +213,19 @@ function LiveTestRunnerRun({ sessionId }) {
 
   function patchCurrent(fields) {
     return patchLine(current.id, fields);
+  }
+
+  // Writes the one test-level note, shared by the persistent Test Notes banner (any time
+  // during the test) and the Note Required modal (on a computed overall fail). setDoc with
+  // merge, not updateDoc, since a session created before this field existed may not have a
+  // testNotes/main doc yet.
+  function patchTestNote(fields) {
+    setTestNote((prev) => {
+      const updated = { ...prev, ...fields };
+      testNoteRef.current = updated;
+      return updated;
+    });
+    return setDoc(doc(db, "sessions", sessionId, "testNotes", "main"), fields, { merge: true });
   }
 
   // Name-addressed grading for the Checklist/Tile views, which show every line at once and
@@ -335,7 +362,7 @@ function LiveTestRunnerRun({ sessionId }) {
     // reportsData.js), which is the correct place for that exclusion, not this send.
     let failureEmail = { status: null, recipients: [], error: null };
     if (overallResult === RESULT.FAIL) {
-      failureEmail = await sendFailureEmail(finishedSession, results);
+      failureEmail = await sendFailureEmail(finishedSession, results, testNoteRef.current ?? testNote);
     }
 
     await updateDoc(doc(db, "sessions", sessionId), {
@@ -350,8 +377,9 @@ function LiveTestRunnerRun({ sessionId }) {
     });
   }
 
-  function hasFailNote() {
-    return current.photoURLs?.length > 0 || !!current.note;
+  function hasOverallNote() {
+    const n = testNoteRef.current ?? testNote;
+    return n?.photoURLs?.length > 0 || !!n?.note;
   }
 
   async function handleNoteDraftPhoto(e) {
@@ -524,6 +552,7 @@ function LiveTestRunnerRun({ sessionId }) {
           photoURLs: [],
         });
       });
+      batch.set(doc(db, "sessions", nextSessionRef.id, "testNotes", "main"), { note: "", photoURLs: [] });
       await batch.commit();
 
       navigate(`/session/${nextSessionRef.id}/run`, { replace: true, state: { initialViewMode: viewMode } });
@@ -547,16 +576,16 @@ function LiveTestRunnerRun({ sessionId }) {
     // The obstacle course (and any scored step) only sets its own result to FAIL on a hard
     // auto-fail trigger — a low but non-auto-fail score still reports PASS on the step even
     // though it can drag the overall test below the passing percentage. So on the last line,
-    // preview the overall outcome and require one note if the *test* is about to fail — this
-    // is the only note the Live Test Runner ever requires; an individual failed step never
-    // blocks on its own (its AttachmentCapture box is always optional — see LineCard below).
-    if (isLastLine && current.lineTypeSnapshot !== LINE_TYPES.INSTRUCTION && !hasFailNote()) {
+    // preview the overall outcome and require the one test-level note if the *test* is about
+    // to fail — this is the only note the Live Test Runner ever requires; an individual
+    // failed step never blocks on its own, and the note lives on the test itself (the
+    // persistent Test Notes banner), not on any one line.
+    if (isLastLine && current.lineTypeSnapshot !== LINE_TYPES.INSTRUCTION && !hasOverallNote()) {
       const { overallResult } = computeSessionOutcome(lineResultsRef.current ?? lineResults);
       if (overallResult === RESULT.FAIL) {
-        noteTargetIdRef.current = current.id;
         noteContinuationRef.current = proceed;
-        setNoteDraft(current.note ?? "");
-        setNoteDraftPhotos(current.photoURLs ?? []);
+        setNoteDraft(testNoteRef.current?.note ?? "");
+        setNoteDraftPhotos(testNoteRef.current?.photoURLs ?? []);
         setShowNoteRequired(true);
         return;
       }
@@ -574,21 +603,16 @@ function LiveTestRunnerRun({ sessionId }) {
   async function submitAll() {
     const results = lineResultsRef.current ?? lineResults;
 
-    // Same convention as Standard's last-line gate: the overall-fail note lives on the final
-    // line in template order. This is the only note Checklist/Tile ever requires — an
-    // individual failed line never blocks Submit on its own.
+    // Same convention as Standard's last-line gate: one test-level note is the only note
+    // Checklist/Tile ever requires — an individual failed line never blocks Submit on its
+    // own, and the note lives on the test itself, not on any one line.
     const { overallResult } = computeSessionOutcome(results);
-    if (overallResult === RESULT.FAIL) {
-      const lastLine = results[results.length - 1];
-      const lastHasNote = lastLine.photoURLs?.length > 0 || !!lastLine.note;
-      if (!lastHasNote) {
-        noteTargetIdRef.current = lastLine.id;
-        noteContinuationRef.current = submitAll;
-        setNoteDraft(lastLine.note ?? "");
-        setNoteDraftPhotos(lastLine.photoURLs ?? []);
-        setShowNoteRequired(true);
-        return;
-      }
+    if (overallResult === RESULT.FAIL && !hasOverallNote()) {
+      noteContinuationRef.current = submitAll;
+      setNoteDraft(testNoteRef.current?.note ?? "");
+      setNoteDraftPhotos(testNoteRef.current?.photoURLs ?? []);
+      setShowNoteRequired(true);
+      return;
     }
 
     await finishSessionAndContinue();
@@ -665,6 +689,22 @@ function LiveTestRunnerRun({ sessionId }) {
           <button onClick={stopTimer}>Stop</button>
         </div>
       )}
+
+      {/* One note for the whole test, visible and editable from every view (Standard,
+          Checklist, Tile) — not tied to whichever line happens to be current or last. */}
+      <div style={{ padding: "12px 16px 0", maxWidth: 720, margin: "0 auto", width: "100%" }}>
+        <TestNotesBanner
+          note={testNote.note}
+          photoURLs={testNote.photoURLs}
+          onChangeNote={(value) => patchTestNote({ note: value })}
+          onAddPhoto={async (file) => {
+            const dataUrl = await compressImageToDataUrl(file);
+            await patchTestNote({
+              photoURLs: [...(testNoteRef.current?.photoURLs ?? []), dataUrl],
+            });
+          }}
+        />
+      </div>
 
       {!hasObstacleCourse && (
         <div style={{ padding: "12px 16px 0", maxWidth: 720, margin: "0 auto", width: "100%" }}>
@@ -892,10 +932,7 @@ function LiveTestRunnerRun({ sessionId }) {
                 style={{ flex: 1 }}
                 disabled={!noteDraft.trim()}
                 onClick={async () => {
-                  await patchLine(noteTargetIdRef.current ?? current.id, {
-                    note: noteDraft.trim(),
-                    photoURLs: noteDraftPhotos,
-                  });
+                  await patchTestNote({ note: noteDraft.trim(), photoURLs: noteDraftPhotos });
                   setShowNoteRequired(false);
                   await (noteContinuationRef.current ?? proceed)();
                 }}
@@ -1007,6 +1044,60 @@ function ViewSwitcher({ viewMode, setViewMode }) {
   );
 }
 
+// One note/photo box for the whole test, shown in every view (Standard/Checklist/Tile)
+// and editable at any time — the single place a note ever gets written for a live test.
+function TestNotesBanner({ note, photoURLs, onChangeNote, onAddPhoto }) {
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await onAddPhoto(file);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div className="card" style={{ textAlign: "left" }}>
+      <strong style={{ fontSize: 14, color: "var(--text-secondary)" }}>
+        📝 Test Notes (required if this test fails)
+      </strong>
+      <div style={{ marginTop: 10 }}>
+        {photoURLs.map((url) => (
+          <img
+            key={url}
+            src={url}
+            alt=""
+            style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, marginRight: 8 }}
+          />
+        ))}
+        <div style={{ margin: "10px 0" }}>
+          <label>
+            <input type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: "none" }} />
+            <span
+              className="secondary"
+              style={{ display: "inline-block", padding: "8px 14px", borderRadius: 10, border: "1px solid var(--border)", cursor: "pointer" }}
+            >
+              {uploading ? "Uploading…" : "📷 Add Photo"}
+            </span>
+          </label>
+        </div>
+        <textarea
+          placeholder="Notes for this test"
+          rows={2}
+          value={note}
+          onChange={(e) => onChangeNote(e.target.value)}
+          style={{ width: "100%" }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, patchCurrent, setGradedResult }) {
   if (current.lineTypeSnapshot === LINE_TYPES.INSTRUCTION) {
     return (
@@ -1067,9 +1158,6 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
                 Mark {current.result === RESULT.PASS ? "Fail" : "Pass"} Instead
               </button>
             </div>
-            {current.result && (
-              <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={false} />
-            )}
           </>
         )}
       </div>
@@ -1080,11 +1168,6 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
     return (
       <div className="center-column" style={{ paddingTop: 0 }}>
         <ObstacleCourseRunner current={current} patchCurrent={patchCurrent} />
-        {/* Always shown as optional so it never reveals the pass/fail outcome here; the note
-            is instead required (when the run fails) via the pop-up on Submit. */}
-        {current.result && (
-          <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={false} />
-        )}
       </div>
     );
   }
@@ -1135,79 +1218,6 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
           Fail
         </button>
       </div>
-      {current.result && (
-        <AttachmentCapture current={current} patchCurrent={patchCurrent} isRequired={false} />
-      )}
-    </div>
-  );
-}
-
-function AttachmentCapture({ current, patchCurrent, isRequired }) {
-  const [note, setNote] = useState(current.note ?? "");
-  const [uploading, setUploading] = useState(false);
-  const [expanded, setExpanded] = useState(isRequired);
-
-  async function handleFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const dataUrl = await compressImageToDataUrl(file);
-      await patchCurrent({ photoURLs: [...(current.photoURLs ?? []), dataUrl] });
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  }
-
-  return (
-    <div
-      className="card"
-      style={{
-        width: "100%",
-        maxWidth: 400,
-        marginTop: 16,
-        textAlign: "left",
-        background: isRequired ? "rgba(196,33,47,0.06)" : undefined,
-      }}
-    >
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        style={{ background: "none", border: "none", padding: 0, width: "100%", textAlign: "left", cursor: "pointer" }}
-      >
-        <strong style={{ color: isRequired ? "var(--brand-red)" : "var(--text-secondary)", fontSize: 14 }}>
-          {isRequired ? "⚠️ Photo or note required for a Fail result" : "📎 Add photo or note (optional)"}
-        </strong>
-      </button>
-
-      {expanded && (
-        <div style={{ marginTop: 12 }}>
-          {(current.photoURLs ?? []).map((url) => (
-            <img key={url} src={url} alt="" style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8, marginRight: 8 }} />
-          ))}
-          <div style={{ margin: "10px 0" }}>
-            <label>
-              <input type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: "none" }} />
-              <span className="secondary" style={{ display: "inline-block", padding: "10px 16px", borderRadius: 10, border: "1px solid var(--border)", cursor: "pointer" }}>
-                {uploading ? "Uploading…" : "📷 Take Photo"}
-              </span>
-            </label>
-          </div>
-          <textarea
-            placeholder="Note"
-            rows={2}
-            value={note}
-            // Persist on every keystroke, not just blur: on mobile (especially iOS Safari),
-            // tapping Submit while the textarea is still focused can fire the click before a
-            // blur-only save lands, leaving the note-required gate and the failure email
-            // reading a stale, empty note even though one was typed.
-            onChange={(e) => {
-              setNote(e.target.value);
-              patchCurrent({ note: e.target.value });
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }

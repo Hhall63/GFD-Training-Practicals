@@ -13,12 +13,19 @@ export default function ResultsPage() {
   const [session, setSession] = useState(null);
   const [lineResults, setLineResults] = useState([]);
   const [legacyMailto, setLegacyMailto] = useState(null);
+  // { exists, note, photoURLs } for the one test-level note. `exists` distinguishes a
+  // post-fix session (testNotes/main doc present, shown as-is even if empty) from a
+  // pre-fix session (no doc at all — falls back to the old last-line note below).
+  const [overallNote, setOverallNote] = useState({ exists: true, note: "", photoURLs: [] });
 
   useEffect(() => {
     getDoc(doc(db, "sessions", sessionId)).then((snap) => setSession({ id: snap.id, ...snap.data() }));
     getDocs(query(collection(db, "sessions", sessionId, "lineResults"), orderBy("sortOrder"))).then((snap) =>
       setLineResults(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
+    getDoc(doc(db, "sessions", sessionId, "testNotes", "main")).then((snap) => {
+      setOverallNote(snap.exists() ? { exists: true, ...snap.data() } : { exists: false, note: "", photoURLs: [] });
+    });
   }, [sessionId]);
 
   // Legacy sessions (recorded before recipients were stored on the session) fall back to a
@@ -36,6 +43,15 @@ export default function ResultsPage() {
 
   if (!session) return <div className="screen center-column" style={{ paddingTop: 80 }}>Loading…</div>;
 
+  // Sessions completed before the single-note fix shipped have no testNotes/main doc at all
+  // (overallNote.exists === false) — their note lived on whichever line was last in the
+  // template. Post-fix sessions always have the doc and are shown exactly as stored, even
+  // if empty, so a legitimately-unrelated note on a post-fix template's last line (e.g.
+  // Obstacle Course's aggressive-driving note) is never mistaken for this fallback.
+  const lastLine = lineResults[lineResults.length - 1];
+  const displayNote = overallNote.exists ? overallNote.note : lastLine?.note ?? "";
+  const displayPhotos = overallNote.exists ? overallNote.photoURLs ?? [] : lastLine?.photoURLs ?? [];
+
   const passed = session.overallResult === RESULT.PASS;
   const emailStatus = session.failureEmailStatus;
   // Recipients resolved at send time and stored on the session — the source of truth for
@@ -44,7 +60,7 @@ export default function ResultsPage() {
   const recipientCount = recipients ? recipients.length : Number(emailStatus?.split(":")[1]) || null;
   const mailtoHref =
     recipients && recipients.length > 0 && lineResults.length > 0
-      ? buildFailureMailto(recipients, session, lineResults)
+      ? buildFailureMailto(recipients, session, lineResults, { note: displayNote, photoURLs: displayPhotos })
       : legacyMailto;
 
   return (
@@ -73,6 +89,25 @@ export default function ResultsPage() {
             </p>
           )}
         </div>
+
+        {(displayNote || displayPhotos.length > 0) && (
+          <div className="card" style={{ width: "100%", maxWidth: 400, marginTop: 8, textAlign: "left" }}>
+            <strong style={{ fontSize: 14, color: "var(--text-secondary)" }}>Evaluator Notes</strong>
+            {displayPhotos.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                {displayPhotos.map((url) => (
+                  <img
+                    key={url}
+                    src={url}
+                    alt=""
+                    style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8, marginRight: 8 }}
+                  />
+                ))}
+              </div>
+            )}
+            {displayNote && <p style={{ marginTop: 8, marginBottom: 0 }}>{displayNote}</p>}
+          </div>
+        )}
 
         {!passed && (
           <div className="card" style={{ width: "100%", maxWidth: 400, marginTop: 8 }}>

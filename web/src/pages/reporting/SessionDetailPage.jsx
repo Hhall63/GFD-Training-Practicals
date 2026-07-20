@@ -12,12 +12,18 @@ export default function SessionDetailPage() {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
   const [lineResults, setLineResults] = useState([]);
+  // Same { exists, note, photoURLs } shape as ResultsPage.jsx — see its comment for why
+  // `exists` (not emptiness) is the fallback signal.
+  const [overallNote, setOverallNote] = useState({ exists: true, note: "", photoURLs: [] });
 
   useEffect(() => {
     getDoc(doc(db, "sessions", sessionId)).then((snap) => setSession({ id: snap.id, ...snap.data() }));
     getDocs(query(collection(db, "sessions", sessionId, "lineResults"), orderBy("sortOrder"))).then((snap) =>
       setLineResults(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
+    getDoc(doc(db, "sessions", sessionId, "testNotes", "main")).then((snap) => {
+      setOverallNote(snap.exists() ? { exists: true, ...snap.data() } : { exists: false, note: "", photoURLs: [] });
+    });
   }, [sessionId]);
 
   if (!session) return <div className="screen center-column" style={{ paddingTop: 80 }}>Loading…</div>;
@@ -35,6 +41,10 @@ export default function SessionDetailPage() {
       </div>
     );
   }
+
+  const lastLine = lineResults[lineResults.length - 1];
+  const displayNote = overallNote.exists ? overallNote.note : lastLine?.note ?? "";
+  const displayPhotos = overallNote.exists ? overallNote.photoURLs ?? [] : lastLine?.photoURLs ?? [];
 
   return (
     <div className="app-shell">
@@ -61,12 +71,36 @@ export default function SessionDetailPage() {
               {session.passingPercentageSnapshot}% to pass)
             </div>
           )}
+          {(displayNote || displayPhotos.length > 0) && (
+            <div className="muted" style={{ marginTop: 8, textAlign: "left" }}>
+              <strong>Evaluator Notes:</strong>
+              {displayPhotos.length > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  {displayPhotos.map((url) => (
+                    <img
+                      key={url}
+                      src={url}
+                      alt=""
+                      style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, marginRight: 6, marginTop: 4 }}
+                    />
+                  ))}
+                </div>
+              )}
+              {displayNote && <p style={{ margin: "4px 0 0" }}>{displayNote}</p>}
+            </div>
+          )}
         </div>
 
         {lineResults.map((line) => {
           // The obstacle course's own summary already shows time/deductions/score, so skip
           // the duplicate generic title/time/points header for that step.
           const isObstacle = line.lineTypeSnapshot === LINE_TYPES.OBSTACLE_COURSE;
+          // Pre-fix sessions (no testNotes/main doc) had their one overall-fail note sitting
+          // on this exact line (whichever was last in the template) — already shown once via
+          // the fallback in the summary card above, so skip it here to avoid a duplicate.
+          // Post-fix sessions (overallNote.exists) never suppress: this line's own note is
+          // always its own (e.g. Obstacle Course's separate aggressive-driving note).
+          const isFallbackOverallNoteLine = !overallNote.exists && line.id === lastLine?.id;
           return (
             <div key={line.id} className="card">
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -90,10 +124,12 @@ export default function SessionDetailPage() {
               {line.totalPausedSeconds > 0 && (
                 <div className="muted">Paused for {formatSeconds(line.totalPausedSeconds)}s</div>
               )}
-              {(line.photoURLs ?? []).map((url) => (
+              {!isFallbackOverallNoteLine && (line.photoURLs ?? []).map((url) => (
                 <img key={url} src={url} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, marginTop: 6, marginRight: 6 }} />
               ))}
-              {line.note && <div className="muted" style={{ marginTop: 4 }}>{line.note}</div>}
+              {!isFallbackOverallNoteLine && line.note && (
+                <div className="muted" style={{ marginTop: 4 }}>{line.note}</div>
+              )}
               {isObstacle && (
                 <ObstacleCourseSummary config={line.obstacleCourseConfigSnapshot} tallies={line.obstacleTallies} />
               )}
