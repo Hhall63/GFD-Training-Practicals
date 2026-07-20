@@ -141,6 +141,13 @@ service cloud.firestore {
       match /lineResults/{lineResultId} {
         allow read, write: if isStaff();
       }
+
+      // The one test-level note/photos. Same staff-only boundary as lineResults above —
+      // kept off the sessions document itself so it's never included in the recruit/
+      // anonymous-Live-Dashboard read grant above (see that match block's own comment).
+      match /testNotes/{noteId} {
+        allow read, write: if isStaff();
+      }
     }
 
     match /classReportFilters/{filterId} {
