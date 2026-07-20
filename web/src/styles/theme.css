@@ -456,30 +456,60 @@ h4 {
   top: 0;
   z-index: 15;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  gap: 12px;
   /* Same safe-area clearance as .top-bar/.timer-banner — this banner sits above everything
      else on the live test runner (including .timer-banner, when both happen to be present
      at once), so it needs its own clearance from the iPhone status bar/notch. */
-  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 14px;
   background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-2));
   border-bottom: 3px solid var(--brand-gold);
   color: white;
+}
+
+.overall-timer-banner .overall-timer-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   font-weight: 700;
   font-size: 18px;
 }
 
+/* Full-width, stacked below the readout rather than squeezed beside it — the evaluator is
+   often watching the recruit/road, not scanning for small controls, so Pause/Resume and Stop
+   Test need to read as obvious, thumb-sized targets rather than a corner accessory. */
 .overall-timer-banner .overall-timer-actions {
   display: flex;
-  gap: 8px;
-  flex-shrink: 0;
+  gap: 10px;
 }
 
 .overall-timer-banner .overall-timer-actions button {
+  flex: 1;
   width: auto;
-  padding: 8px 14px;
-  font-size: 14px;
+  min-height: 52px;
+  padding: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  border-radius: var(--radius);
+}
+
+/* .secondary's default styling (navy text on transparent bg, border: var(--border)) is
+   built for light surfaces — on this banner's navy gradient it renders as near-invisible
+   navy-on-navy text with only a faint border showing. This on-dark treatment is what
+   actually makes Pause/Resume visible here. */
+.overall-timer-banner .overall-timer-actions button.secondary {
+  color: white;
+  background: rgba(255, 255, 255, 0.16);
+  border: 2px solid rgba(255, 255, 255, 0.65);
+}
+
+.overall-timer-banner .overall-timer-actions button.secondary:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.overall-timer-banner .overall-timer-actions button.primary.danger {
+  border: 2px solid transparent;
 }
 
 .segmented {
