@@ -83,6 +83,20 @@ is created — `RecruitConfirmPage.jsx`'s `beginTest()` and
   otherwise unchanged — it now reads/writes the session-level doc instead of
   a line.
 
+### Failure email
+
+`lib/notify.js`'s `buildFailureBody(session, lineResults)` currently prints
+whichever line's `note`/`photoURLs` it finds while looping every line —
+which is how the failure email/mailto today includes the old
+last-line-piggybacked overall note. Once that note moves to
+`testNotes/main`, this loop would silently stop including it. `
+buildFailureBody`, `buildFailureMailto`, and `sendFailureEmail` each gain a
+new `overallNote` parameter (`{ note, photoURLs }`) and print it once, right
+after the score/critical-failure summary and before the per-line "FULL TEST
+SHEET" section. The existing per-line note printing in that loop is
+untouched — it's still how Obstacle Course's aggressive-driving note (out of
+scope, unrelated mechanism) reaches the email.
+
 ### Reporting
 
 - `ResultsPage.jsx` (recruit-facing results) and
@@ -90,17 +104,23 @@ is created — `RecruitConfirmPage.jsx`'s `beginTest()` and
   one note/photo block, placed near the top pass/fail summary, reading
   `testNotes/main`.
 - **Backward compatibility:** sessions completed before this ships have no
-  `testNotes/main` doc — their note lived on the old template-order-last
-  line. When the new doc's `note` is empty and `photoURLs` is empty, both
-  screens fall back to displaying that session's last line's `note` /
-  `photoURLs` in the same block, and suppress rendering that same line's
-  note/photos a second time in the existing per-line list (only
+  `testNotes/main` doc at all — their note lived on the old template-order-
+  last line. The fallback signal is document *existence*
+  (`getDoc(...).exists()`), not emptiness: if `testNotes/main` exists (every
+  session created after this fix), its `note`/`photoURLs` are shown exactly
+  as stored, even if empty — no fallback, ever, for these sessions. Only
+  when the doc doesn't exist at all do both screens fall back to that
+  session's last line's `note`/`photoURLs`, and suppress rendering that same
+  line's note/photos a second time in the existing per-line list (only
   `SessionDetailPage.jsx` renders per-line note text/photos today, so only it
-  needs the suppression). This fallback only ever triggers for historical
-  data — new sessions always populate `testNotes/main` and never write to a
-  line's `note`/`photoURLs` from this flow going forward, so the fallback
-  path naturally stops being exercised over time as old sessions age out of
-  active use.
+  needs the suppression). Using existence rather than emptiness matters
+  because Obstacle Course's separate aggressive-driving note also lives on a
+  line's `note` field and stays active after this fix — if that line
+  happens to be last in a *post-fix* template and the test passed with no
+  overall note needed, an emptiness-based check would wrongly suppress that
+  still-current, unrelated note. This fallback path only ever triggers for
+  historical data and naturally stops being exercised as old sessions age
+  out of active use.
 
 ### Out of scope
 
@@ -116,7 +136,8 @@ is created — `RecruitConfirmPage.jsx`'s `beginTest()` and
 
 **Files touched:** `web/src/pages/LiveTestRunnerPage.jsx`,
 `web/src/pages/RecruitConfirmPage.jsx`, `web/src/pages/ResultsPage.jsx`,
-`web/src/pages/reporting/SessionDetailPage.jsx`, `web/firestore.rules`.
+`web/src/pages/reporting/SessionDetailPage.jsx`, `web/src/lib/notify.js`,
+`web/firestore.rules`.
 
 ## Testing
 
