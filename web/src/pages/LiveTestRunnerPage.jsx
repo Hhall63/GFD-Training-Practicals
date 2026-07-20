@@ -362,7 +362,7 @@ function LiveTestRunnerRun({ sessionId }) {
     // reportsData.js), which is the correct place for that exclusion, not this send.
     let failureEmail = { status: null, recipients: [], error: null };
     if (overallResult === RESULT.FAIL) {
-      failureEmail = await sendFailureEmail(finishedSession, results);
+      failureEmail = await sendFailureEmail(finishedSession, results, testNoteRef.current ?? testNote);
     }
 
     await updateDoc(doc(db, "sessions", sessionId), {

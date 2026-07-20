@@ -121,7 +121,7 @@ function scoreLine(session) {
 /** Plain-text failed-test sheet: the requested opening line, then every step with its
  * result, time, points, and the evaluator's comments. Used for both the email body and
  * the mailto fallback. */
-export function buildFailureBody(session, lineResults) {
+export function buildFailureBody(session, lineResults, overallNote) {
   const lines = [];
   lines.push(
     `Recruit ${session.recruitName} failed the ${session.templateName} with a score of ${scoreLine(session)}.`
@@ -139,6 +139,13 @@ export function buildFailureBody(session, lineResults) {
   // alternative. Session detail is admin-only, matching who gets this email.
   if (session.id) {
     lines.push(`View full results (with the graded course diagram): ${window.location.origin}/reports/sessions/${session.id}`);
+  }
+  if (overallNote?.note) {
+    lines.push("");
+    lines.push(`Evaluator notes: ${overallNote.note}`);
+  }
+  if (overallNote?.photoURLs?.length > 0) {
+    lines.push(`Photos: ${overallNote.photoURLs.length} attached — view in the app (Reports > Recruit Transcript)`);
   }
   lines.push("");
   lines.push("--- FULL TEST SHEET ---");
@@ -174,9 +181,9 @@ export function buildFailureBody(session, lineResults) {
 }
 
 /** mailto: link that opens the evaluator's own mail app prefilled — the zero-setup path. */
-export function buildFailureMailto(recipients, session, lineResults) {
+export function buildFailureMailto(recipients, session, lineResults, overallNote) {
   const subject = encodeURIComponent(buildFailureSubject(session));
-  const body = encodeURIComponent(buildFailureBody(session, lineResults));
+  const body = encodeURIComponent(buildFailureBody(session, lineResults, overallNote));
   return `mailto:${recipients.join(",")}?subject=${subject}&body=${body}`;
 }
 
@@ -191,7 +198,7 @@ export function buildFailureMailto(recipients, session, lineResults) {
  *   "recipients-error" the recipient lookup itself failed (permissions/connection)
  *   "failed"           the send call errored — Results screen offers the mailto button
  */
-export async function sendFailureEmail(session, lineResults) {
+export async function sendFailureEmail(session, lineResults, overallNote) {
   let recipients;
   try {
     recipients = await fetchNotifyRecipients();
@@ -213,7 +220,7 @@ export async function sendFailureEmail(session, lineResults) {
         template_params: {
           to_email: recipients.join(","),
           subject: buildFailureSubject(session),
-          message: buildFailureBody(session, lineResults),
+          message: buildFailureBody(session, lineResults, overallNote),
         },
       }),
     });
