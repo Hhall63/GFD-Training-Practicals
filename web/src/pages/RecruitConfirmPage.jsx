@@ -188,6 +188,10 @@ export default function RecruitConfirmPage() {
           photoURLs: [],
         });
       });
+      // The one test-level note/photos this session will ever have — seeded empty so
+      // LiveTestRunnerPage's persistent Test Notes banner and Note Required gate always
+      // find a doc to read/write, never patching a nonexistent one.
+      batch.set(doc(db, "sessions", sessionRef.id, "testNotes", "main"), { note: "", photoURLs: [] });
       await batch.commit();
 
       navigate(`/session/${sessionRef.id}/run`, { replace: true, state: { initialViewMode: viewMode } });

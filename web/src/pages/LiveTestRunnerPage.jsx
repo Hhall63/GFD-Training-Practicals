@@ -524,6 +524,7 @@ function LiveTestRunnerRun({ sessionId }) {
           photoURLs: [],
         });
       });
+      batch.set(doc(db, "sessions", nextSessionRef.id, "testNotes", "main"), { note: "", photoURLs: [] });
       await batch.commit();
 
       navigate(`/session/${nextSessionRef.id}/run`, { replace: true, state: { initialViewMode: viewMode } });
