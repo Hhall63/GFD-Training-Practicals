@@ -12,7 +12,6 @@ export default function BatchGradePage() {
   const [selectedId, setSelectedId] = useState("");
   const [showAddNew, setShowAddNew] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [officialTests, setOfficialTests] = useState([]);
 
   useEffect(() => {
     ensureBatchGradeSeedTemplates();
@@ -27,26 +26,6 @@ export default function BatchGradePage() {
     return onSnapshot(q, (snap) => {
       setTemplates(
         snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name))
-      );
-    });
-  }, []);
-
-  // The set of tests an admin can pick from in "Add New" below — published, non-batch-grade,
-  // non-written-exam official tests (the same set TestGroupsAdminPage.jsx already draws its
-  // own picker from). Picking one seeds a new lightweight batch-grade template with that
-  // test's name/description; the official template itself is never touched.
-  useEffect(() => {
-    const q = query(
-      collection(db, "templates"),
-      where("isActive", "==", true),
-      where("status", "==", "published")
-    );
-    return onSnapshot(q, (snap) => {
-      setOfficialTests(
-        snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((t) => !t.isBatchGrade && !t.isWrittenExam)
-          .sort((a, b) => a.name.localeCompare(b.name))
       );
     });
   }, []);
@@ -134,7 +113,6 @@ export default function BatchGradePage() {
 
       {showAddNew && (
         <AddNewBatchTestModal
-          officialTests={officialTests}
           onClose={() => setShowAddNew(false)}
           onCreated={(id) => {
             setShowAddNew(false);
@@ -146,16 +124,18 @@ export default function BatchGradePage() {
   );
 }
 
-function AddNewBatchTestModal({ officialTests, onClose, onCreated }) {
-  const [creatingId, setCreatingId] = useState(null);
+function AddNewBatchTestModal({ onClose, onCreated }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  async function handlePick(test) {
-    setCreatingId(test.id);
+  async function handleCreate() {
+    setSaving(true);
     try {
-      const created = await createBatchGradeTemplate(test.name, test.description ?? "");
+      const created = await createBatchGradeTemplate(name.trim(), description.trim());
       onCreated(created.id);
     } finally {
-      setCreatingId(null);
+      setSaving(false);
     }
   }
 
@@ -163,24 +143,36 @@ function AddNewBatchTestModal({ officialTests, onClose, onCreated }) {
     <Modal titleId="add-new-batch-test-title" onClose={onClose} maxWidth={420}>
       <h3 id="add-new-batch-test-title" style={{ marginTop: 0 }}>Add Batch Grade Test</h3>
       <p className="muted" style={{ marginTop: 0 }}>
-        Pick an existing published test to add to the Batch Grade list. The original test is
-        unchanged — this just adds a quick pass/fail entry for it here.
+        Create a new entry for the Batch Grade list.
       </p>
-      {officialTests.length === 0 && <p className="muted">No published tests available yet.</p>}
-      <div role="listbox" aria-labelledby="add-new-batch-test-title" style={{ maxHeight: "60vh", overflowY: "auto" }}>
-        {officialTests.map((test) => (
-          <button
-            key={test.id}
-            type="button"
-            role="option"
-            className="test-tile"
-            disabled={creatingId !== null}
-            onClick={() => handlePick(test)}
-          >
-            <div style={{ fontWeight: 600, fontSize: 16 }}>{test.name}</div>
-            {test.description && <div className="muted">{test.description}</div>}
-          </button>
-        ))}
+      <div className="field">
+        <input
+          type="text"
+          placeholder="Test Name (e.g. Ladder Raise Evolution)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <div className="field">
+        <textarea
+          placeholder="Description (optional)"
+          rows={2}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <button type="button" className="secondary" onClick={onClose} disabled={saving}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="primary"
+          disabled={!name.trim() || saving}
+          onClick={handleCreate}
+        >
+          {saving ? "Creating…" : "Create"}
+        </button>
       </div>
     </Modal>
   );
