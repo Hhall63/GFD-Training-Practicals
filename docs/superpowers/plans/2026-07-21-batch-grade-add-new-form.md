@@ -50,7 +50,7 @@ via this project's `.claude/worktrees/plans-evd-batch-aggressive/web:verify` ski
   before, so the parent's existing `onCreated` handler (line 139-142, sets `selectedId`
   and closes the modal) needs no changes.
 
-- [ ] **Step 1: Remove the unused `officialTests` state and its Firestore query effect**
+- [x] **Step 1: Remove the unused `officialTests` state and its Firestore query effect**
 
   In `web/src/pages/BatchGradePage.jsx`, delete line 15
   (`const [officialTests, setOfficialTests] = useState([]);`) and the entire effect at
@@ -62,7 +62,7 @@ via this project's `.claude/worktrees/plans-evd-batch-aggressive/web:verify` ski
   elsewhere in the file — they are (the `templates` query at lines 21-32 still uses all
   four), so leave the import line unchanged.
 
-- [ ] **Step 2: Stop passing `officialTests` into the modal**
+- [x] **Step 2: Stop passing `officialTests` into the modal**
 
   At lines 135-144, change:
 
@@ -93,7 +93,7 @@ via this project's `.claude/worktrees/plans-evd-batch-aggressive/web:verify` ski
   )}
   ```
 
-- [ ] **Step 3: Rewrite `AddNewBatchTestModal` as a Title + Description form**
+- [x] **Step 3: Rewrite `AddNewBatchTestModal` as a Title + Description form**
 
   Replace the entire function at lines 149-187 with:
 
@@ -158,14 +158,14 @@ via this project's `.claude/worktrees/plans-evd-batch-aggressive/web:verify` ski
   `role="listbox"`/`test-tile` picker UI and the `handlePick`/`creatingId` state it used
   are gone entirely — there is no list to pick from anymore.
 
-- [ ] **Step 4: Check the file for leftover references**
+- [x] **Step 4: Check the file for leftover references**
 
   Search `web/src/pages/BatchGradePage.jsx` for `officialTests` and `test-tile` inside
   `AddNewBatchTestModal` — there should be zero matches left in this file. (`test-tile`
   still legitimately appears once, in the unrelated "Select a Test" picker modal at
   lines 110-133 — leave that alone.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add web/src/pages/BatchGradePage.jsx
@@ -180,19 +180,23 @@ via this project's `.claude/worktrees/plans-evd-batch-aggressive/web:verify` ski
 
 **Interfaces:** none
 
-- [ ] **Step 1: Load the `.claude/worktrees/plans-evd-batch-aggressive/web:verify` skill**
+- [x] **Step 1: Load the `.claude/worktrees/plans-evd-batch-aggressive/web:verify` skill**
 
   Use the project's `web:verify` skill (Vite dev server + Firestore emulator harness) to
   build and run the app, per that skill's instructions.
 
-- [ ] **Step 2: Drive the Batch Grade screen**
+- [x] **Step 2: Drive the Batch Grade screen**
 
   Navigate to `/batch-grade`. Click "+ Add New". Confirm:
   - The modal shows a "Test Name" text input and a "Description (optional)" textarea —
     no scrollable list of existing tests.
   - "Create" is disabled when the name field is empty.
 
-- [ ] **Step 3: Create a new entry and confirm it persists**
+  Verified via Playwright: 0 `[role=listbox]` elements in the add-new modal, 1 name
+  input, 1 description textarea, Create disabled with empty name, enabled after
+  filling name.
+
+- [x] **Step 3: Create a new entry and confirm it persists**
 
   Type a distinctive test name (e.g. `"Verify Add New Form"`), optionally a description,
   click "Create". Confirm:
@@ -204,8 +208,15 @@ via this project's `.claude/worktrees/plans-evd-batch-aggressive/web:verify` ski
   - "Start Grading" is enabled and navigates to `/batch-grade/:templateId` for the new
     template without error.
 
-- [ ] **Step 4: Confirm no regressions in the existing "Select a Test" picker**
+  Verified via Playwright against the emulator harness: created "Verify Add New Form
+  X7Q9", modal closed, main screen showed it selected, it appeared in the Select-a-Test
+  picker, Start Grading was enabled and navigated to `/batch-grade/<newId>`.
+
+- [x] **Step 4: Confirm no regressions in the existing "Select a Test" picker**
 
   Confirm the separate "Select a Test" modal (opened via the `Test` field button, not
   "+ Add New") is unaffected — it still lists existing batch-grade templates and still
   works as before.
+
+  Verified — the picker listed both the seed templates and the newly created entry, and
+  selecting it worked as before.
