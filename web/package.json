@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "deploy": "npm run build && firebase deploy",
     "emulators": "firebase emulators:start --only auth,firestore --project demo-gfd-sandbox",
-    "dev:sandbox": "vite --mode sandbox"
+    "dev:sandbox": "vite --mode sandbox",
+    "seed:sandbox": "node scripts/seed-sandbox.mjs"
   },
   "dependencies": {
     "@tiptap/extension-underline": "^3.27.3",
