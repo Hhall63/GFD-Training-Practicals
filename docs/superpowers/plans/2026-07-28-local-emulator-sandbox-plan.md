@@ -28,7 +28,7 @@
 **Interfaces:**
 - Produces: `npm run emulators` (starts Auth+Firestore emulators standalone) and `npm run dev:sandbox` (starts the dev server pointed at them) — both consumed by Task 3's orchestrator, and both independently runnable by a developer in two terminals.
 
-- [ ] **Step 1: Create `web/.env.sandbox`**
+- [x] **Step 1: Create `web/.env.sandbox`**
 
 ```
 # Fake Firebase config for the local emulator sandbox only — never a real project, never
@@ -48,7 +48,7 @@ VITE_FIREBASE_APP_ID=1:000000000000:web:0000000000000000000000
 VITE_USE_EMULATOR=1
 ```
 
-- [ ] **Step 2: Add `emulators` and `dev:sandbox` scripts to `web/package.json`**
+- [x] **Step 2: Add `emulators` and `dev:sandbox` scripts to `web/package.json`**
 
 In `web/package.json`, the `"scripts"` block currently reads:
 
@@ -74,7 +74,7 @@ Replace it with:
   },
 ```
 
-- [ ] **Step 3: Verify the env file loads and the emulator flag is honored**
+- [x] **Step 3: Verify the env file loads and the emulator flag is honored**
 
 Terminal 1, from `web/`:
 ```bash
@@ -90,11 +90,11 @@ Expected: prints a `Local: http://localhost:5173/` URL (or the next free port). 
 
 Stop both (Ctrl+C in each terminal).
 
-- [ ] **Step 4: Spot-check `.env.sandbox` before committing**
+- [x] **Step 4: Spot-check `.env.sandbox` before committing**
 
 Open `web/.env.sandbox` and confirm `VITE_FIREBASE_PROJECT_ID` reads `demo-gfd-sandbox` (not `gfd-recruit-training`, the real production project id from `web/.env`) and every other value is one of the placeholder strings from Step 1 — never a value copied from `web/.env`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/.env.sandbox web/package.json
@@ -113,7 +113,7 @@ git commit -m "feat: add sandbox env file and emulator/dev npm scripts"
 - Consumes: nothing from Task 1's code (only its running emulators, at fixed `127.0.0.1:9099`/`127.0.0.1:8080`).
 - Produces: `npm run seed:sandbox` — a script that exits `0` on success, non-zero on failure. Consumed by Task 3's orchestrator. Also exports `SANDBOX_ADMIN_EMAIL`/`SANDBOX_ADMIN_PASSWORD` constants (`"sandbox@example.com"` / `"sandbox123"`) for Task 4's instructions file to reference verbatim.
 
-- [ ] **Step 1: Create `web/scripts/seed-sandbox.mjs`**
+- [x] **Step 1: Create `web/scripts/seed-sandbox.mjs`**
 
 ```javascript
 #!/usr/bin/env node
@@ -255,7 +255,7 @@ main().catch((err) => {
 });
 ```
 
-- [ ] **Step 2: Add `seed:sandbox` script to `web/package.json`**
+- [x] **Step 2: Add `seed:sandbox` script to `web/package.json`**
 
 Add this line to the `"scripts"` block added in Task 1:
 
@@ -277,7 +277,7 @@ Full block after this change:
   },
 ```
 
-- [ ] **Step 3: Verify seeding works and the app picks it up**
+- [x] **Step 3: Verify seeding works and the app picks it up**
 
 Terminal 1, from `web/`:
 ```bash
@@ -303,7 +303,7 @@ Open the printed URL. Expected: the **Login** screen (not Setup Admin — confir
 
 Stop both (Ctrl+C in each terminal).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/scripts/seed-sandbox.mjs web/package.json
@@ -322,7 +322,7 @@ git commit -m "feat: add sandbox seed script for fake admin, recruits, and a sam
 - Consumes: `npm run seed:sandbox` and `npm run dev:sandbox` (both from Tasks 1–2, run as child processes via `npm.cmd`/`npm` — cross-platform without requiring `shell: true`).
 - Produces: `npm run sandbox` — the single command a developer runs. Nothing else depends on this.
 
-- [ ] **Step 1: Create `web/scripts/run-sandbox.mjs`**
+- [x] **Step 1: Create `web/scripts/run-sandbox.mjs`**
 
 ```javascript
 #!/usr/bin/env node
@@ -344,7 +344,7 @@ const dev = spawnSync(npmCmd, ["run", "dev:sandbox"], { stdio: "inherit" });
 process.exit(dev.status ?? 0);
 ```
 
-- [ ] **Step 2: Add `sandbox` script to `web/package.json`**
+- [x] **Step 2: Add `sandbox` script to `web/package.json`**
 
 Add this line to the `"scripts"` block:
 
@@ -367,7 +367,7 @@ Full block after this change:
   },
 ```
 
-- [ ] **Step 3: Verify the single-command flow end-to-end**
+- [x] **Step 3: Verify the single-command flow end-to-end**
 
 From `web/`:
 ```bash
@@ -389,7 +389,7 @@ npm run dev
 ```
 Expected: starts against the real `.env`/production project exactly as before this plan (unrelated to any sandbox script). Stop it (Ctrl+C).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/scripts/run-sandbox.mjs web/package.json
@@ -407,7 +407,7 @@ git commit -m "feat: add npm run sandbox as a single-command emulator sandbox"
 - Consumes: the exact command (`npm run sandbox`) and credentials (`sandbox@example.com` / `sandbox123`) established in Tasks 2–3.
 - Produces: nothing consumed by other tasks — this is the last task.
 
-- [ ] **Step 1: Write the instructions file**
+- [x] **Step 1: Write the instructions file**
 
 Create `C:\Users\ffhal\OneDrive\Desktop\GFD Sandbox Instructions.txt` with this content:
 
@@ -461,10 +461,10 @@ If something goes wrong, just close the terminal window, open a new one,
 and repeat the steps under "HOW TO START IT" above.
 ```
 
-- [ ] **Step 2: Verify the file opens correctly**
+- [x] **Step 2: Verify the file opens correctly**
 
 Confirm the file exists and opens in Notepad (double-click it, or from the terminal: `notepad "C:\Users\ffhal\OneDrive\Desktop\GFD Sandbox Instructions.txt"`), and that the text is readable with no missing lines.
 
-- [ ] **Step 3: No commit**
+- [x] **Step 3: No commit**
 
 This file lives outside the git repository (`C:\Users\ffhal\GFD-Training-Practicals` is the repo root; the Desktop is not inside it) — there is nothing to commit for this task.
