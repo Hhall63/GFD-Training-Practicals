@@ -12,6 +12,8 @@ import {
   readOverrides,
 } from "../lib/testBankDrive";
 import { applyOverrides, parseLxrBank } from "../lib/lxrbankParser";
+import { loadTestBankReference } from "../lib/testBankExam";
+import TestBankBuilder from "../components/TestBankBuilder";
 
 export default function TestBankPage() {
   const { examId } = useParams();
@@ -24,10 +26,13 @@ export default function TestBankPage() {
   const [loadingBank, setLoadingBank] = useState(false);
   const [error, setError] = useState(null);
 
+  const [savedReference, setSavedReference] = useState(null);
+
   useEffect(() => {
     getDoc(doc(db, "templates", examId)).then((snap) => {
       setExam(snap.exists() ? { id: snap.id, ...snap.data() } : null);
     });
+    loadTestBankReference(examId).then(setSavedReference);
   }, [examId]);
 
   useEffect(() => {
@@ -120,6 +125,13 @@ export default function TestBankPage() {
 
         {driveStatus === "authorized" && !bankData && (
           <div className="card">
+            {savedReference && !bankFiles.includes(savedReference.bankFileName) && (
+              <p className="muted" style={{ color: "var(--brand-red)" }}>
+                This exam was previously built from "{savedReference.bankFileName}", which
+                isn't on this drive. Connect the drive that has it to regenerate, or pick a
+                different bank below to start over.
+              </p>
+            )}
             <p className="muted">
               {bankFiles.length === 0
                 ? "No .LXRBank files found on this drive."
@@ -134,19 +146,28 @@ export default function TestBankPage() {
                 onClick={() => handleSelectBank(fileName)}
               >
                 {fileName}
+                {savedReference?.bankFileName === fileName && (
+                  <span className="badge neutral" style={{ marginLeft: 8 }}>
+                    Previously used
+                  </span>
+                )}
               </button>
             ))}
           </div>
         )}
 
         {bankData && (
-          <div className="card">
-            <h3 style={{ marginTop: 0 }}>{bankData.fileName}</h3>
-            <p className="muted">
-              {questions.length} questions across{" "}
-              {[...new Set(questions.map((q) => q.category))].length} categories.
-            </p>
-          </div>
+          <TestBankBuilder
+            examId={examId}
+            examName={exam?.name ?? ""}
+            dirHandle={dirHandle}
+            bankFileName={bankData.fileName}
+            questions={questions}
+            overrides={bankData.overrides}
+            savedReference={savedReference?.bankFileName === bankData.fileName ? savedReference : null}
+            onOverridesSaved={(newOverrides) => setBankData((prev) => ({ ...prev, overrides: newOverrides }))}
+            onSaved={setSavedReference}
+          />
         )}
       </div>
     </div>
