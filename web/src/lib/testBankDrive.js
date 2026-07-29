@@ -94,16 +94,20 @@ function overridesFileName(bankFileName) {
 }
 
 /** Returns {} (no overrides) if the sidecar file doesn't exist yet — a bank that has never
- * been edited in-app has no overrides file at all. */
+ * been edited in-app has no overrides file at all. A file that exists but is corrupted or
+ * unparseable throws instead of silently returning {} — losing that error would risk a
+ * caller later overwriting the corrupted file with only its newly-accumulated edits,
+ * permanently discarding whatever was there before. */
 export async function readOverrides(dirHandle, bankFileName) {
+  let fileHandle;
   try {
-    const fileHandle = await dirHandle.getFileHandle(overridesFileName(bankFileName));
-    const file = await fileHandle.getFile();
-    const text = await file.text();
-    return text.trim() ? JSON.parse(text) : {};
+    fileHandle = await dirHandle.getFileHandle(overridesFileName(bankFileName));
   } catch {
     return {};
   }
+  const file = await fileHandle.getFile();
+  const text = await file.text();
+  return text.trim() ? JSON.parse(text) : {};
 }
 
 /** overrides is the FULL accumulated map (not a delta) — callers merge new edits into the
