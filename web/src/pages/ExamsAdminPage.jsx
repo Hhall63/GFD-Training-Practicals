@@ -78,6 +78,13 @@ export default function ExamsAdminPage() {
               />
               Include on Summary Transcript
             </label>
+            <button
+              className="secondary"
+              style={{ marginTop: 8 }}
+              onClick={() => navigate(`/exams/${exam.id}/test-bank`)}
+            >
+              Build from Test Bank
+            </button>
           </div>
         ))}
         <button className="primary" style={{ marginTop: 16 }} onClick={() => setShowNew(true)}>
