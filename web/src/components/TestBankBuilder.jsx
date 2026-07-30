@@ -33,6 +33,7 @@ export default function TestBankBuilder({
   const [editingQuesId, setEditingQuesId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
+  const [drawMessage, setDrawMessage] = useState(null);
   const [generating, setGenerating] = useState(null); // "paper" | "key" | null
 
   const questionsById = useMemo(() => new Map(questions.map((q) => [q.quesId, q])), [questions]);
@@ -66,8 +67,18 @@ export default function TestBankBuilder({
   function handleDraw() {
     if (!drawCategory) return;
     const candidates = questions.filter((q) => q.category === drawCategory && q.supported && !workingIds.includes(q.quesId));
-    const picked = pickRandom(candidates, Number(drawCount));
+    const requested = Number(drawCount);
+    const picked = pickRandom(candidates, requested);
     setWorkingIds((prev) => [...prev, ...picked.map((q) => q.quesId)]);
+    if (picked.length === 0) {
+      setDrawMessage(`No more available questions in "${drawCategory}" to draw.`);
+    } else if (picked.length < requested) {
+      setDrawMessage(
+        `Added ${picked.length} question${picked.length === 1 ? "" : "s"} from "${drawCategory}" — that's all that were available (fewer than the ${requested} requested).`
+      );
+    } else {
+      setDrawMessage(`Added ${picked.length} question${picked.length === 1 ? "" : "s"} from "${drawCategory}" to the working set.`);
+    }
   }
 
   async function handleSaveReference() {
@@ -137,6 +148,7 @@ export default function TestBankBuilder({
         <button className="secondary" disabled={!drawCategory} onClick={handleDraw}>
           Draw Questions
         </button>
+        {drawMessage && <p className="muted" style={{ marginTop: 8 }}>{drawMessage}</p>}
       </div>
 
       <div className="card">
