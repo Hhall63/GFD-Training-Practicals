@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { writeOverrides } from "../lib/testBankDrive";
 import { saveTestBankReference } from "../lib/testBankExam";
-import { buildAnswerKeyPdf, buildExamPaperPdf, downloadPdfBlob } from "../lib/examPdf";
+import { buildAnswerKeyDocx, buildExamPaperDocx, downloadDocxBlob } from "../lib/examDocx";
 import TestBankQuestionEditor from "./TestBankQuestionEditor";
 
 function pickRandom(list, count) {
@@ -35,6 +35,8 @@ export default function TestBankBuilder({
   const [saveMessage, setSaveMessage] = useState(null);
   const [drawMessage, setDrawMessage] = useState(null);
   const [generating, setGenerating] = useState(null); // "paper" | "key" | null
+  const [classNumber, setClassNumber] = useState("");
+  const [coverExamName, setCoverExamName] = useState("");
 
   const questionsById = useMemo(() => new Map(questions.map((q) => [q.quesId, q])), [questions]);
   const categories = useMemo(
@@ -101,10 +103,10 @@ export default function TestBankBuilder({
     try {
       const blob =
         kind === "paper"
-          ? buildExamPaperPdf({ examName, questions: workingQuestions })
-          : buildAnswerKeyPdf({ examName, questions: workingQuestions });
+          ? await buildExamPaperDocx({ classNumber, coverExamName, questions: workingQuestions })
+          : await buildAnswerKeyDocx({ examName, coverExamName, questions: workingQuestions });
       const suffix = kind === "paper" ? "Exam Paper" : "Answer Key";
-      downloadPdfBlob(blob, `${examName} - ${suffix}.pdf`);
+      downloadDocxBlob(blob, `${examName} - ${suffix}.docx`);
     } finally {
       setGenerating(null);
     }
@@ -218,6 +220,25 @@ export default function TestBankBuilder({
             </button>
           </div>
         ))}
+        <div className="field">
+          <label>Class Number</label>
+          <input
+            type="number"
+            min="1"
+            placeholder="e.g. 83"
+            value={classNumber}
+            onChange={(e) => setClassNumber(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label>Exam Name (printed on the cover page)</label>
+          <input
+            type="text"
+            placeholder="e.g. Exam 1"
+            value={coverExamName}
+            onChange={(e) => setCoverExamName(e.target.value)}
+          />
+        </div>
         <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
           <button className="primary" disabled={saving || workingQuestions.length === 0} onClick={handleSaveReference}>
             {saving ? "Saving…" : "Save Question Set"}
@@ -227,14 +248,14 @@ export default function TestBankBuilder({
             disabled={generating !== null || workingQuestions.length === 0}
             onClick={() => handleGenerate("paper")}
           >
-            {generating === "paper" ? "Generating…" : "Generate Exam Paper PDF"}
+            {generating === "paper" ? "Generating…" : "Generate Exam Paper (.docx)"}
           </button>
           <button
             className="secondary"
             disabled={generating !== null || workingQuestions.length === 0}
             onClick={() => handleGenerate("key")}
           >
-            {generating === "key" ? "Generating…" : "Generate Answer Key PDF"}
+            {generating === "key" ? "Generating…" : "Generate Answer Key (.docx)"}
           </button>
         </div>
         {saveMessage && <p className="muted" style={{ marginTop: 8 }}>{saveMessage}</p>}
