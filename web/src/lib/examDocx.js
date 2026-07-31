@@ -195,7 +195,6 @@ function stemRuns(stemText, size, withBlank) {
 function questionParagraph(index, question, withBlank) {
   const runs = [
     new TextRun({ text: `${index + 1}. `, bold: true, size: QUESTION_SIZE }),
-    new TextRun({ text: `(${question.points} pt) `, size: QUESTION_SIZE }),
     ...stemRuns(question.stemText, QUESTION_SIZE, withBlank),
   ];
   if (!withBlank) {

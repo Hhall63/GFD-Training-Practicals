@@ -221,7 +221,9 @@ export default function TestBankBuilder({
           </div>
         ))}
         <div className="field">
-          <label>Class Number</label>
+          <label>
+            Class Number <span style={{ color: "var(--brand-red)" }}>*</span>
+          </label>
           <input
             type="number"
             min="1"
@@ -231,7 +233,9 @@ export default function TestBankBuilder({
           />
         </div>
         <div className="field">
-          <label>Exam Name (printed on the cover page)</label>
+          <label>
+            Exam Name (printed on the cover page) <span style={{ color: "var(--brand-red)" }}>*</span>
+          </label>
           <input
             type="text"
             placeholder="e.g. Exam 1"
@@ -239,20 +243,25 @@ export default function TestBankBuilder({
             onChange={(e) => setCoverExamName(e.target.value)}
           />
         </div>
+        {(!classNumber || !coverExamName.trim()) && (
+          <p className="muted" style={{ color: "var(--brand-red)" }}>
+            Class Number and Exam Name are required before generating either document.
+          </p>
+        )}
         <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
           <button className="primary" disabled={saving || workingQuestions.length === 0} onClick={handleSaveReference}>
             {saving ? "Saving…" : "Save Question Set"}
           </button>
           <button
             className="secondary"
-            disabled={generating !== null || workingQuestions.length === 0}
+            disabled={generating !== null || workingQuestions.length === 0 || !classNumber || !coverExamName.trim()}
             onClick={() => handleGenerate("paper")}
           >
             {generating === "paper" ? "Generating…" : "Generate Exam Paper (.docx)"}
           </button>
           <button
             className="secondary"
-            disabled={generating !== null || workingQuestions.length === 0}
+            disabled={generating !== null || workingQuestions.length === 0 || !classNumber || !coverExamName.trim()}
             onClick={() => handleGenerate("key")}
           >
             {generating === "key" ? "Generating…" : "Generate Answer Key (.docx)"}
