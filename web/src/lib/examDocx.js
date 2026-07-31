@@ -114,15 +114,22 @@ function coverPageTable(logoBuffer, { classNumber, coverExamName }) {
       })
     );
   }
+  // Name and Lawson each get their own line rather than sharing one — sharing one line put
+  // "Name: [blank]   Lawson: [blank]" at ~67 characters, close enough to the cell's width at
+  // this font size that it could wrap mid-line depending on the renderer's font metrics; if
+  // that wrap landed at the bottom of the cover page, the wrapped half (the Lawson blank)
+  // read as entirely missing. Separate lines also give each field more room to write in.
   cellChildren.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [
-        new TextRun({ text: "Name: ", size: NAME_ID_LINE_SIZE }),
-        blankLine(NAME_ID_LINE_SIZE, 30),
-        new TextRun({ text: "   Lawson: ", size: NAME_ID_LINE_SIZE }),
-        blankLine(NAME_ID_LINE_SIZE, 20),
-      ],
+      spacing: { after: 140 },
+      children: [new TextRun({ text: "Name: ", size: NAME_ID_LINE_SIZE }), blankLine(NAME_ID_LINE_SIZE, 34)],
+    })
+  );
+  cellChildren.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: "Lawson: ", size: NAME_ID_LINE_SIZE }), blankLine(NAME_ID_LINE_SIZE, 24)],
     })
   );
 
