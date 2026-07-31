@@ -177,6 +177,39 @@ body {
   box-shadow: var(--shadow-md);
 }
 
+/* Circular numbered badge for a heading row that leads a genuinely sequential, ordered flow
+   (e.g. the test-bank build steps: draw -> browse -> finalize) — not a decorative eyebrow on
+   every section, just this one real sequence, where the order is information the user needs. */
+.step-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--brand-navy);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Scoped background texture — a faint dot grid, not a global .screen change, so it only
+   applies where a page opts in with className="screen screen--textured". Restrained: 6%
+   alpha against --bg, present on close inspection, invisible at a glance. */
+.screen--textured {
+  background-image: radial-gradient(circle, rgba(18, 18, 58, 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
 button.primary {
   width: 100%;
   padding: 14px;

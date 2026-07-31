@@ -130,8 +130,13 @@ export default function TestBankBuilder({
         </p>
       )}
 
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Random Draw</h3>
+      <div className="card card--raised">
+        <h3 className="step-heading">
+          <span className="step-badge" aria-hidden="true">
+            1
+          </span>
+          Random Draw
+        </h3>
         <div className="field">
           <label htmlFor="tb-draw-category">Category</label>
           <select id="tb-draw-category" value={drawCategory} onChange={(e) => setDrawCategory(e.target.value)}>
@@ -163,8 +168,13 @@ export default function TestBankBuilder({
         )}
       </div>
 
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Browse &amp; Add Manually</h3>
+      <div className="card card--raised">
+        <h3 className="step-heading">
+          <span className="step-badge" aria-hidden="true">
+            2
+          </span>
+          Browse &amp; Add Manually
+        </h3>
         <div className="field">
           <label htmlFor="tb-search" className="sr-only">
             Search question or answer text
@@ -218,8 +228,11 @@ export default function TestBankBuilder({
         ))}
       </div>
 
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>
+      <div className="card card--raised">
+        <h3 className="step-heading">
+          <span className="step-badge" aria-hidden="true">
+            3
+          </span>
           Working Set ({workingQuestions.length} question{workingQuestions.length === 1 ? "" : "s"})
         </h3>
         {workingQuestions.length === 0 && <p className="muted">No questions selected yet.</p>}
