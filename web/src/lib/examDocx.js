@@ -115,7 +115,7 @@ function coverPageTable(logoBuffer, { classNumber, coverExamName }) {
       children: [
         new TextRun({ text: "Name: ", size: NAME_ID_LINE_SIZE }),
         blankLine(NAME_ID_LINE_SIZE, 30),
-        new TextRun({ text: "   ID: ", size: NAME_ID_LINE_SIZE }),
+        new TextRun({ text: "   Lawson: ", size: NAME_ID_LINE_SIZE }),
         blankLine(NAME_ID_LINE_SIZE, 20),
       ],
     })
