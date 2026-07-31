@@ -91,7 +91,7 @@ export default function TestBankPage() {
   return (
     <div className="app-shell">
       <TopBar title="Test Bank" subtitle={exam?.name} onBack={() => navigate("/exams")} showMenu={false} />
-      <div className="screen screen--textured">
+      <div className={bankData ? "screen--wide screen--textured" : "screen screen--textured"}>
         {error && (
           <p className="muted" style={{ color: "var(--brand-red)" }}>
             {error}
@@ -140,14 +140,14 @@ export default function TestBankPage() {
             {bankFiles.map((fileName) => (
               <button
                 key={fileName}
-                className="list-row"
-                style={{ width: "100%", textAlign: "left" }}
+                className="list-row list-row--hoverable"
+                style={{ width: "100%", textAlign: "left", justifyContent: "space-between" }}
                 disabled={loadingBank}
                 onClick={() => handleSelectBank(fileName)}
               >
-                {fileName}
+                <span style={{ fontWeight: 600 }}>{fileName}</span>
                 {savedReference?.bankFileName === fileName && (
-                  <span className="badge neutral" style={{ marginLeft: 8 }}>
+                  <span className="badge neutral" style={{ flexShrink: 0 }}>
                     Previously used
                   </span>
                 )}
