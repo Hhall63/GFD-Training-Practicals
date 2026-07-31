@@ -220,28 +220,30 @@ export default function TestBankBuilder({
             </button>
           </div>
         ))}
-        <div className="field">
-          <label>
-            Class Number <span style={{ color: "var(--brand-red)" }}>*</span>
-          </label>
-          <input
-            type="number"
-            min="1"
-            placeholder="e.g. 83"
-            value={classNumber}
-            onChange={(e) => setClassNumber(e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label>
-            Exam Name (printed on the cover page) <span style={{ color: "var(--brand-red)" }}>*</span>
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. Exam 1"
-            value={coverExamName}
-            onChange={(e) => setCoverExamName(e.target.value)}
-          />
+        <div style={{ borderTop: "1px solid var(--border)", marginTop: 16, paddingTop: 16 }}>
+          <div className="field">
+            <label>
+              Class Number <span style={{ color: "var(--brand-red)" }}>*</span>
+            </label>
+            <input
+              type="number"
+              min="1"
+              placeholder="e.g. 83"
+              value={classNumber}
+              onChange={(e) => setClassNumber(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label>
+              Exam Name (printed on the cover page) <span style={{ color: "var(--brand-red)" }}>*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Exam 1"
+              value={coverExamName}
+              onChange={(e) => setCoverExamName(e.target.value)}
+            />
+          </div>
         </div>
         {(!classNumber || !coverExamName.trim()) && (
           <p className="muted" style={{ color: "var(--brand-red)" }}>
