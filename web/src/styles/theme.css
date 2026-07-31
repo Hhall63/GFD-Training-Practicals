@@ -261,6 +261,20 @@ label {
   margin-bottom: 14px;
 }
 
+/* Visually hidden but still readable by screen readers — for inputs whose purpose is already
+   clear from context (e.g. a placeholder-only search box) but still need a programmatic label. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 a,
 a:visited {
   color: var(--brand-navy);

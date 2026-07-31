@@ -60,9 +60,14 @@ function ordinal(n) {
   return `${n}${suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]}`;
 }
 
-async function loadLogoBuffer() {
-  const response = await fetch(logoUrl);
-  return response.arrayBuffer();
+// Cached across calls — the logo is static, so Generate Paper immediately followed by
+// Generate Key (or clicking either twice) shouldn't re-fetch it from the network each time.
+let logoBufferPromise = null;
+function loadLogoBuffer() {
+  if (!logoBufferPromise) {
+    logoBufferPromise = fetch(logoUrl).then((response) => response.arrayBuffer());
+  }
+  return logoBufferPromise;
 }
 
 /** A run of underlined blank spaces — real Word underline formatting, not just
@@ -128,7 +133,13 @@ function coverPageTable(logoBuffer, { classNumber, coverExamName }) {
     borders: TABLE_BORDERS,
     rows: [
       new TableRow({
-        height: { value: COVER_ROW_HEIGHT_DXA, rule: HeightRule.EXACT },
+        // ATLEAST, not EXACT: the cell's content isn't fixed — Class Number and Exam Name
+        // are optional and add paragraphs — so an exact height risks Word clipping whatever
+        // paragraph doesn't fit (in practice, the last one: the Name/Lawson write-in line,
+        // which read as "missing" even though it was present in the document). ATLEAST still
+        // hits this target height when content is short, but grows instead of clipping when
+        // it's not.
+        height: { value: COVER_ROW_HEIGHT_DXA, rule: HeightRule.ATLEAST },
         children: [
           new TableCell({
             width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA },
@@ -162,11 +173,16 @@ function answerKeyHeaderParagraphs(logoBuffer, title) {
   ];
 }
 
-// The bank's stem text already embeds the fill-in-the-blank spot as a run of plain spaces
-// mid-sentence (e.g. "a          should be placed on the ground") — that's where the blank
-// actually belongs, not appended after the whole sentence. 3+ consecutive spaces reliably
-// distinguishes an embedded blank from ordinary single/double spacing between words.
-const EMBEDDED_BLANK_PATTERN = / {3,}/g;
+// The bank's stem text embeds the fill-in-the-blank spot in one of two ways depending on how
+// the question was authored in LXR Test: a run of plain spaces mid-sentence (e.g.
+// "a          should be placed on the ground"), or — far more commonly, per the real sample
+// bank — a run of literal underscores (e.g. "the__________ of the hydrant"). Either way
+// that's where the blank actually belongs, not appended after the whole sentence. Matching
+// only spaces (as this used to) left every underscore-style blank both printed as literal
+// underscore characters AND had a second, redundant blank appended at the end — the
+// "doubled up" blank lines. 3+ consecutive spaces or 2+ consecutive underscores reliably
+// distinguishes an embedded blank from ordinary spacing/punctuation between words.
+const EMBEDDED_BLANK_PATTERN = / {3,}|_{2,}/g;
 
 /** Splits stemText on its embedded blank(s) and returns the runs to render in place —
  * underlined blank space for the exam paper, a compact "____" marker for the answer key

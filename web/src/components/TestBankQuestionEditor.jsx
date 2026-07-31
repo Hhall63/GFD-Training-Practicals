@@ -25,16 +25,22 @@ export default function TestBankQuestionEditor({ question, onSave, onClose }) {
         Edit Question
       </h3>
       <div className="field">
-        <label>Question Text</label>
-        <textarea rows={4} value={stemText} onChange={(e) => setStemText(e.target.value)} />
+        <label htmlFor="tb-edit-stem">Question Text</label>
+        <textarea id="tb-edit-stem" rows={4} value={stemText} onChange={(e) => setStemText(e.target.value)} />
       </div>
       <div className="field">
-        <label>Answer</label>
-        <input type="text" value={answerText} onChange={(e) => setAnswerText(e.target.value)} />
+        <label htmlFor="tb-edit-answer">Answer</label>
+        <input id="tb-edit-answer" type="text" value={answerText} onChange={(e) => setAnswerText(e.target.value)} />
       </div>
       <div className="field">
-        <label>Points</label>
-        <input type="number" min="0" value={points} onChange={(e) => setPoints(e.target.value)} />
+        <label htmlFor="tb-edit-points">Points</label>
+        <input
+          id="tb-edit-points"
+          type="number"
+          min="0"
+          value={points}
+          onChange={(e) => setPoints(e.target.value)}
+        />
       </div>
       <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
         Saved to the drive alongside this bank — the original .LXRBank file is never modified.

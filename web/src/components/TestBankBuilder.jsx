@@ -133,8 +133,8 @@ export default function TestBankBuilder({
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Random Draw</h3>
         <div className="field">
-          <label>Category</label>
-          <select value={drawCategory} onChange={(e) => setDrawCategory(e.target.value)}>
+          <label htmlFor="tb-draw-category">Category</label>
+          <select id="tb-draw-category" value={drawCategory} onChange={(e) => setDrawCategory(e.target.value)}>
             <option value="">Choose a category…</option>
             {categories.map((c) => (
               <option key={c} value={c}>
@@ -144,19 +144,33 @@ export default function TestBankBuilder({
           </select>
         </div>
         <div className="field">
-          <label>How many</label>
-          <input type="number" min="1" value={drawCount} onChange={(e) => setDrawCount(e.target.value)} />
+          <label htmlFor="tb-draw-count">How many</label>
+          <input
+            id="tb-draw-count"
+            type="number"
+            min="1"
+            value={drawCount}
+            onChange={(e) => setDrawCount(e.target.value)}
+          />
         </div>
         <button className="secondary" disabled={!drawCategory} onClick={handleDraw}>
           Draw Questions
         </button>
-        {drawMessage && <p className="muted" style={{ marginTop: 8 }}>{drawMessage}</p>}
+        {drawMessage && (
+          <p className="muted" style={{ marginTop: 8 }} aria-live="polite">
+            {drawMessage}
+          </p>
+        )}
       </div>
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Browse &amp; Add Manually</h3>
         <div className="field">
+          <label htmlFor="tb-search" className="sr-only">
+            Search question or answer text
+          </label>
           <input
+            id="tb-search"
             type="text"
             placeholder="Search question or answer text…"
             value={search}
@@ -164,7 +178,10 @@ export default function TestBankBuilder({
           />
         </div>
         <div className="field">
-          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
+          <label htmlFor="tb-filter-category" className="sr-only">
+            Filter by category
+          </label>
+          <select id="tb-filter-category" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
             <option value="">All categories</option>
             {categories.map((c) => (
               <option key={c} value={c}>
@@ -222,24 +239,30 @@ export default function TestBankBuilder({
         ))}
         <div style={{ borderTop: "1px solid var(--border)", marginTop: 16, paddingTop: 16 }}>
           <div className="field">
-            <label>
+            <label htmlFor="tb-class-number">
               Class Number <span style={{ color: "var(--brand-red)" }}>*</span>
             </label>
             <input
+              id="tb-class-number"
               type="number"
               min="1"
               placeholder="e.g. 83"
+              required
+              aria-required="true"
               value={classNumber}
               onChange={(e) => setClassNumber(e.target.value)}
             />
           </div>
           <div className="field">
-            <label>
+            <label htmlFor="tb-exam-name">
               Exam Name (printed on the cover page) <span style={{ color: "var(--brand-red)" }}>*</span>
             </label>
             <input
+              id="tb-exam-name"
               type="text"
               placeholder="e.g. Exam 1"
+              required
+              aria-required="true"
               value={coverExamName}
               onChange={(e) => setCoverExamName(e.target.value)}
             />
@@ -251,11 +274,17 @@ export default function TestBankBuilder({
           </p>
         )}
         <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
-          <button className="primary" disabled={saving || workingQuestions.length === 0} onClick={handleSaveReference}>
+          <button
+            className="primary"
+            style={{ width: "auto" }}
+            disabled={saving || workingQuestions.length === 0}
+            onClick={handleSaveReference}
+          >
             {saving ? "Saving…" : "Save Question Set"}
           </button>
           <button
             className="secondary"
+            style={{ width: "auto" }}
             disabled={generating !== null || workingQuestions.length === 0 || !classNumber || !coverExamName.trim()}
             onClick={() => handleGenerate("paper")}
           >
@@ -263,13 +292,18 @@ export default function TestBankBuilder({
           </button>
           <button
             className="secondary"
+            style={{ width: "auto" }}
             disabled={generating !== null || workingQuestions.length === 0 || !classNumber || !coverExamName.trim()}
             onClick={() => handleGenerate("key")}
           >
             {generating === "key" ? "Generating…" : "Generate Answer Key (.docx)"}
           </button>
         </div>
-        {saveMessage && <p className="muted" style={{ marginTop: 8 }}>{saveMessage}</p>}
+        {saveMessage && (
+          <p className="muted" style={{ marginTop: 8 }} aria-live="polite">
+            {saveMessage}
+          </p>
+        )}
       </div>
 
       {editingQuestion && (
