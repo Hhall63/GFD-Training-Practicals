@@ -27,10 +27,15 @@ import logoUrl from "../assets/work-hard-be-humble.jpg";
 
 const DEPARTMENT_NAME = "Greensboro Fire Department Training Division";
 
-// Measured from the reference document (word/document.xml), all in docx's native units.
+// Measured from the reference document (word/document.xml), all in docx's native units
+// (dxa = twentieths of a point). Page size/margins matter as much as the table's own
+// dimensions: the library defaults to A4 with 1in margins, not Letter with 0.5in margins
+// like the reference — leaving them unset was what pushed the cover onto a second page.
+const PAGE_SIZE = { width: 12240, height: 15840 }; // US Letter
+const PAGE_MARGIN = { top: 720, right: 720, bottom: 720, left: 720 }; // 0.5in each side
 const PAGE_WIDTH_DXA = 11520; // 8in usable width — table spans it edge to edge
-const COVER_ROW_HEIGHT_DXA = 13824; // ~9.6in — forces the row tall enough that vAlign:center
-// on the cell visually centers the whole block in the middle of the page
+const COVER_ROW_HEIGHT_DXA = 13400; // a touch under the reference's 13824 — leaves a little
+// more headroom against the page margins above so nothing spills onto a second page
 const LOGO_WIDTH_PX = 390; // 4.0625in at 96dpi — matches the reference image's exact EMU size
 const LOGO_HEIGHT_PX = 540; // 5.625in at 96dpi
 const DEPARTMENT_NAME_SIZE = 72; // 36pt
@@ -157,18 +162,45 @@ function answerKeyHeaderParagraphs(logoBuffer, title) {
   ];
 }
 
-/** withBlank: true for the exam paper (underlined space to write the answer), false for
- * the answer key (the real answer text instead). */
+// The bank's stem text already embeds the fill-in-the-blank spot as a run of plain spaces
+// mid-sentence (e.g. "a          should be placed on the ground") — that's where the blank
+// actually belongs, not appended after the whole sentence. 3+ consecutive spaces reliably
+// distinguishes an embedded blank from ordinary single/double spacing between words.
+const EMBEDDED_BLANK_PATTERN = / {3,}/g;
+
+/** Splits stemText on its embedded blank(s) and returns the runs to render in place —
+ * underlined blank space for the exam paper, a compact "____" marker for the answer key
+ * (which shows the answer separately, so a heavy underline there is unnecessary). Falls
+ * back to appending one blank at the end if the stem has no embedded blank at all. */
+function stemRuns(stemText, size, withBlank) {
+  const parts = stemText.split(EMBEDDED_BLANK_PATTERN);
+  if (parts.length === 1) {
+    const runs = [new TextRun({ text: `${stemText.trim()} `, size })];
+    if (withBlank) runs.push(blankLine(size, 24));
+    return runs;
+  }
+  const runs = [];
+  parts.forEach((part, i) => {
+    if (part) runs.push(new TextRun({ text: part, size }));
+    if (i < parts.length - 1) {
+      runs.push(withBlank ? blankLine(size, 18) : new TextRun({ text: " ____ ", size }));
+    }
+  });
+  return runs;
+}
+
+/** withBlank: true for the exam paper (underlined space to write the answer, in place of
+ * the bank's embedded blank), false for the answer key (a compact marker plus the real
+ * answer text appended). */
 function questionParagraph(index, question, withBlank) {
   const runs = [
     new TextRun({ text: `${index + 1}. `, bold: true, size: QUESTION_SIZE }),
-    new TextRun({ text: `(${question.points} pt) ${question.stemText} `, size: QUESTION_SIZE }),
+    new TextRun({ text: `(${question.points} pt) `, size: QUESTION_SIZE }),
+    ...stemRuns(question.stemText, QUESTION_SIZE, withBlank),
   ];
-  runs.push(
-    withBlank
-      ? blankLine(QUESTION_SIZE, 24)
-      : new TextRun({ text: question.answerText, size: QUESTION_SIZE, italics: true })
-  );
+  if (!withBlank) {
+    runs.push(new TextRun({ text: `— ${question.answerText}`, size: QUESTION_SIZE, italics: true }));
+  }
   return new Paragraph({ spacing: { after: 560 }, indent: { hanging: 260 }, children: runs });
 }
 
@@ -177,6 +209,7 @@ export async function buildExamPaperDocx({ classNumber, coverExamName, questions
   const doc = new Document({
     sections: [
       {
+        properties: { page: { size: PAGE_SIZE, margin: PAGE_MARGIN } },
         children: [
           coverPageTable(logoBuffer, { classNumber, coverExamName }),
           new Paragraph({ children: [new PageBreak()] }),
@@ -193,6 +226,7 @@ export async function buildAnswerKeyDocx({ examName, coverExamName, questions })
   const doc = new Document({
     sections: [
       {
+        properties: { page: { size: PAGE_SIZE, margin: PAGE_MARGIN } },
         children: [
           ...answerKeyHeaderParagraphs(logoBuffer, coverExamName || examName),
           ...questions.map((q, i) => questionParagraph(i, q, false)),
