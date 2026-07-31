@@ -1,16 +1,18 @@
 // web/src/pages/ExamsAdminPage.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
 import Modal from "../components/Modal";
 import { createExamTemplate } from "../lib/exams";
+import { categoryTagClass } from "../lib/categoryColor";
 
 export default function ExamsAdminPage() {
   const navigate = useNavigate();
-  const [exams, setExams] = useState([]);
+  const [exams, setExams] = useState(null); // null = first snapshot still loading
   const [showNew, setShowNew] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("");
 
   useEffect(() => {
     const q = query(
@@ -40,58 +42,114 @@ export default function ExamsAdminPage() {
     });
   }
 
-  const categories = [...new Set(exams.map((e) => e.examCategory).filter(Boolean))];
+  const categories = useMemo(
+    () => [...new Set((exams ?? []).map((e) => e.examCategory).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [exams]
+  );
+  const visibleExams = useMemo(
+    () => (exams ?? []).filter((e) => !categoryFilter || e.examCategory === categoryFilter),
+    [exams, categoryFilter]
+  );
 
   return (
     <div className="app-shell">
       <TopBar title="Manage Exams" onBack={() => navigate("/")} showMenu={false} />
-      <div className="screen screen--textured">
+      <div className="screen--wide screen--textured">
         <p className="muted">
           Define written exams for the gradebook. Every exam is scored out of 100, passing at 70%.
         </p>
-        {exams.length === 0 && (
+
+        {exams === null && (
+          <div className="exam-grid" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="card card--raised skeleton-exam-tile">
+                <div className="skeleton-block skeleton-block--title" />
+                <div className="skeleton-block skeleton-block--tag" />
+                <div className="skeleton-block skeleton-block--line" />
+                <div className="skeleton-block skeleton-block--button" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {exams !== null && exams.length === 0 && (
           <p className="muted">No exams yet. Create your first one to start grading.</p>
         )}
-        {exams.map((exam) => (
-          <div key={exam.id} className="card card--raised">
-            <div className="list-row" style={{ padding: 0, border: "none" }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, color: "var(--brand-navy)" }}>{exam.name}</div>
-                {exam.examCategory && (
-                  <span className="badge neutral" style={{ marginTop: 4 }}>
-                    {exam.examCategory}
-                  </span>
-                )}
+
+        {exams !== null && exams.length > 0 && (
+          <>
+            {categories.length > 1 && (
+              <div className="chip-row" role="group" aria-label="Filter by category">
+                <button
+                  type="button"
+                  className={`chip${categoryFilter === "" ? " active" : ""}`}
+                  onClick={() => setCategoryFilter("")}
+                >
+                  All
+                </button>
+                {categories.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`chip${categoryFilter === c ? " active" : ""}`}
+                    onClick={() => setCategoryFilter(c)}
+                  >
+                    {c}
+                  </button>
+                ))}
               </div>
-              <button
-                className="secondary"
-                style={{ width: "auto", padding: "6px 12px", color: "var(--brand-red)" }}
-                onClick={() => deactivate(exam)}
-              >
-                Deactivate
-              </button>
+            )}
+
+            <div className="exam-grid">
+              {visibleExams.map((exam) => (
+                <div key={exam.id} className="card card--raised">
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <div style={{ fontWeight: 700, color: "var(--brand-navy)" }}>{exam.name}</div>
+                    <button
+                      className="secondary"
+                      style={{ width: "auto", padding: "4px 10px", color: "var(--brand-red)" }}
+                      onClick={() => deactivate(exam)}
+                    >
+                      Deactivate
+                    </button>
+                  </div>
+                  {exam.examCategory && (
+                    <span className={categoryTagClass(exam.examCategory)} style={{ marginTop: 6 }}>
+                      {exam.examCategory}
+                    </span>
+                  )}
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginTop: 12,
+                      cursor: "pointer",
+                      fontSize: 14,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!exam.includeInSummaryTranscript}
+                      onChange={() => toggleSummary(exam)}
+                      style={{ width: "auto", margin: 0 }}
+                    />
+                    Include on Summary Transcript
+                  </label>
+                  <button
+                    className="secondary"
+                    style={{ marginTop: 8 }}
+                    onClick={() => navigate(`/exams/${exam.id}/test-bank`)}
+                  >
+                    Build from Test Bank
+                  </button>
+                </div>
+              ))}
             </div>
-            <label
-              style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, cursor: "pointer", fontSize: 14 }}
-            >
-              <input
-                type="checkbox"
-                checked={!!exam.includeInSummaryTranscript}
-                onChange={() => toggleSummary(exam)}
-                style={{ width: "auto", margin: 0 }}
-              />
-              Include on Summary Transcript
-            </label>
-            <button
-              className="secondary"
-              style={{ marginTop: 8 }}
-              onClick={() => navigate(`/exams/${exam.id}/test-bank`)}
-            >
-              Build from Test Bank
-            </button>
-          </div>
-        ))}
-        <button className="primary" style={{ marginTop: 16 }} onClick={() => setShowNew(true)}>
+          </>
+        )}
+
+        <button className="primary" style={{ marginTop: 16, maxWidth: 280 }} onClick={() => setShowNew(true)}>
           + New Exam
         </button>
       </div>

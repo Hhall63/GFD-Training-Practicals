@@ -1354,3 +1354,171 @@ a:focus-visible {
     transform: none;
   }
 }
+
+/* --- Test Bank build flow (Manage Exams / Test Bank / Builder) ---------------------- */
+
+/* Wide-grid tier for the exam roster, mirroring .recruit-grid's "wide admin grid" pattern
+   rather than inventing a new one. Wider minmax than recruit-grid since each tile carries
+   a name, category tag, summary toggle, and two actions, not just an avatar. */
+.exam-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+/* Toggleable category filter row above .exam-grid. Not a tab bar (there's no single active
+   view being switched, just an optional narrowing filter), so plain chips rather than
+   .segmented, which this app already reserves for mutually-exclusive views. */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.chip.active {
+  background: var(--brand-navy);
+  color: white;
+  border-color: var(--brand-navy);
+}
+
+/* Deterministic per-category tag color (see src/lib/categoryColor.js) — a scanning aid
+   across a long question list, not decoration, so all 8 hues stay out of the green/red
+   family already claimed by pass/fail semantics elsewhere in the app. */
+.category-tag {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.category-tag--0 {
+  background: rgba(29, 78, 216, 0.1);
+  color: #1d4ed8;
+}
+.category-tag--1 {
+  background: rgba(14, 116, 144, 0.1);
+  color: #0e7490;
+}
+.category-tag--2 {
+  background: rgba(15, 118, 110, 0.1);
+  color: #0f766e;
+}
+.category-tag--3 {
+  background: rgba(67, 56, 202, 0.1);
+  color: #4338ca;
+}
+.category-tag--4 {
+  background: rgba(109, 40, 217, 0.1);
+  color: #6d28d9;
+}
+.category-tag--5 {
+  background: rgba(162, 28, 175, 0.1);
+  color: #a21caf;
+}
+.category-tag--6 {
+  background: rgba(51, 65, 85, 0.1);
+  color: #334155;
+}
+.category-tag--7 {
+  background: rgba(3, 105, 161, 0.1);
+  color: #0369a1;
+}
+
+/* Opt-in row hover, not a blanket .list-row change — only the truly interactive rows in the
+   test bank flow (browse questions, pick a bank file) opt in, so the other ~15 places that
+   reuse .list-row for static or already-distinctly-styled rows are untouched. */
+@media (hover: hover) {
+  .list-row--hoverable:hover {
+    background: rgba(18, 18, 58, 0.045);
+  }
+}
+
+.list-row--hoverable {
+  transition: background-color 120ms ease;
+  border-radius: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* Inline, field-scoped validation message — pairs with aria-describedby so it's announced
+   as part of the field, not a separate paragraph the user has to connect back themselves. */
+.field-error {
+  margin: -6px 0 10px;
+  font-size: 12px;
+  color: var(--brand-red);
+}
+
+/* Skeleton tile matching .exam-grid's tile shape, shown while the first exams snapshot is
+   still loading — mirrors .skeleton-recruit-tile so "loading" never flashes as a false
+   "no exams yet" empty state. */
+.skeleton-exam-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-exam-tile .skeleton-block--title {
+  width: 65%;
+  height: 16px;
+}
+
+.skeleton-exam-tile .skeleton-block--tag {
+  width: 38%;
+  height: 18px;
+  border-radius: 999px;
+}
+
+.skeleton-exam-tile .skeleton-block--line {
+  width: 85%;
+  height: 12px;
+}
+
+.skeleton-exam-tile .skeleton-block--button {
+  width: 100%;
+  height: 34px;
+  border-radius: var(--radius);
+  margin-top: 4px;
+}
+
+/* Two-pane layout for TestBankBuilder: Draw + Browse stay the reading column, Working Set +
+   Finalize become a sticky side panel once there's room, so an admin curating a long
+   question list can see what they've collected without scrolling back up. Single column
+   below the breakpoint — this is a structural collapse (product.md), not fluid resizing. */
+.builder-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 960px) {
+  .builder-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    align-items: start;
+    gap: 20px;
+  }
+
+  .builder-side {
+    position: sticky;
+    /* Clears the sticky .top-bar (~52px tall on desktop, no safe-area inset) with room to
+       spare, so the side panel never starts underneath it. */
+    top: 76px;
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+  }
+}
