@@ -70,12 +70,6 @@ function loadLogoBuffer() {
   return logoBufferPromise;
 }
 
-/** A run of underlined blank spaces — real Word underline formatting, not just
- * whitespace, so it renders as a clearly visible line to write on. */
-function blankLine(size, spaceCount) {
-  return new TextRun({ text: " ".repeat(spaceCount), size, underline: {} });
-}
-
 /** The full-page-height, vertically-centered cover block — used as-is for the exam paper
  * (with the student Name/ID line) and, in compact form, is NOT reused for the answer key,
  * which gets a smaller header instead (see answerKeyHeaderParagraphs) since padding a
@@ -114,17 +108,18 @@ function coverPageTable(logoBuffer, { classNumber, coverExamName }) {
       })
     );
   }
-  // Name:____ Lawson:____ on one line, no space between each label and its own blank — at
-  // ~65 characters total this comfortably fits the 8in cell width at this font size (well
-  // under half the available width, by character-width estimate), so it doesn't need to wrap.
+  // Single plain-text run, byte-for-byte matching the reference document's own cover line —
+  // no underline formatting. The user's actual downloaded file proved underline-on-whitespace
+  // runs can be present in the XML yet not render visibly; a typed underscore is a real
+  // character no renderer can silently drop.
   cellChildren.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [
-        new TextRun({ text: "Name:", size: NAME_ID_LINE_SIZE }),
-        blankLine(NAME_ID_LINE_SIZE, 28),
-        new TextRun({ text: " Lawson:", size: NAME_ID_LINE_SIZE }),
-        blankLine(NAME_ID_LINE_SIZE, 20),
+        new TextRun({
+          text: `Name: ${"_".repeat(26)} Lawson: ${"_".repeat(16)}`,
+          size: NAME_ID_LINE_SIZE,
+        }),
       ],
     })
   );
@@ -187,30 +182,36 @@ function answerKeyHeaderParagraphs(logoBuffer, title) {
 // distinguishes an embedded blank from ordinary spacing/punctuation between words.
 const EMBEDDED_BLANK_PATTERN = / {3,}|_{2,}/g;
 
-/** Splits stemText on its embedded blank(s) and returns the runs to render in place —
- * underlined blank space for the exam paper, a compact "____" marker for the answer key
- * (which shows the answer separately, so a heavy underline there is unnecessary). Falls
- * back to appending one blank at the end if the stem has no embedded blank at all. */
+/** Splits stemText on its embedded blank(s) and returns the runs to render in place — a
+ * fixed-length run of plain underscore characters for the exam paper (regardless of the
+ * source marker's own length, which varies ~9-35+ characters in the real bank data, sized
+ * for LXR Test's own renderer, not ours), or a compact "____" marker for the answer key
+ * (which shows the answer separately, so a full-length blank there is unnecessary). Falls
+ * back to appending one blank at the end if the stem has no embedded blank at all. No
+ * underline formatting anywhere: the user's actual downloaded file proved underline-on-
+ * whitespace runs can be present in the XML yet not render visibly in their environment —
+ * a typed underscore is a real character no renderer can silently drop. */
 function stemRuns(stemText, size, withBlank) {
+  const blankRun = () => new TextRun({ text: "_".repeat(20), size });
   const parts = stemText.split(EMBEDDED_BLANK_PATTERN);
   if (parts.length === 1) {
     const runs = [new TextRun({ text: `${stemText.trim()} `, size })];
-    if (withBlank) runs.push(blankLine(size, 24));
+    if (withBlank) runs.push(blankRun());
     return runs;
   }
   const runs = [];
   parts.forEach((part, i) => {
     if (part) runs.push(new TextRun({ text: part, size }));
     if (i < parts.length - 1) {
-      runs.push(withBlank ? blankLine(size, 18) : new TextRun({ text: " ____ ", size }));
+      runs.push(withBlank ? blankRun() : new TextRun({ text: " ____ ", size }));
     }
   });
   return runs;
 }
 
-/** withBlank: true for the exam paper (underlined space to write the answer, in place of
- * the bank's embedded blank), false for the answer key (a compact marker plus the real
- * answer text appended). */
+/** withBlank: true for the exam paper (a blank to write the answer, in place of the bank's
+ * embedded blank marker), false for the answer key (a compact marker plus the real answer
+ * text appended). */
 function questionParagraph(index, question, withBlank) {
   const runs = [
     new TextRun({ text: `${index + 1}. `, bold: true, size: QUESTION_SIZE }),
