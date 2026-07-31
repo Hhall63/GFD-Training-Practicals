@@ -45,7 +45,7 @@ export default function ExamsAdminPage() {
   return (
     <div className="app-shell">
       <TopBar title="Manage Exams" onBack={() => navigate("/")} showMenu={false} />
-      <div className="screen">
+      <div className="screen screen--textured">
         <p className="muted">
           Define written exams for the gradebook. Every exam is scored out of 100, passing at 70%.
         </p>
@@ -53,11 +53,15 @@ export default function ExamsAdminPage() {
           <p className="muted">No exams yet. Create your first one to start grading.</p>
         )}
         {exams.map((exam) => (
-          <div key={exam.id} className="card">
+          <div key={exam.id} className="card card--raised">
             <div className="list-row" style={{ padding: 0, border: "none" }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, color: "var(--brand-navy)" }}>{exam.name}</div>
-                <div className="muted">{exam.examCategory}</div>
+                {exam.examCategory && (
+                  <span className="badge neutral" style={{ marginTop: 4 }}>
+                    {exam.examCategory}
+                  </span>
+                )}
               </div>
               <button
                 className="secondary"
@@ -78,6 +82,13 @@ export default function ExamsAdminPage() {
               />
               Include on Summary Transcript
             </label>
+            <button
+              className="secondary"
+              style={{ marginTop: 8 }}
+              onClick={() => navigate(`/exams/${exam.id}/test-bank`)}
+            >
+              Build from Test Bank
+            </button>
           </div>
         ))}
         <button className="primary" style={{ marginTop: 16 }} onClick={() => setShowNew(true)}>
