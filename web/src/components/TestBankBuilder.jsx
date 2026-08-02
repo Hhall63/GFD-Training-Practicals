@@ -15,6 +15,14 @@ function pickRandom(list, count) {
   return picked;
 }
 
+// Used to gate "Generate Version B": the saved shuffle is only valid for the exact
+// question set it was computed from, not a superset/subset after further edits.
+function sameIdSet(a, b) {
+  if (a.length !== b.length) return false;
+  const setB = new Set(b);
+  return a.every((id) => setB.has(id));
+}
+
 export default function TestBankBuilder({
   examId,
   examName,
@@ -35,7 +43,7 @@ export default function TestBankBuilder({
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
   const [drawMessage, setDrawMessage] = useState(null);
-  const [generating, setGenerating] = useState(null); // "paper" | "key" | null
+  const [generating, setGenerating] = useState(null); // "A" | "B" | null
   const [classNumber, setClassNumber] = useState("");
   const [coverExamName, setCoverExamName] = useState("");
   const [touched, setTouched] = useState({ classNumber: false, coverExamName: false });
@@ -47,13 +55,15 @@ export default function TestBankBuilder({
   );
   const supportedQuestions = useMemo(() => questions.filter((q) => q.supported), [questions]);
   const workingQuestions = useMemo(
-    () =>
-      workingIds
-        .map((id) => questionsById.get(id))
-        .filter(Boolean)
-        .sort((a, b) => a.category.localeCompare(b.category) || a.seq - b.seq),
+    () => workingIds.map((id) => questionsById.get(id)).filter(Boolean),
     [workingIds, questionsById]
   );
+  const savedBIds = savedReference?.bQuestionIds ?? [];
+  const workingBQuestions = useMemo(
+    () => savedBIds.map((id) => questionsById.get(id)).filter(Boolean),
+    [savedBIds, questionsById]
+  );
+  const bAvailable = savedBIds.length > 0 && sameIdSet(workingIds, savedBIds);
   const browseList = useMemo(() => {
     const term = search.trim().toLowerCase();
     return supportedQuestions.filter((q) => {
@@ -99,15 +109,15 @@ export default function TestBankBuilder({
     }
   }
 
-  async function handleGenerate(kind) {
-    setGenerating(kind);
+  async function handleGenerate(version) {
+    setGenerating(version);
     try {
-      const blob =
-        kind === "paper"
-          ? await buildExamPaperDocx({ classNumber, coverExamName, questions: workingQuestions })
-          : await buildAnswerKeyDocx({ examName, coverExamName, questions: workingQuestions });
-      const suffix = kind === "paper" ? "Exam Paper" : "Answer Key";
-      downloadDocxBlob(blob, `${examName} - ${suffix}.docx`);
+      const versionQuestions = version === "A" ? workingQuestions : workingBQuestions;
+      const versionCoverName = `${coverExamName}-${version}`;
+      const paperBlob = await buildExamPaperDocx({ classNumber, coverExamName: versionCoverName, questions: versionQuestions });
+      downloadDocxBlob(paperBlob, `${examName} - ${version} - Exam Paper.docx`);
+      const keyBlob = await buildAnswerKeyDocx({ classNumber, coverExamName: versionCoverName, questions: versionQuestions });
+      downloadDocxBlob(keyBlob, `${examName} - ${version} - Answer Key.docx`);
     } finally {
       setGenerating(null);
     }
@@ -339,19 +349,24 @@ export default function TestBankBuilder({
                 className="secondary"
                 style={{ width: "auto" }}
                 disabled={generating !== null || workingQuestions.length === 0 || missingClassNumber || missingExamName}
-                onClick={() => handleGenerate("paper")}
+                onClick={() => handleGenerate("A")}
               >
-                {generating === "paper" ? "Generating…" : "Generate Exam Paper (.docx)"}
+                {generating === "A" ? "Generating…" : "Generate Version A"}
               </button>
               <button
                 className="secondary"
                 style={{ width: "auto" }}
-                disabled={generating !== null || workingQuestions.length === 0 || missingClassNumber || missingExamName}
-                onClick={() => handleGenerate("key")}
+                disabled={generating !== null || workingQuestions.length === 0 || missingClassNumber || missingExamName || !bAvailable}
+                onClick={() => handleGenerate("B")}
               >
-                {generating === "key" ? "Generating…" : "Generate Answer Key (.docx)"}
+                {generating === "B" ? "Generating…" : "Generate Version B"}
               </button>
             </div>
+            {!bAvailable && workingQuestions.length > 0 && (
+              <p className="muted" style={{ marginTop: 8 }}>
+                Save Question Set to lock in Version B.
+              </p>
+            )}
             {saveMessage && (
               <p className="muted" style={{ marginTop: 8 }} aria-live="polite">
                 {saveMessage}
