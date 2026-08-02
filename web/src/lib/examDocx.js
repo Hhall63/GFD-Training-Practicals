@@ -70,12 +70,10 @@ function loadLogoBuffer() {
   return logoBufferPromise;
 }
 
-/** The full-page-height, vertically-centered cover block — used as-is for the exam paper
- * (with the student Name/ID line) and, in compact form, is NOT reused for the answer key,
- * which gets a smaller header instead (see answerKeyHeaderParagraphs) since padding a
- * grader's quick-reference document with a full blank page reads as a mistake, not fidelity
- * to the reference. */
-function coverPageTable(logoBuffer, { classNumber, coverExamName }) {
+/** The full-page-height, vertically-centered cover block — shared byte-for-byte between the
+ * exam paper and the answer key. Only the bottom line differs (`footer`): the student
+ * Name/Lawson write-in blank for the paper, a bold "Answer Key" label for the key. */
+function coverPageTable(logoBuffer, { classNumber, coverExamName, footer }) {
   const cellChildren = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
@@ -108,16 +106,17 @@ function coverPageTable(logoBuffer, { classNumber, coverExamName }) {
       })
     );
   }
-  // Single plain-text run, byte-for-byte matching the reference document's own cover line —
-  // no underline formatting. The user's actual downloaded file proved underline-on-whitespace
-  // runs can be present in the XML yet not render visibly; a typed underscore is a real
-  // character no renderer can silently drop.
+  // Bottom line is caller-supplied: the exam paper's Name/Lawson write-in blank and the
+  // answer key's "Answer Key" label are the only two callers, and everything else about
+  // this cover (logo, department name, class line, exam name) is identical between them —
+  // docs/superpowers/specs/2026-08-01-test-bank-ab-versions-design.md.
   cellChildren.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [
         new TextRun({
-          text: `Name: ${"_".repeat(26)} Lawson: ${"_".repeat(16)}`,
+          text: footer.text,
+          bold: footer.bold ?? false,
           size: NAME_ID_LINE_SIZE,
         }),
       ],
@@ -149,26 +148,6 @@ function coverPageTable(logoBuffer, { classNumber, coverExamName }) {
       }),
     ],
   });
-}
-
-function answerKeyHeaderParagraphs(logoBuffer, title) {
-  return [
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 120 },
-      children: [new TextRun({ text: DEPARTMENT_NAME, bold: true, size: 28 })],
-    }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 160 },
-      children: [new ImageRun({ type: "jpg", data: logoBuffer, transformation: { width: 90, height: 125 } })],
-    }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 400 },
-      children: [new TextRun({ text: `${title} — Answer Key`, bold: true, size: 28 })],
-    }),
-  ];
 }
 
 // The bank's stem text embeds the fill-in-the-blank spot in one of two ways depending on how
@@ -230,7 +209,11 @@ export async function buildExamPaperDocx({ classNumber, coverExamName, questions
       {
         properties: { page: { size: PAGE_SIZE, margin: PAGE_MARGIN } },
         children: [
-          coverPageTable(logoBuffer, { classNumber, coverExamName }),
+          coverPageTable(logoBuffer, {
+            classNumber,
+            coverExamName,
+            footer: { text: `Name: ${"_".repeat(26)} Lawson: ${"_".repeat(16)}` },
+          }),
           new Paragraph({ children: [new PageBreak()] }),
           ...questions.map((q, i) => questionParagraph(i, q, true)),
         ],
@@ -240,14 +223,19 @@ export async function buildExamPaperDocx({ classNumber, coverExamName, questions
   return Packer.toBlob(doc);
 }
 
-export async function buildAnswerKeyDocx({ examName, coverExamName, questions }) {
+export async function buildAnswerKeyDocx({ classNumber, coverExamName, questions }) {
   const logoBuffer = await loadLogoBuffer();
   const doc = new Document({
     sections: [
       {
         properties: { page: { size: PAGE_SIZE, margin: PAGE_MARGIN } },
         children: [
-          ...answerKeyHeaderParagraphs(logoBuffer, coverExamName || examName),
+          coverPageTable(logoBuffer, {
+            classNumber,
+            coverExamName,
+            footer: { text: "Answer Key", bold: true },
+          }),
+          new Paragraph({ children: [new PageBreak()] }),
           ...questions.map((q, i) => questionParagraph(i, q, false)),
         ],
       },
