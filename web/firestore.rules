@@ -12,10 +12,15 @@ service cloud.firestore {
     }
 
     // Any signed-in, active account of any role (Administrator, Evaluator, or Recruit).
+    // The autoDeactivateAt clause enforces the evaluator-wizard's optional same-day cutoff
+    // (docs/superpowers/specs/2026-08-06-evaluator-wizard-design.md) directly against
+    // Firestore's own server clock — no scheduled job needed, and every rule below already
+    // routes through this one function, so the cutoff applies everywhere at once.
     function isActiveUser() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-        && myUserDoc().isActive == true;
+        && myUserDoc().isActive == true
+        && (!('autoDeactivateAt' in myUserDoc()) || myUserDoc().autoDeactivateAt > request.time);
     }
 
     // Accounts created before roles existed have no `role` field — treated as "admin" so
@@ -88,6 +93,23 @@ service cloud.firestore {
       allow get: if true;
       allow list: if isAdminRole();
       allow write: if isAdminRole();
+    }
+
+    match /evaluatorInvites/{token} {
+      // Same "the unguessable ID is the credential" model as publicLiveLinks above: get by
+      // exact token is public (the evaluator claiming their account isn't signed in yet),
+      // list is never allowed so invites can't be enumerated or guessed. Only the invited
+      // account itself (once it's the signed-in user, mid-claim) may flip `used` to true,
+      // and only that one field, and only one-way.
+      allow get: if true;
+      allow list: if false;
+      allow create: if isAdminRole();
+      allow update: if isSignedIn()
+        && request.auth.uid == resource.data.uid
+        && resource.data.used == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used'])
+        && request.resource.data.used == true;
+      allow delete: if false;
     }
 
     match /recruits/{recruitId} {
