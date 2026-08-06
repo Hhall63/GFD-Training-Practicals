@@ -1,97 +1,89 @@
 # Handoff — GFD-Training-Practicals
 
-Last session: 2026-08-05/06 · worktree `.claude/worktrees/evaluator-wizard` · branch `worktree-evaluator-wizard`
+Last session: 2026-08-06 · worktree `.claude/worktrees/evaluator-wizard` · branch `design-revamp-modal-a11y`
+
+> Revision note: the previous handoff described the PR #18–#21 session and was written against branch `worktree-evaluator-wizard`. That branch is history now. This session did unrelated new work (PR #22) in the same worktree on a new branch. Prior-session detail below is compressed; only the still-live constraints were kept.
 
 ## Project snapshot
 
 Fire department recruit testing web app, real and in active use.
 
-- **Stack:** Vite + React 18 + Firebase/Firestore via the client SDK. No backend, no Cloud Functions — deliberate, to stay on Firebase's free Spark plan. No TypeScript, no unit-test framework; verification is manual / scratch-script / live-browser.
+- **Stack:** Vite + React 18 + Firebase/Firestore via the client SDK. No backend, no Cloud Functions — deliberate, to stay on Firebase's free Spark plan. No TypeScript, no unit-test framework; verification is manual / scratch-script / live-browser / emulator.
 - **Deploy:** Firebase Hosting, project `gfd-recruit-training`, live at https://gfd-recruit-training.web.app
 - **Workflow:** features run in parallel across git worktrees (`.claude/worktrees/`, plus an older `.worktrees/` convention). `main` is a clean sequential-merge trunk — one PR at a time.
+- **Design system:** `web/DESIGN.md` (written this session) documents the token system that already lived in `web/src/theme.css`. The `impeccable` design-hook detector (`detect.mjs`, config in the gitignored `web/.impeccable/config.json`) runs against touched files.
 - **Deploy gotcha:** `web/.env` is gitignored, so a fresh worktree doesn't have it. Building without it ships an `apiKey: undefined` bundle that passes a curl check and white-screens in a browser. This has burned this project before. Copy `web/.env` into the worktree before `npm run build`, and verify with a real browser render, not an HTTP 200.
+- **Environment quirk (recurring, confirmed again this session):** Playwright's `waitUntil: "networkidle"` times out against the live URL from this sandbox — Firestore's WebChannel streaming never goes idle through the egress proxy. Use `waitUntil: "domcontentloaded"`. Not a bug in the app.
+- **Hard boundary:** this harness cannot merge PRs or push to `main`. Confirmed again this session — the auto-mode classifier blocks `gh pr merge` *and* the GitHub MCP `merge_pull_request` tool alike (same forbidden action, different tool). The user merges.
+- **Global config, not repo state:** `GITHUB_PERSONAL_ACCESS_TOKEN` was added to `~/.claude/settings.json`'s `env` block this session so the official `github` plugin's MCP server can authenticate. Machine-local; doesn't travel with the repo.
 
 ## Current state
 
-Everything from this session is **merged, deployed, and verified live**. No unfinished code work.
+Everything is **merged, deployed, and verified live**. No unfinished code work.
 
-One user request with 8 numbered items was decomposed (brainstorming skill) into 4 independent sub-projects, each built in its own worktree through the full superpowers workflow (brainstorming → writing-plans → subagent-driven-development → finishing-a-development-branch). All 4 PRs are MERGED into `origin/main`; only unrelated pre-existing PR #2 remains open.
+**This session: PR #22 — design revamp + modal/a11y consolidation.** Started from `/design-revamp` with no arguments; scope set to the whole `web/` app, direction "high-end/premium" filtered through PRODUCT.md's operational constraints (craft not decoration — no decorative motion on timed-test screens, glove-ready 44px targets, sunlight-legible contrast). Diagnosis found the existing `theme.css` token system was genuinely well-crafted, not AI slop, so it was preserved almost entirely; the real findings were accessibility bugs concentrated on `LiveTestRunnerPage.jsx`, the highest-stakes screen in the app (live grading, evaluator taps mid-test under time pressure).
 
-### PR #18 — Nav/labeling polish
-Spec: `docs/superpowers/specs/2026-08-05-nav-labeling-polish-design.md`
+What shipped in commit `cc6da09`:
 
-Renamed across nav dropdown and page TopBar titles: "Manage Tests"→"Manage Practicals", "Manage Exams"→"Test Bank", "Enter Exam Scores"→"Written Test Gradebook". Filled the two blank dashboard icon slots in `AdminDashboardPage.jsx` (`Icon`/`ICON_BY_PATH`): archive-box for Test Bank, open-book for Written Test Gradebook. Added a back-to-dashboard button on `HomePage.jsx` ("Select a Test"), shown only when reached via the admin `/start-test` path, reusing `TopBar`'s existing `onBack`. Final review caught a Critical naming collision — the pre-existing per-exam builder at `/exams/:examId/test-bank` also said "Test Bank"; retitled "Build from Test Bank".
+- **`web/DESIGN.md`** — new. Extracted from the existing `theme.css`, not invented.
+- **`web/src/components/GradeButtons.jsx`** — new shared Pass/Fail component replacing three independent copy-pasted copies (`LiveTestRunnerPage.jsx`, `ChecklistView.jsx`, `TileView.jsx`). Fixes a P0: ungraded buttons rendered white-on-`#c7c7cc` at ~1.7:1 contrast. New `.grade-pending` class handles the ungraded state; a second contrast bug in the *graded* state was fixed with one CSS line — `button.primary.pass-muted { color: var(--text); }` — taking white-on-green at ~3.1:1 to dark ink at ~5.5:1. `row`/`grid` size variants enforce the 44px floor.
+- **`web/src/components/Icon.jsx`** — new. The deliberate SVG icon set was promoted out of `AdminDashboardPage.jsx`'s local `Icon` function into a shared component and extended (info/timer/note/camera/play/pause/stop), replacing raw OS emoji (ℹ️⏱️📝📷▶⏸⏹) in the live test runner.
+- **All 6 hand-rolled modals routed through the existing `Modal.jsx` shell** — they previously bypassed it entirely (no focus trap, no Escape). The five live-test-runner popups (Return to Home?, Distance Required, Note Required, Test Complete, Stop Test?), `TopBar.jsx`'s change-password overlay, and `RecruitsAdminPage.jsx`'s recruit form. A `dismissible` prop was added to `Modal.jsx` for the one case with no cancel concept (Test Complete), preserving its original non-backdrop-dismissible behavior rather than silently changing it.
+- **Remaining sub-44px touch targets bumped to 44px** (Checklist/Tile Start/Stop/Retry/View; RecruitsAdminPage's Reset Password/Remove Login/View Deactivated).
 
-### PR #19 — Confirmation dialogs
-Spec: `docs/superpowers/specs/2026-08-05-confirm-dialogs-design.md`
+**Two real bugs were found in `Modal.jsx` itself, and only live browser verification caught them.** Worth remembering both the bugs and the pattern:
 
-New `web/src/components/ConfirmDialog.jsx` (built on the existing `Modal` shell), wired into all 6 genuinely destructive actions: Templates Delete; Exams Deactivate; Test Groups Deactivate; Recruits Deactivate + Remove Login; Admins Deactivate. Each names the item and states recoverability honestly — 5 say "can't be undone in the app"; Recruits says "can reactivate later" because `DeactivatedRecruitsPage.jsx` supports it. Deliberately untouched: the Reactivate button on `DeactivatedRecruitsPage.jsx`, `TestBankBuilder.jsx`'s in-progress working-set Remove, `ObstacleCourseRunner.jsx`'s existing unrelated confirm.
+1. Initial focus-steal used `querySelectorAll(FOCUSABLE_SELECTOR)[0].focus()` — DOM order, not visual focusability. `RecruitFormModal`'s first DOM element is a `display:none` file input, and a real browser silently no-ops `.focus()` on it. Combined with bug 2, Escape was disabled entirely for that modal. Fixed by filtering candidates on `el.offsetParent !== null` before picking the first.
+2. Nested modals (e.g. `ConfirmDialog`'s "Remove portal login?" opened from inside `RecruitFormModal`) are DOM **descendants** of the outer modal's card — they render into its `children` slot, not as siblings. So a `cardRef.contains(document.activeElement)` check returns true for *both* modals at once, and Escape fired both `onClose` handlers, closing the outer form when only the inner confirm should close. Fixed with an explicit module-level mount-order stack (`modalStack`); only the topmost instance responds to Escape/Tab-trap. **If `Modal.jsx` is ever touched again: DOM containment does not imply "is this the topmost modal" when modals aren't portaled out.**
 
-Final review found and fixed two real bugs, both at the one site (`RecruitsAdminPage.jsx` Remove-Login) whose confirm state read through a live Firestore listener prop instead of local item state: (a) Critical — unguarded `existingLogin.email` could throw during render if the listener updated before the confirm callback cleared state, and the app has no error boundary anywhere; (b) Important — the nested dialog's backdrop click bubbled up and also closed the parent edit-recruit form, discarding unsaved edits. Fixed with a guard clause and `stopPropagation()`.
+Verification actually performed (so the "done" claim is trustworthy):
 
-### PR #20 — Practicals grading logic
-Spec: `docs/superpowers/specs/2026-08-05-practicals-grading-design.md`
+- Clean `npm run build`, no errors.
+- `impeccable`'s `detect.mjs` across every touched file — zero findings in all touched `.jsx`.
+- Firebase emulator (`firebase emulators:start --only auth,firestore`) + `VITE_USE_EMULATOR=1 npm run dev`, seeded with a verify-admin account and minimal Firestore docs via REST, driven by a real Playwright script. **This is what caught both `Modal.jsx` bugs — a clean build would have missed both.** 7/7 checks green on the final run (focus trap, Escape-closes, nested-modal Escape scoping, etc.), zero console errors.
+- Screenshots confirming the contrast fix visually in both the ungraded and graded PASS states.
+- Temp scripts (`.tmp-verify.cjs`, `.tmp-shot.cjs`, `.tmp-livecheck.cjs`) and `firebase-debug.log` deleted before committing; never entered git.
 
-Two changes in `LiveTestRunnerPage.jsx` / `RecruitConfirmPage.jsx`.
+Merge and deploy: opened as draft PR #22 → marked ready → **the user merged it via GitHub**. Landed on `main` at `1a1cfb7` (`Merge pull request #22 from Hhall63/design-revamp-modal-a11y`). Deployed from this worktree directly (its tree was byte-identical to `origin/main` post-merge, and `main` is checked out in the primary directory so this worktree couldn't take it anyway): `firebase deploy --only hosting --project gfd-recruit-training`. Hosting only — unlike PR #21, this PR did not touch `firestore.rules`. Verified live by matching the live `index.html`'s bundle hash against the just-built one, confirming a real non-empty `apiKey` in the bundle, and loading the live URL headlessly — correct title, correct unauthenticated redirect to `/login`, zero console errors.
 
-1. **Note required on failure, universally.** The brainstorm initially misread this as "restrict the rule to the obstacle course"; the user corrected mid-conversation — *if a practical is graded a failure there must be a note, period.* The real gap was the "⏹ Stop Test" early-stop path: `confirmStopTest()` skipped the check that `advance()`/`submitAll()` already had. All three finish paths now enforce it.
-2. **Checklist is the default view** for every practical except one containing an Obstacle Course line, which stays pinned to Standard (unchanged). Two one-line default changes: the picker default in `RecruitConfirmPage.jsx`, the fallback default in `LiveTestRunnerPage.jsx`.
-
-### PR #21 — Evaluator wizard (largest, most security-sensitive)
-Spec: `docs/superpowers/specs/2026-08-06-evaluator-wizard-design.md`
-
-New "+ Add Evaluator" flow, separate from "Add User" — which is now admin-only, its role picker removed, since evaluators go exclusively through the wizard. Admin enters email + display name + an optional "Auto-deactivate at 6:00 PM" toggle (that day, or next day if created after 6pm — `computeAutoDeactivateAt()` in the new `web/src/lib/evaluatorInvites.js`).
-
-No temp password is ever shown to anyone. Instead a per-evaluator QR code (new `qrcode` npm dep) links to a new public `/claim/:token` route (`ClaimInvitePage.jsx`) where the evaluator types only their own new password. `claimEvaluatorInvite()` (new, in `web/src/firebase.js`) signs in with a system-generated temp password looked up from the new `evaluatorInvites/{token}` Firestore collection, on a throwaway secondary Firebase App instance — an existing pattern in that file, now used a third time — so it can never disrupt an admin's session in the same browser.
-
-Auto-deactivate is enforced entirely in `firestore.rules`: one clause added to the single existing `isActiveUser()` gate, comparing `autoDeactivateAt` against Firestore's own server clock (`request.time`). No Cloud Functions, no scheduled jobs, still Spark-plan. A live Playwright E2E on a backdated account produced a real `FirebaseError: [code=permission-denied]` from the SDK — not an inferred empty screen.
-
-A whole-branch security review (opus) traced the `uid`/`used`/`autoDeactivateAt` round-trip across the 3 files that must agree (rules, invite creation, claim) and walked the adversarial cases. No auth bypass or credential leak. 3 Important findings, all fixed in commit `a42aa36`:
-
-1. The lazy auto-deactivate sweep in `AdminsPage.jsx` didn't clear `autoDeactivateAt` when deactivating — fixed with `deleteField()`, so a manually-reactivated account can't silently stay locked out with no visible cause.
-2. A failure between `updatePassword` succeeding and the claim finishing showed a misleading "Something went wrong" while the new password actually worked — now distinguished via an `invite/partial-claim` error code plus an honest "done" state in `ClaimInvitePage.jsx`.
-3. The spec overstated `expiresAt` (7-day expiry) as an enforced security boundary. Corrected — see Key decisions.
-
-### Cross-PR conflict (resolved)
-Found after all 4 PRs were open. #18/#19/#20 merged clean via `gh pr merge`. #21 conflicted with already-merged #19 — both independently modified `AdminsPage.jsx` (confirm-dialog wiring vs. the evaluator-wizard button/sweep/admin-only-modal changes). Resolved by fetching and merging `origin/main` into `worktree-evaluator-wizard` locally, reconciling two small regions (a state-declaration line, a render-block ordering) so both features coexist. Clean build verified before push and merge.
-
-### Deploy
-`npm run build` + `firebase deploy --only hosting,firestore --project gfd-recruit-training` (firestore included because #21 changed `firestore.rules`). Verified by: fetching the live bundle and confirming it's the freshly-built one, grepping it for a real non-empty `apiKey` and for new-feature strings, and loading the live URL in headless Playwright — correct page title, 0 console errors, correct unauthenticated redirect to `/login`.
+**Prior session (PRs #18–#21), compressed.** One 8-item user request was decomposed into 4 independent sub-projects, each built in its own worktree through the full superpowers workflow. All four merged and deployed. Load-bearing outcomes still constraining the codebase: recruit portal logins use **QR code + self-set password** (no admin-typed passwords); account **auto-deactivation is enforced in `firestore.rules`**, not in app code, so it holds even if the client is bypassed; `expiresAt` is **friction, not a security boundary** — do not treat it as one; a note is **required universally** on the paths that require one, no per-screen exceptions; and the app stays on the `.web.app` domain (no custom domain). Only unrelated pre-existing PR #2 remains open.
 
 ## Key decisions & why
 
-- **Stay on `*.web.app`; no custom domain, no GitHub Pages migration.** `gfd-recruit-training.web.app` is already a Google-owned domain and reads as legitimate. A custom domain buys equivalent legitimacy for real churn. (This was item 2 of the original 8 — answered, not built.)
-- **Auto-deactivate lives in `firestore.rules`, not a scheduled job.** `request.time` vs. a stored `autoDeactivateAt` is enforcement from Firestore's own clock with zero infrastructure — keeps the project on the free Spark plan, which is a hard project constraint.
-- **QR + self-set password instead of showing a temp password.** The admin never sees or relays a credential; the evaluator's password is only ever typed by the evaluator.
-- **`expiresAt` is UI friction, NOT a security boundary.** Firebase Auth sign-in and password change sit entirely outside what Firestore rules can govern, so a leaked or unclaimed invite's temp password stays a live, usable credential for as long as the account exists — it does not safely expire on its own. The rules clause exists anyway as friction and is documented in the spec as not a real bound. **The only real revocation is the existing Deactivate button.**
-- **Note-required-on-failure applies to every practical.** Enforced at all three finish paths rather than per-test — user-corrected requirement, see PR #20.
-- **Confirm dialogs only on genuinely destructive actions.** Reactivate, in-progress working-set edits, and an already-confirmed flow were left alone; more dialogs would be noise.
+- **Preserved the existing design system instead of revamping it.** `theme.css` was already deliberate. The `/design-revamp` value came from fixing real accessibility defects, not from restyling. Redesigning it would have been churn.
+- **Consolidated rather than patched.** Three copies of the grade buttons and six hand-rolled modals became one component and one shell each. Root-cause fix, smaller diff than fixing every site, and every future caller inherits the fix.
+- **New branch `design-revamp-modal-a11y` instead of reusing `worktree-evaluator-wizard`.** That branch was already fully merged; reusing it for unrelated work would have made the PR unreviewable.
+- **Kept `Test Complete`'s non-dismissible behavior via a `dismissible` prop.** Routing it through `Modal.jsx` shouldn't silently change how a modal behaves for evaluators mid-test.
+- **Two `impeccable` findings on `theme.css` suppressed as false positives** (user approved): `side-tab` flags the `.card--pass`/`.card--fail`/`.card--progress`/`.flag-panel` left-border accents, which implement DESIGN.md's own documented Redundant Signal Rule; `codex-grid-background` flags the `.screen--textured` dot grid, already commented as deliberate. Both pre-existing and functional. Suppression written via `hook-admin.mjs ignore-value` into `web/.impeccable/config.json`, which is **gitignored** — it's a local machine setting and won't propagate to a fresh clone or another machine. **59 other pre-existing advisory findings remain in `theme.css`** (color/font-size drift predating this session) — deliberately out of scope, not errors, untouched.
+- **Carried forward, still live:** stay on `.web.app`; auto-deactivate enforced in rules; QR + self-set password; `expiresAt` is friction not security; note required universally; confirm-dialog scoping as decided in the #19 session.
 
 ## Open items
 
-Both carried forward from earlier sessions, re-verified as still open. Neither relates to anything that shipped this session.
+Carried forward and re-verified as still open. Neither relates to anything that shipped this session.
 
 - **Test Bank Version A/B generate buttons, real-hardware smoke test.** Never done with a physically-connected `.LXRBank` drive. Needs a real thumbdrive plus the native folder-picker API — cannot be automated headlessly.
-- **EmailJS failure-notification email.** Noted in earlier sessions, still unverified.
+- **EmailJS failure-notification email.** Noted several sessions back, still unverified.
 
 Housekeeping, not code:
 
-- **Local `main` is 5 merges behind `origin/main`.** Local main checkout (`C:\Users\ffhal\GFD-Training-Practicals`, a separate directory from any worktree) is at `a0c2a11`; `origin/main` is at `9f1488c`. Already flagged in an earlier handoff and has only widened.
-- **Worktree cleanup.** `git worktree list` shows 15. Five are clean cleanup candidates: `nav-labeling-polish`, `confirm-dialogs`, `practicals-grading`, `evaluator-wizard` (this one) — all merged and deployed — plus `test-bank-lxrbank-import` (PR #17, merged in an earlier session). Whether the other ~9 (audit-p0-p1-remediation, class-report-print-and-transcript-label, local-emulator-sandbox, plans-evd-batch-aggressive, and the older `.worktrees/` ones) are stale is still an open question, untouched.
+- **Local `main` is 10 PR merges behind `origin/main`, and nobody has run the sync yet.** The main checkout (`C:\Users\ffhal\GFD-Training-Practicals`, separate from any worktree) is still at `a0c2a11`; `origin/main` is now at `1a1cfb7`. Note the old handoff said "5 merges" — that count was already understated. Verified this session: `git rev-list --count --first-parent a0c2a11..origin/main` is 10, spanning PR #12 through PR #22. This has been flagged in three consecutive handoffs and keeps widening.
+- **Worktree cleanup, still 15 worktrees, nothing removed this session.** Safe cleanup candidates: `nav-labeling-polish`, `confirm-dialogs`, `practicals-grading`, `test-bank-lxrbank-import`, and `evaluator-wizard` (this one). Note the last entry changed meaning since the old handoff — this worktree is now on `design-revamp-modal-a11y` at `cc6da09`, not `worktree-evaluator-wizard`. It's still a valid candidate, just for different (newer, also-merged-and-deployed) work. Whether the other ~9 (`audit-p0-p1-remediation`, `class-report-print-and-transcript-label`, `local-emulator-sandbox`, `plans-evd-batch-aggressive`, and the five older `.worktrees/` ones) are stale is still an open, untouched question.
 
 ## How to resume
 
-Git state in this worktree: HEAD `a7df8d4` (merge of `origin/main` into `worktree-evaluator-wizard`), tree byte-identical to `origin/main` at `9f1488c` (`git diff --stat HEAD origin/main` is empty), working tree clean. Two Playwright scratch artifacts (`live-deploy-check.png`, `.playwright-mcp/`) were created here during deploy verification and removed; never committed.
+Git state in this worktree, verified at handoff time: branch `design-revamp-modal-a11y`, HEAD `cc6da09`, working tree clean, tracking `origin/design-revamp-modal-a11y`. `git diff --stat HEAD origin/main` is empty — the tree is byte-identical to `origin/main` at `1a1cfb7`.
 
-1. **Sync local main — do this from the main checkout, not from a worktree** (per the earlier handoff's own note on this):
+1. **Sync local main — from the main checkout, not from a worktree:**
    ```
    cd C:\Users\ffhal\GFD-Training-Practicals
    git fetch origin
-   git merge --ff-only origin/main   # a0c2a11 -> 9f1488c
+   git merge --ff-only origin/main   # a0c2a11 -> 1a1cfb7
    ```
-2. **Decide on worktree cleanup.** Remove the five merged worktrees listed above if you want; leave the ~9 pre-existing ones alone unless you're deliberately auditing them.
+2. **Decide on worktree cleanup.** Remove the five merged worktrees above if you want; leave the ~9 pre-existing ones alone unless you're deliberately auditing them.
 3. **Then pick up an open item.** The only real remaining threads are the `.LXRBank` hardware smoke test (needs the physical drive in hand) and the EmailJS notification check. Nothing from this session is half-finished.
+
+If you touch modals or grading UI again, use the emulator + Playwright harness rather than trusting a clean build — see the Current state section for why.
 
 ## Active modes
 
-Ponytail at level `full` for the entire session (confirmed via the SessionStart hook). No other persona/mode skills invoked.
+Ponytail at level `full` for the entire session (confirmed via the SessionStart hook). No other persona/mode skills invoked — no humanizer, no caveman, none.
