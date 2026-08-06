@@ -14,6 +14,7 @@ import { db, createUserAccountWithoutSigningIn } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
 import ConfirmDialog from "../components/ConfirmDialog";
+import Modal from "../components/Modal";
 import { initials } from "../lib/constants";
 import { compressImageToDataUrl } from "../lib/image";
 import { PRACTICE_RECRUIT_ID } from "../lib/practiceRecruit";
@@ -81,7 +82,7 @@ export default function RecruitsAdminPage() {
         <button
           type="button"
           className="secondary"
-          style={{ width: "auto", padding: "8px 12px", marginBottom: 12 }}
+          style={{ width: "auto", minHeight: 44, padding: "8px 12px", marginBottom: 12 }}
           onClick={() => navigate("/recruits/deactivated")}
         >
           View Deactivated
@@ -243,12 +244,8 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
   }
 
   return (
-    <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30 }}
-      onClick={onClose}
-    >
-      <div className="card" style={{ width: 340, background: "white", maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ marginTop: 0 }}>{isNew ? "New Recruit" : "Edit Recruit"}</h3>
+    <Modal titleId="recruit-form-title" onClose={onClose} maxWidth={340}>
+      <h3 id="recruit-form-title" style={{ marginTop: 0 }}>{isNew ? "New Recruit" : "Edit Recruit"}</h3>
 
         <div className="center-column" style={{ marginBottom: 12 }}>
           <label style={{ cursor: "pointer" }}>
@@ -284,7 +281,7 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
               <button
                 type="button"
                 className="secondary"
-                style={{ width: "auto", padding: "8px 12px" }}
+                style={{ width: "auto", minHeight: 44, padding: "8px 12px" }}
                 onClick={() => requestPasswordReset(existingLogin.email)}
               >
                 Reset Password
@@ -292,7 +289,7 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
               <button
                 type="button"
                 className="secondary"
-                style={{ width: "auto", padding: "8px 12px", color: "var(--brand-red)" }}
+                style={{ width: "auto", minHeight: 44, padding: "8px 12px", color: "var(--brand-red)" }}
                 onClick={() => setShowRemoveLoginConfirm(true)}
               >
                 Remove Login
@@ -339,23 +336,24 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
             </button>
           </div>
         )}
-      </div>
 
       {showRemoveLoginConfirm && existingLogin && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <ConfirmDialog
-            titleId="confirm-remove-login"
-            title="Remove portal login?"
-            message={`Remove the portal login for ${existingLogin.email}? This can't be undone in the app.`}
-            confirmLabel="Remove Login"
-            onConfirm={async () => {
-              await handleRemoveLogin();
-              setShowRemoveLoginConfirm(false);
-            }}
-            onCancel={() => setShowRemoveLoginConfirm(false)}
-          />
-        </div>
+        // No stopPropagation wrapper needed: Modal's own card already stops a click on the
+        // nested confirm's backdrop from bubbling out to this form modal's backdrop, and the
+        // nesting-safe focus-containment check in Modal.jsx keeps Escape scoped to whichever
+        // modal currently holds focus (the confirm, once it's open).
+        <ConfirmDialog
+          titleId="confirm-remove-login"
+          title="Remove portal login?"
+          message={`Remove the portal login for ${existingLogin.email}? This can't be undone in the app.`}
+          confirmLabel="Remove Login"
+          onConfirm={async () => {
+            await handleRemoveLogin();
+            setShowRemoveLoginConfirm(false);
+          }}
+          onCancel={() => setShowRemoveLoginConfirm(false)}
+        />
       )}
-    </div>
+    </Modal>
   );
 }

@@ -1,5 +1,18 @@
 import { LINE_TYPES, RESULT, formatSeconds, lineDisplayLabel } from "../lib/constants";
 import { sanitizeHtml } from "../lib/richText";
+import GradeButtons from "./GradeButtons";
+
+// Shared sizing for the Start/Stop/Retry/View action buttons below (not GradeButtons' own
+// pair, which sets its own sizing) — 44px glove-ready floor, per PRODUCT.md.
+const actionButtonStyle = {
+  width: "auto",
+  minHeight: 44,
+  padding: "8px 14px",
+  flexShrink: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
 
 /** Shows every line in the test at once, one row per line, so an evaluator can grade
  * out of order instead of stepping through lines one at a time. Plain graded lines get
@@ -51,36 +64,11 @@ export default function ChecklistView({
             </div>
             {isPlainGraded ? (
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                <button
-                  className={`primary ${line.result === RESULT.PASS ? "pass-muted" : ""}`}
-                  style={{
-                    width: "auto",
-                    padding: "8px 14px",
-                    background: line.result === RESULT.PASS ? undefined : "#c7c7cc",
-                  }}
-                  onClick={() => onGrade(line.id, RESULT.PASS)}
-                >
-                  Pass
-                </button>
-                <button
-                  className={`primary ${line.result === RESULT.FAIL ? "fail-muted" : ""}`}
-                  style={{
-                    width: "auto",
-                    padding: "8px 14px",
-                    background: line.result === RESULT.FAIL ? undefined : "#c7c7cc",
-                  }}
-                  onClick={() => onGrade(line.id, RESULT.FAIL)}
-                >
-                  Fail
-                </button>
+                <GradeButtons result={line.result} onGrade={(result) => onGrade(line.id, result)} size="row" />
               </div>
             ) : isTimer ? (
               isRunningHere ? (
-                <button
-                  className="primary danger"
-                  style={{ width: "auto", padding: "8px 14px", flexShrink: 0 }}
-                  onClick={onStopTimer}
-                >
+                <button className="primary danger" style={actionButtonStyle} onClick={onStopTimer}>
                   Stop
                 </button>
               ) : line.result != null ? (
@@ -90,7 +78,7 @@ export default function ChecklistView({
                   </span>
                   <button
                     className="secondary"
-                    style={{ width: "auto", padding: "8px 14px" }}
+                    style={actionButtonStyle}
                     disabled={anotherTimerRunning}
                     onClick={() => onStartTimer(line.id)}
                   >
@@ -100,7 +88,7 @@ export default function ChecklistView({
               ) : (
                 <button
                   className="primary"
-                  style={{ width: "auto", padding: "8px 14px", flexShrink: 0 }}
+                  style={actionButtonStyle}
                   disabled={anotherTimerRunning}
                   onClick={() => onStartTimer(line.id)}
                 >
@@ -108,11 +96,7 @@ export default function ChecklistView({
                 </button>
               )
             ) : (
-              <button
-                className="secondary"
-                style={{ width: "auto", padding: "8px 14px", flexShrink: 0 }}
-                onClick={() => onJump(line.id)}
-              >
+              <button className="secondary" style={actionButtonStyle} onClick={() => onJump(line.id)}>
                 View
               </button>
             )}
