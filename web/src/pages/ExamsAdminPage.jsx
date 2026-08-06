@@ -53,7 +53,7 @@ export default function ExamsAdminPage() {
 
   return (
     <div className="app-shell">
-      <TopBar title="Manage Exams" onBack={() => navigate("/")} showMenu={false} />
+      <TopBar title="Test Bank" onBack={() => navigate("/")} showMenu={false} />
       <div className="screen--wide screen--textured">
         <p className="muted">
           Define written exams for the gradebook. Every exam is scored out of 100, passing at 70%.
