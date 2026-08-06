@@ -44,7 +44,7 @@ function LiveTestRunnerRun({ sessionId }) {
   // Purely presentational — which display view is showing. Never read by the timer effect,
   // patchCurrent/gradeLine, or finishSession, so switching views mid-test can't disturb
   // progress, grading, or a running timer.
-  const [viewMode, setViewMode] = useState(location.state?.initialViewMode ?? "standard");
+  const [viewMode, setViewMode] = useState(location.state?.initialViewMode ?? "checklist");
   // finishSession() needs the just-patched note/result even when it runs inside the same
   // handler that patched it (e.g. the Note Required modal's "Save & Continue"), where a
   // re-render hasn't happened yet and the handler's own closure over `lineResults` is still
