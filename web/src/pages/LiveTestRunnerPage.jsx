@@ -484,6 +484,20 @@ function LiveTestRunnerRun({ sessionId }) {
     );
 
     setShowStopConfirm(false);
+
+    // Same test-level note-required gate advance() and submitAll() already enforce — a
+    // failing test may never finish without a note, regardless of which of the three paths
+    // ends it. Computed AFTER the writes above so this reflects the test's real final state
+    // (the Overall Timer's own result and the just-applied auto-FAILs), not a stale snapshot.
+    const { overallResult } = computeSessionOutcome(lineResultsRef.current ?? lineResults);
+    if (overallResult === RESULT.FAIL && !hasOverallNote()) {
+      noteContinuationRef.current = finishSessionAndContinue;
+      setNoteDraft(testNoteRef.current?.note ?? "");
+      setNoteDraftPhotos(testNoteRef.current?.photoURLs ?? []);
+      setShowNoteRequired(true);
+      return;
+    }
+
     await finishSessionAndContinue();
   }
 
