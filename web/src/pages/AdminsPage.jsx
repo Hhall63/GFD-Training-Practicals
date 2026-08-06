@@ -177,7 +177,7 @@ export default function AdminsPage() {
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="primary" style={{ width: "auto" }} onClick={() => setShowNewUser(true)}>
-            + Add User
+            + Add Administrator
           </button>
           <button className="primary" style={{ width: "auto" }} onClick={() => setShowAddEvaluator(true)}>
             + Add Evaluator
@@ -246,7 +246,6 @@ function NewUserModal({ onClose }) {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("evaluator");
   const [notifyOnFailures, setNotifyOnFailures] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -266,9 +265,9 @@ function NewUserModal({ onClose }) {
       await setDoc(doc(db, "admins", uid), {
         email: trimmedEmail,
         displayName,
-        role,
+        role: "admin",
         isActive: true,
-        notifyOnFailures: role === "admin" ? notifyOnFailures : false,
+        notifyOnFailures,
         createdAt: new Date(),
         mustChangePassword: true,
       });
@@ -317,31 +316,7 @@ function NewUserModal({ onClose }) {
       onClick={onClose}
     >
       <div className="card" style={{ width: 340, background: "white", maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ marginTop: 0 }}>New User</h3>
-
-        <div className="field">
-          <label>Role</label>
-          <div className="segmented">
-            {[
-              ["evaluator", "Evaluator"],
-              ["admin", "Admin"],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={`segment${role === value ? " active" : ""}`}
-                onClick={() => setRole(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>
-            {role === "evaluator"
-              ? "Can run tests and submit results. Cannot edit recruits, tests, or other users."
-              : "Full access: can build tests, manage recruits, run reports, and manage users."}
-          </p>
-        </div>
+        <h3 style={{ marginTop: 0 }}>New Administrator</h3>
 
         <div className="field">
           <label>Full Name</label>
@@ -356,22 +331,20 @@ function NewUserModal({ onClose }) {
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
 
-        {role === "admin" && (
-          <div className="field">
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "var(--text)" }}>
-              <input
-                type="checkbox"
-                checked={notifyOnFailures}
-                onChange={(e) => setNotifyOnFailures(e.target.checked)}
-                style={{ width: "auto", margin: 0 }}
-              />
-              Notify with failures
-            </label>
-            <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
-              Email this admin whenever a recruit fails a test.
-            </p>
-          </div>
-        )}
+        <div className="field">
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "var(--text)" }}>
+            <input
+              type="checkbox"
+              checked={notifyOnFailures}
+              onChange={(e) => setNotifyOnFailures(e.target.checked)}
+              style={{ width: "auto", margin: 0 }}
+            />
+            Notify with failures
+          </label>
+          <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
+            Email this admin whenever a recruit fails a test.
+          </p>
+        </div>
 
         {error && <p style={{ color: "var(--brand-red)", fontSize: 13 }}>{error}</p>}
         <div style={{ display: "flex", gap: 8 }}>
