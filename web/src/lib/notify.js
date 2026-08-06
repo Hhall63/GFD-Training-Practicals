@@ -91,6 +91,62 @@ export async function sendWelcomeEmail({ toEmail, toName, loginEmail, tempPasswo
   }
 }
 
+export function buildEvaluatorInviteSubject() {
+  return "You've been invited to GFD Recruit Testing";
+}
+
+/** Plain-text invite message: who this is for and the claim link — deliberately no
+ * password, since the evaluator sets their own via the claim page instead of being handed
+ * one. Mirrors buildWelcomeBody's shape (plain text, used directly as the EmailJS
+ * "message" template variable). */
+export function buildEvaluatorInviteBody({ toName, claimUrl }) {
+  const lines = [];
+  lines.push(`Hi ${toName},`);
+  lines.push("");
+  lines.push("You've been invited to GFD Recruit Testing as an evaluator.");
+  lines.push("");
+  lines.push(
+    "Scan the QR code your administrator showed you, or open this link to set your password:"
+  );
+  lines.push(claimUrl);
+  return lines.join("\n");
+}
+
+/**
+ * Attempts automatic delivery of an evaluator-invite email via EmailJS, reusing the exact
+ * same welcome template as sendWelcomeEmail (the template itself is just a generic
+ * to_email/subject/message wrapper — no new EmailJS configuration needed). Same
+ * best-effort contract: never throws, always resolves to { status, error }, same status
+ * values as sendWelcomeEmail.
+ */
+export async function sendEvaluatorInviteEmail({ toEmail, toName, claimUrl }) {
+  if (!isWelcomeEmailConfigured()) return { status: "not-configured", error: null };
+
+  try {
+    const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: EMAILJS_WELCOME_TEMPLATE_ID,
+        user_id: EMAILJS_PUBLIC_KEY,
+        template_params: {
+          to_email: toEmail,
+          subject: buildEvaluatorInviteSubject(),
+          message: buildEvaluatorInviteBody({ toName, claimUrl }),
+        },
+      }),
+    });
+    if (res.ok) return { status: "sent", error: null };
+    const detail = await res.text().catch(() => "");
+    console.error("EmailJS evaluator invite send failed", res.status, detail);
+    return { status: "failed", error: `EmailJS ${res.status}${detail ? `: ${detail}` : ""}` };
+  } catch (err) {
+    console.error("EmailJS evaluator invite send threw", err);
+    return { status: "failed", error: err?.message ?? "network error" };
+  }
+}
+
 /** Active administrators who checked "Notify with failures" on their account. Sends to the
  * admin's `notificationEmail` when set (so failures can go to a work address that differs
  * from their login), otherwise their login `email`.
