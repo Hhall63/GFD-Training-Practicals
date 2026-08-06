@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { collection, doc, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { collection, deleteField, doc, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { createUserAccountWithoutSigningIn } from "../firebase";
 import { useAuth } from "../context/AuthContext";
@@ -45,7 +45,9 @@ export default function AdminsPage() {
       const now = new Date();
       loaded
         .filter((u) => u.autoDeactivateAt && u.autoDeactivateAt.toDate() < now)
-        .forEach((u) => updateDoc(doc(db, "admins", u.id), { isActive: false }).catch(() => {}));
+        .forEach((u) =>
+          updateDoc(doc(db, "admins", u.id), { isActive: false, autoDeactivateAt: deleteField() }).catch(() => {})
+        );
     });
   }, []);
 

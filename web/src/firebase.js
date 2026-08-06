@@ -55,7 +55,7 @@ export async function createUserAccountWithoutSigningIn(email, password) {
     return credential.user.uid;
   } finally {
     await signOut(secondaryAuth).catch(() => {});
-    await deleteApp(secondaryApp);
+    await deleteApp(secondaryApp).catch(() => {});
   }
 }
 
@@ -101,8 +101,11 @@ export async function signInAnonymouslyOnSecondaryApp() {
  * Re-reads the invite fresh via the secondary app rather than trusting an earlier read, to
  * close the gap between a page showing "this invite looks valid" and the moment it's
  * actually claimed. Throws an Error with `.code` set to "invite/not-found", "invite/used",
- * or "invite/expired" for those cases; a Firebase Auth failure (e.g. network) passes
- * through with its own existing `.code`.
+ * or "invite/expired" for those cases. If updatePassword() succeeds but a write
+ * afterward fails, throws with `.code` "invite/partial-claim" — the new password is
+ * already live at that point, so callers must not treat this as a full failure. Any
+ * other Firebase Auth failure (e.g. network, before updatePassword) passes through with
+ * its own existing `.code`.
  */
 export async function claimEvaluatorInvite(token, newPassword) {
   const secondaryApp = initializeApp(firebaseConfig, `claim-${Date.now()}`);
@@ -128,10 +131,20 @@ export async function claimEvaluatorInvite(token, newPassword) {
 
     await signInWithEmailAndPassword(secondaryAuth, invite.email, invite.tempAuthPassword);
     await updatePassword(secondaryAuth.currentUser, newPassword);
-    await updateDoc(doc(secondaryDb, "admins", invite.uid), { mustChangePassword: false });
-    await updateDoc(inviteRef, { used: true });
+    try {
+      await updateDoc(doc(secondaryDb, "admins", invite.uid), { mustChangePassword: false });
+      await updateDoc(inviteRef, { used: true });
+    } catch (err) {
+      // The new password is already live in Firebase Auth by this point — only the
+      // bookkeeping writes failed. The caller must not report this as a generic failure:
+      // the evaluator can already sign in with the password they just set.
+      throw Object.assign(new Error("Password set, but finishing setup failed"), {
+        code: "invite/partial-claim",
+        cause: err,
+      });
+    }
   } finally {
     await signOut(secondaryAuth).catch(() => {});
-    await deleteApp(secondaryApp);
+    await deleteApp(secondaryApp).catch(() => {});
   }
 }

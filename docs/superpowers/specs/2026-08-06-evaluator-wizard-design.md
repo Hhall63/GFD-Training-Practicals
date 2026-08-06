@@ -103,6 +103,17 @@ no-login Live Dashboard — reading a single doc by its exact random ID is
 allowed unauthenticated; listing the collection is not, so there's no way
 to enumerate or guess a live invite.
 
+`expiresAt` is enforced only by this app's own UI/rules as friction on the claim
+button — it is NOT a real security boundary. Firebase Auth sign-in and password
+changes are entirely outside what Firestore security rules can govern, so anyone who
+reads an invite doc (the `get` is public and unauthenticated, by design, forever) can
+sign in directly via the Auth SDK using `tempAuthPassword` and change the password
+themselves, bypassing this app's claim page and the `expiresAt` check entirely. The
+only real revocation is deactivating the account (the existing Deactivate button,
+unaffected by any of this) — an unclaimed invite should be treated as a live
+credential to a live account for as long as that account exists and remains
+`isActive`, not as something that safely expires on its own.
+
 **Wizard flow** (`AddEvaluatorWizard.jsx`, a new component, opened from a
 new "+ Add Evaluator" button on `AdminsPage.jsx`):
 

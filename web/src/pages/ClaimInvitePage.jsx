@@ -11,7 +11,7 @@ import badge from "../assets/gfd-badge.png";
 export default function ClaimInvitePage() {
   const { token } = useParams();
   const navigate = useNavigate();
-  const [phase, setPhase] = useState("loading"); // loading | invalid | ready | claiming
+  const [phase, setPhase] = useState("loading"); // loading | invalid | ready | claiming | done
   const [invite, setInvite] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
@@ -34,8 +34,14 @@ export default function ClaimInvitePage() {
     setError("");
     try {
       await claimEvaluatorInvite(token, newPassword);
-      navigate("/login", { replace: true });
+      setPhase("done");
     } catch (err) {
+      if (err.code === "invite/partial-claim") {
+        // The password is already set even though this specific attempt threw — same
+        // outcome as full success from the evaluator's point of view.
+        setPhase("done");
+        return;
+      }
       setPhase("ready");
       setError(
         err.code === "invite/used" || err.code === "invite/expired" || err.code === "invite/not-found"
@@ -56,6 +62,20 @@ export default function ClaimInvitePage() {
         <p className="muted" style={{ maxWidth: 320, textAlign: "center" }}>
           This invite has expired or already been used. Ask your administrator for a new one.
         </p>
+      </div>
+    );
+  }
+
+  if (phase === "done") {
+    return (
+      <div className="screen center-column" style={{ paddingTop: 80 }}>
+        <img src={badge} alt="GFD Badge" style={{ width: 110, marginBottom: 12 }} />
+        <p className="muted" style={{ maxWidth: 320, textAlign: "center", marginBottom: 16 }}>
+          Password set — sign in with your new password.
+        </p>
+        <button className="primary" style={{ maxWidth: 280 }} onClick={() => navigate("/login", { replace: true })}>
+          Continue to Login
+        </button>
       </div>
     );
   }

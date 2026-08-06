@@ -100,13 +100,18 @@ service cloud.firestore {
       // exact token is public (the evaluator claiming their account isn't signed in yet),
       // list is never allowed so invites can't be enumerated or guessed. Only the invited
       // account itself (once it's the signed-in user, mid-claim) may flip `used` to true,
-      // and only that one field, and only one-way.
+      // and only that one field, and only one-way, and only before expiresAt — though this
+      // is friction on this app's own claim button, not a real security bound: Firebase
+      // Auth sign-in/password-change is entirely outside what Firestore rules can gate, so
+      // a leaked tempAuthPassword remains usable via the Auth SDK directly regardless of
+      // this check. See docs/superpowers/specs/2026-08-06-evaluator-wizard-design.md.
       allow get: if true;
       allow list: if false;
       allow create: if isAdminRole();
       allow update: if isSignedIn()
         && request.auth.uid == resource.data.uid
         && resource.data.used == false
+        && resource.data.expiresAt > request.time
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used'])
         && request.resource.data.used == true;
       allow delete: if false;
