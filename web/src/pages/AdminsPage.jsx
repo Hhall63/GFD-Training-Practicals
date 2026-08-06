@@ -6,6 +6,7 @@ import { createUserAccountWithoutSigningIn } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
 import { sendWelcomeEmail } from "../lib/notify";
+import AddEvaluatorWizard from "../components/AddEvaluatorWizard";
 
 // This page only ever manages staff (Administrator/Evaluator) accounts. Recruit accounts
 // are created and managed from Manage Recruits instead, alongside the recruit's roster
@@ -24,6 +25,7 @@ export default function AdminsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
   const [showNewUser, setShowNewUser] = useState(searchParams.get("new") === "1");
+  const [showAddEvaluator, setShowAddEvaluator] = useState(false);
   const [roleFilter, setRoleFilter] = useState("all");
   const [resetMsgByUser, setResetMsgByUser] = useState({});
 
@@ -32,7 +34,18 @@ export default function AdminsPage() {
     return onSnapshot(q, (snap) => {
       // Recruit-role accounts live here too (same collection), but this page never shows
       // or creates them.
-      setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => (u.role ?? "admin") !== "recruit"));
+      const loaded = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => (u.role ?? "admin") !== "recruit");
+      setUsers(loaded);
+      // Lazy auto-deactivate sweep: firestore.rules already blocks all Firestore access
+      // for anyone past their autoDeactivateAt deadline (see isActiveUser() there) — this
+      // just keeps the visible list in sync so nobody LOOKS active when they can't
+      // actually do anything, without needing a scheduled job. Best-effort; a failed write
+      // here just means the list stays stale until the next load, not a security gap (the
+      // rule already blocks the account regardless).
+      const now = new Date();
+      loaded
+        .filter((u) => u.autoDeactivateAt && u.autoDeactivateAt.toDate() < now)
+        .forEach((u) => updateDoc(doc(db, "admins", u.id), { isActive: false }).catch(() => {}));
     });
   }, []);
 
@@ -162,12 +175,18 @@ export default function AdminsPage() {
           );
         })}
 
-        <button className="primary" onClick={() => setShowNewUser(true)}>
-          + Add User
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="primary" style={{ width: "auto" }} onClick={() => setShowNewUser(true)}>
+            + Add User
+          </button>
+          <button className="primary" style={{ width: "auto" }} onClick={() => setShowAddEvaluator(true)}>
+            + Add Evaluator
+          </button>
+        </div>
       </div>
 
       {showNewUser && <NewUserModal onClose={closeNewUserModal} />}
+      {showAddEvaluator && <AddEvaluatorWizard onClose={() => setShowAddEvaluator(false)} />}
     </div>
   );
 }
