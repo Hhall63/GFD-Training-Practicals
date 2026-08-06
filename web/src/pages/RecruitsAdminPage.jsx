@@ -13,6 +13,7 @@ import {
 import { db, createUserAccountWithoutSigningIn } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { initials } from "../lib/constants";
 import { compressImageToDataUrl } from "../lib/image";
 import { PRACTICE_RECRUIT_ID } from "../lib/practiceRecruit";
@@ -31,6 +32,7 @@ export default function RecruitsAdminPage() {
   const [recruits, setRecruits] = useState([]);
   const [recruitLogins, setRecruitLogins] = useState([]); // admins with role === "recruit"
   const [editing, setEditing] = useState(null); // null = closed, {} = new, {...} = editing existing
+  const [pendingDeactivate, setPendingDeactivate] = useState(null); // recruit awaiting confirmation, or null
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -113,7 +115,7 @@ export default function RecruitsAdminPage() {
                   type="button"
                   className="secondary"
                   style={{ width: "100%", marginTop: 10, padding: "12px 12px", color: "var(--brand-red)" }}
-                  onClick={() => deactivate(recruit)}
+                  onClick={() => setPendingDeactivate(recruit)}
                 >
                   Deactivate
                 </button>
@@ -135,6 +137,20 @@ export default function RecruitsAdminPage() {
           requestPasswordReset={requestPasswordReset}
         />
       )}
+
+      {pendingDeactivate && (
+        <ConfirmDialog
+          titleId="confirm-deactivate-recruit"
+          title="Deactivate recruit?"
+          message={`Deactivate ${pendingDeactivate.firstName} ${pendingDeactivate.lastName}? You can reactivate them later from Deactivated Recruits.`}
+          confirmLabel="Deactivate"
+          onConfirm={async () => {
+            await deactivate(pendingDeactivate);
+            setPendingDeactivate(null);
+          }}
+          onCancel={() => setPendingDeactivate(null)}
+        />
+      )}
     </div>
   );
 }
@@ -152,6 +168,7 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [welcomeStatus, setWelcomeStatus] = useState(null); // null, "sending", "sent", "not-configured", or "failed" — only ever set when a new portal login is created in this save
+  const [showRemoveLoginConfirm, setShowRemoveLoginConfirm] = useState(false);
 
   const wantsNewLogin = !existingLogin && (loginEmail || loginPassword);
   const canSave =
@@ -276,7 +293,7 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
                 type="button"
                 className="secondary"
                 style={{ width: "auto", padding: "8px 12px", color: "var(--brand-red)" }}
-                onClick={handleRemoveLogin}
+                onClick={() => setShowRemoveLoginConfirm(true)}
               >
                 Remove Login
               </button>
@@ -323,6 +340,22 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
           </div>
         )}
       </div>
+
+      {showRemoveLoginConfirm && existingLogin && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ConfirmDialog
+            titleId="confirm-remove-login"
+            title="Remove portal login?"
+            message={`Remove the portal login for ${existingLogin.email}? This can't be undone in the app.`}
+            confirmLabel="Remove Login"
+            onConfirm={async () => {
+              await handleRemoveLogin();
+              setShowRemoveLoginConfirm(false);
+            }}
+            onCancel={() => setShowRemoveLoginConfirm(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

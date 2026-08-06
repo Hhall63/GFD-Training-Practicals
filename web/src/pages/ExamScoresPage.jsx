@@ -58,7 +58,7 @@ export default function ExamScoresPage() {
 
   return (
     <div className="app-shell">
-      <TopBar title="Enter Exam Scores" onBack={() => navigate("/")} showMenu={false} />
+      <TopBar title="Written Test Gradebook" onBack={() => navigate("/")} showMenu={false} />
       <div className="screen">
         <div className="field">
           <label>Exam</label>

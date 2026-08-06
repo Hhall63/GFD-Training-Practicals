@@ -5,6 +5,7 @@ import { db } from "../firebase";
 import { createUserAccountWithoutSigningIn } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { sendWelcomeEmail } from "../lib/notify";
 import AddEvaluatorWizard from "../components/AddEvaluatorWizard";
 
@@ -26,6 +27,7 @@ export default function AdminsPage() {
   const [users, setUsers] = useState([]);
   const [showNewUser, setShowNewUser] = useState(searchParams.get("new") === "1");
   const [showAddEvaluator, setShowAddEvaluator] = useState(false);
+  const [pendingDeactivate, setPendingDeactivate] = useState(null); // user awaiting confirmation, or null
   const [roleFilter, setRoleFilter] = useState("all");
   const [resetMsgByUser, setResetMsgByUser] = useState({});
 
@@ -156,7 +158,7 @@ export default function AdminsPage() {
                   <button
                     className="secondary"
                     style={{ width: "auto", padding: "8px 12px", color: "var(--brand-red)" }}
-                    onClick={() => deactivate(user)}
+                    onClick={() => setPendingDeactivate(user)}
                   >
                     Deactivate
                   </button>
@@ -189,6 +191,20 @@ export default function AdminsPage() {
 
       {showNewUser && <NewUserModal onClose={closeNewUserModal} />}
       {showAddEvaluator && <AddEvaluatorWizard onClose={() => setShowAddEvaluator(false)} />}
+
+      {pendingDeactivate && (
+        <ConfirmDialog
+          titleId="confirm-deactivate-user"
+          title="Deactivate user?"
+          message={`Deactivate ${pendingDeactivate.displayName}? This can't be undone in the app.`}
+          confirmLabel="Deactivate"
+          onConfirm={async () => {
+            await deactivate(pendingDeactivate);
+            setPendingDeactivate(null);
+          }}
+          onCancel={() => setPendingDeactivate(null)}
+        />
+      )}
     </div>
   );
 }

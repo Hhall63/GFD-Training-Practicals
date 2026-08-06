@@ -38,7 +38,7 @@ export default function RecruitConfirmPage() {
   const [attemptType, setAttemptType] = useState("first");
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState(false);
-  const [viewMode, setViewMode] = useState("standard");
+  const [viewMode, setViewMode] = useState("checklist");
   // True until the first recruits snapshot arrives, so a slow connection reads as "loading"
   // rather than a false "no recruits configured" empty state.
   const [recruitsLoading, setRecruitsLoading] = useState(true);
