@@ -247,12 +247,25 @@ button.primary.warning {
 
 button.primary.pass-muted {
   background: var(--status-pass-muted);
+  /* White text on --status-pass-muted is ~3.1:1 — fails WCAG AA for normal-weight text at
+     this size. Dark ink text on the same fill clears ~5.5:1. --status-fail-muted doesn't
+     need this override: white text there already clears ~4.7:1. */
+  color: var(--text);
   box-shadow: 0 3px 10px rgba(107, 158, 122, 0.35);
 }
 
 button.primary.fail-muted {
   background: var(--status-fail-muted);
   box-shadow: 0 3px 10px rgba(181, 85, 95, 0.35);
+}
+
+/* Ungraded state for GradeButtons (Pass/Fail before either is tapped). Reads as a clear,
+   AA-compliant secondary action instead of a washed-out fill — see GradeButtons.jsx. */
+button.primary.grade-pending {
+  background: transparent;
+  color: var(--brand-navy);
+  border: 1px solid var(--border);
+  box-shadow: none;
 }
 
 button.secondary {

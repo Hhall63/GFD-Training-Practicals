@@ -1,5 +1,17 @@
 import { LINE_TYPES, RESULT, formatSeconds, lineDisplayLabel } from "../lib/constants";
 import { sanitizeHtml } from "../lib/richText";
+import GradeButtons from "./GradeButtons";
+
+// Shared sizing for the Start/Stop/Retry/View action buttons below (not GradeButtons' own
+// pair, which sets its own sizing) — 44px glove-ready floor, per PRODUCT.md.
+const actionButtonStyle = {
+  width: "100%",
+  minHeight: 44,
+  padding: "8px 10px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
 
 /** A grid of one tile per line for at-a-glance status across the whole test. Plain graded
  * lines get explicit inline Pass/Fail buttons (mirroring ChecklistView) rather than a
@@ -58,38 +70,11 @@ export default function TileView({
             </div>
             {isPlainGraded ? (
               <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  className={`primary ${line.result === RESULT.PASS ? "pass-muted" : ""}`}
-                  style={{
-                    width: "auto",
-                    flex: 1,
-                    padding: "8px 10px",
-                    background: line.result === RESULT.PASS ? undefined : "#c7c7cc",
-                  }}
-                  onClick={() => onGrade(line.id, RESULT.PASS)}
-                >
-                  Pass
-                </button>
-                <button
-                  className={`primary ${line.result === RESULT.FAIL ? "fail-muted" : ""}`}
-                  style={{
-                    width: "auto",
-                    flex: 1,
-                    padding: "8px 10px",
-                    background: line.result === RESULT.FAIL ? undefined : "#c7c7cc",
-                  }}
-                  onClick={() => onGrade(line.id, RESULT.FAIL)}
-                >
-                  Fail
-                </button>
+                <GradeButtons result={line.result} onGrade={(result) => onGrade(line.id, result)} size="grid" />
               </div>
             ) : isTimer ? (
               isRunningHere ? (
-                <button
-                  className="primary danger"
-                  style={{ width: "100%", padding: "8px 10px" }}
-                  onClick={onStopTimer}
-                >
+                <button className="primary danger" style={actionButtonStyle} onClick={onStopTimer}>
                   Stop
                 </button>
               ) : line.result != null ? (
@@ -99,7 +84,7 @@ export default function TileView({
                   </span>
                   <button
                     className="secondary"
-                    style={{ width: "auto", flex: 1, padding: "8px 10px" }}
+                    style={{ ...actionButtonStyle, flex: 1 }}
                     disabled={anotherTimerRunning}
                     onClick={() => onStartTimer(line.id)}
                   >
@@ -109,7 +94,7 @@ export default function TileView({
               ) : (
                 <button
                   className="primary"
-                  style={{ width: "100%", padding: "8px 10px" }}
+                  style={actionButtonStyle}
                   disabled={anotherTimerRunning}
                   onClick={() => onStartTimer(line.id)}
                 >
@@ -117,11 +102,7 @@ export default function TileView({
                 </button>
               )
             ) : (
-              <button
-                className="secondary"
-                style={{ width: "100%", padding: "8px 10px" }}
-                onClick={() => onJump(line.id)}
-              >
+              <button className="secondary" style={actionButtonStyle} onClick={() => onJump(line.id)}>
                 View
               </button>
             )}

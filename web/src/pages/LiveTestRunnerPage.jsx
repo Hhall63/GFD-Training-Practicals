@@ -22,6 +22,9 @@ import { sanitizeHtml } from "../lib/richText";
 import ObstacleCourseRunner from "../components/ObstacleCourseRunner";
 import ChecklistView from "../components/ChecklistView";
 import TileView from "../components/TileView";
+import Modal from "../components/Modal";
+import GradeButtons from "../components/GradeButtons";
+import Icon from "../components/Icon";
 
 export default function LiveTestRunnerPage() {
   const { sessionId } = useParams();
@@ -650,7 +653,7 @@ function LiveTestRunnerRun({ sessionId }) {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.6)",
+            background: "var(--overlay-scrim)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -685,12 +688,19 @@ function LiveTestRunnerRun({ sessionId }) {
             <div className="overall-timer-actions">
               <button
                 className="secondary"
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
                 onClick={isOverallRunning ? pauseOverallTimer : resumeOverallTimer}
               >
-                {isOverallRunning ? "⏸ Pause" : "▶ Resume"}
+                <Icon name={isOverallRunning ? "pause" : "play"} size={16} />
+                {isOverallRunning ? "Pause" : "Resume"}
               </button>
-              <button className="primary danger" onClick={handleStopTestClick}>
-                ⏹ Stop Test
+              <button
+                className="primary danger"
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                onClick={handleStopTestClick}
+              >
+                <Icon name="stop" size={16} />
+                Stop Test
               </button>
             </div>
           )}
@@ -812,30 +822,9 @@ function LiveTestRunnerRun({ sessionId }) {
       </div>
 
       {showReturnConfirm && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={(e) => e.target === e.currentTarget && setShowReturnConfirm(false)}
-        >
-          <div
-            className="card"
-            style={{
-              maxWidth: 320,
-              padding: "24px",
-              textAlign: "center",
-            }}
-          >
-            <h3 style={{ marginBottom: 12 }}>Return to Home?</h3>
+        <Modal titleId="return-confirm-title" onClose={() => setShowReturnConfirm(false)} maxWidth={320}>
+          <div style={{ textAlign: "center" }}>
+            <h3 id="return-confirm-title" style={{ marginBottom: 12 }}>Return to Home?</h3>
             <p className="muted" style={{ marginBottom: 20 }}>
               Any unsaved progress on the current step will be lost.
               {isTimerRunning && (
@@ -863,27 +852,13 @@ function LiveTestRunnerRun({ sessionId }) {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {showDistanceRequired && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={(e) => e.target === e.currentTarget && setShowDistanceRequired(false)}
-        >
-          <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
-            <h3 style={{ marginBottom: 12 }}>Distance Required</h3>
+        <Modal titleId="distance-required-title" onClose={() => setShowDistanceRequired(false)} maxWidth={320}>
+          <div style={{ textAlign: "center" }}>
+            <h3 id="distance-required-title" style={{ marginBottom: 12 }}>Distance Required</h3>
             <p className="muted" style={{ marginBottom: 20 }}>
               Select a stopping distance for Obstacle{missingDistanceObstacles.length > 1 ? "s" : ""}{" "}
               {missingDistanceObstacles.join(" and ")} on the course map before submitting.
@@ -892,86 +867,62 @@ function LiveTestRunnerRun({ sessionId }) {
               OK
             </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {showNoteRequired && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={(e) => e.target === e.currentTarget && setShowNoteRequired(false)}
-        >
-          <div className="card" style={{ maxWidth: 340, padding: "24px", textAlign: "left" }}>
-            <h3 style={{ marginBottom: 8 }}>Note Required</h3>
-            <p className="muted" style={{ marginTop: 0, marginBottom: 12 }}>
-              This test does not meet the passing score. Add a note explaining what happened
-              before submitting.
-            </p>
-            <textarea
-              autoFocus
-              rows={3}
-              placeholder="What did the recruit fail on?"
-              value={noteDraft}
-              onChange={(e) => setNoteDraft(e.target.value)}
-              style={{ width: "100%" }}
-            />
-            <div className="field" style={{ marginTop: 10 }}>
-              <label>Photo (optional)</label>
-              {noteDraftPhotos.map((url) => (
-                <img
-                  key={url}
-                  src={url}
-                  alt=""
-                  style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8, marginRight: 8 }}
-                />
-              ))}
-              <input type="file" accept="image/*" capture="environment" onChange={handleNoteDraftPhoto} />
-            </div>
-            <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
-              <button className="secondary" style={{ flex: 1 }} onClick={() => setShowNoteRequired(false)}>
-                Cancel
-              </button>
-              <button
-                className="primary"
-                style={{ flex: 1 }}
-                disabled={!noteDraft.trim()}
-                onClick={async () => {
-                  await patchTestNote({ note: noteDraft.trim(), photoURLs: noteDraftPhotos });
-                  setShowNoteRequired(false);
-                  await (noteContinuationRef.current ?? proceed)();
-                }}
-              >
-                Save & Continue
-              </button>
-            </div>
+        <Modal titleId="note-required-title" onClose={() => setShowNoteRequired(false)} maxWidth={340}>
+          <h3 id="note-required-title" style={{ marginBottom: 8 }}>Note Required</h3>
+          <p className="muted" style={{ marginTop: 0, marginBottom: 12 }}>
+            This test does not meet the passing score. Add a note explaining what happened
+            before submitting.
+          </p>
+          <textarea
+            autoFocus
+            rows={3}
+            placeholder="What did the recruit fail on?"
+            value={noteDraft}
+            onChange={(e) => setNoteDraft(e.target.value)}
+            style={{ width: "100%" }}
+          />
+          <div className="field" style={{ marginTop: 10 }}>
+            <label>Photo (optional)</label>
+            {noteDraftPhotos.map((url) => (
+              <img
+                key={url}
+                src={url}
+                alt=""
+                style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8, marginRight: 8 }}
+              />
+            ))}
+            <input type="file" accept="image/*" capture="environment" onChange={handleNoteDraftPhoto} />
           </div>
-        </div>
+          <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+            <button className="secondary" style={{ flex: 1 }} onClick={() => setShowNoteRequired(false)}>
+              Cancel
+            </button>
+            <button
+              className="primary"
+              style={{ flex: 1 }}
+              disabled={!noteDraft.trim()}
+              onClick={async () => {
+                await patchTestNote({ note: noteDraft.trim(), photoURLs: noteDraftPhotos });
+                setShowNoteRequired(false);
+                await (noteContinuationRef.current ?? proceed)();
+              }}
+            >
+              Save & Continue
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showGroupContinue && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
-            <h3 style={{ marginBottom: 12 }}>Test Complete</h3>
+        // No cancel concept here — the evaluator must pick View Results or the next-step
+        // action, so this modal doesn't close on Escape/backdrop-click.
+        <Modal titleId="group-continue-title" dismissible={false} maxWidth={320}>
+          <div style={{ textAlign: "center" }}>
+            <h3 id="group-continue-title" style={{ marginBottom: 12 }}>Test Complete</h3>
             <p className="muted" style={{ marginBottom: 20 }}>
               {sessionData.groupName}: test {sessionData.groupSequenceIndex + 1} of{" "}
               {groupTemplateIds?.length ?? sessionData.groupSequenceIndex + 1} complete.
@@ -1004,23 +955,13 @@ function LiveTestRunnerRun({ sessionId }) {
               )}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {showStopConfirm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div className="card" style={{ maxWidth: 320, padding: "24px", textAlign: "center" }}>
-            <h3 style={{ marginBottom: 12 }}>Stop Test?</h3>
+        <Modal titleId="stop-confirm-title" onClose={cancelStopTest} maxWidth={320}>
+          <div style={{ textAlign: "center" }}>
+            <h3 id="stop-confirm-title" style={{ marginBottom: 12 }}>Stop Test?</h3>
             <p className="muted" style={{ marginBottom: 20 }}>
               This ends the test now. Any ungraded steps will be recorded as failed with zero
               points.
@@ -1034,7 +975,7 @@ function LiveTestRunnerRun({ sessionId }) {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
@@ -1077,8 +1018,17 @@ function TestNotesBanner({ note, photoURLs, onChangeNote, onAddPhoto }) {
 
   return (
     <div className="card" style={{ textAlign: "left" }}>
-      <strong style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-        📝 Test Notes (required if this test fails)
+      <strong
+        style={{
+          fontSize: 14,
+          color: "var(--text-secondary)",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        <Icon name="note" size={16} />
+        Test Notes (required if this test fails)
       </strong>
       <div style={{ marginTop: 10 }}>
         {photoURLs.map((url) => (
@@ -1094,9 +1044,22 @@ function TestNotesBanner({ note, photoURLs, onChangeNote, onAddPhoto }) {
             <input type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: "none" }} />
             <span
               className="secondary"
-              style={{ display: "inline-block", padding: "8px 14px", borderRadius: 10, border: "1px solid var(--border)", cursor: "pointer" }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 14px",
+                borderRadius: 10,
+                border: "1px solid var(--border)",
+                cursor: "pointer",
+              }}
             >
-              {uploading ? "Uploading…" : "📷 Add Photo"}
+              {uploading ? "Uploading…" : (
+                <>
+                  <Icon name="camera" size={16} />
+                  Add Photo
+                </>
+              )}
             </span>
           </label>
         </div>
@@ -1116,7 +1079,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
   if (current.lineTypeSnapshot === LINE_TYPES.INSTRUCTION) {
     return (
       <div className="center-column" style={{ paddingTop: 32 }}>
-        <div style={{ fontSize: 40 }}>ℹ️</div>
+        <Icon name="info" size={40} />
         <p
           style={{ fontSize: 20, fontWeight: 500 }}
           dangerouslySetInnerHTML={{ __html: sanitizeHtml(current.lineTextSnapshot) }}
@@ -1189,7 +1152,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
   if (current.lineTypeSnapshot === LINE_TYPES.OVERALL_TIMER) {
     return (
       <div className="center-column" style={{ paddingTop: 32 }}>
-        <div style={{ fontSize: 40 }}>⏱️</div>
+        <Icon name="timer" size={40} />
         <p style={{ fontSize: 20, fontWeight: 500 }}>
           This step is scored automatically by the Overall Timer banner above.
         </p>
@@ -1217,20 +1180,7 @@ function LineCard({ current, isTimerRunning, elapsed, startTimer, stopTimer, pat
         {current.isCriticalSnapshot && <span style={{ color: "var(--brand-red)" }}> · CRITICAL</span>}
       </p>
       <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 400, marginTop: 16 }}>
-        <button
-          className={`primary ${current.result === RESULT.PASS ? "pass-muted" : ""}`}
-          style={{ background: current.result === RESULT.PASS ? undefined : "#c7c7cc" }}
-          onClick={() => setGradedResult(RESULT.PASS)}
-        >
-          Pass
-        </button>
-        <button
-          className={`primary ${current.result === RESULT.FAIL ? "fail-muted" : ""}`}
-          style={{ background: current.result === RESULT.FAIL ? undefined : "#c7c7cc" }}
-          onClick={() => setGradedResult(RESULT.FAIL)}
-        >
-          Fail
-        </button>
+        <GradeButtons result={current.result} onGrade={setGradedResult} size="large" />
       </div>
     </div>
   );

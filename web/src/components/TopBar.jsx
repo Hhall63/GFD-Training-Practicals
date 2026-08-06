@@ -4,6 +4,7 @@ import badge from "../assets/gfd-badge.png";
 import { useAuth } from "../context/AuthContext";
 import { getAdminNavItems } from "../lib/navItems";
 import ChangePasswordForm from "./ChangePasswordForm";
+import Modal from "./Modal";
 
 export default function TopBar({ title = "GFD Recruit Testing", subtitle, showMenu = true, onBack }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -87,37 +88,31 @@ export default function TopBar({ title = "GFD Recruit Testing", subtitle, showMe
         </div>
       )}
       {showChangePassword && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
+        <Modal
+          titleId={passwordChanged ? "password-changed-title" : "change-password-title"}
+          onClose={() => setShowChangePassword(false)}
+          maxWidth={340}
         >
-          <div className="card" style={{ width: 340, background: "white" }}>
-            {passwordChanged ? (
-              <>
-                <h3 style={{ marginTop: 0 }}>Password Changed</h3>
-                <p className="muted">Your password has been updated.</p>
-                <button className="primary" onClick={() => setShowChangePassword(false)}>
-                  Done
-                </button>
-              </>
-            ) : (
-              <>
-                <h3 style={{ marginTop: 0, color: "var(--brand-navy)" }}>Change Password</h3>
-                <ChangePasswordForm
-                  onSuccess={() => setPasswordChanged(true)}
-                  onCancel={() => setShowChangePassword(false)}
-                />
-              </>
-            )}
-          </div>
-        </div>
+          {passwordChanged ? (
+            <>
+              <h3 id="password-changed-title" style={{ marginTop: 0 }}>Password Changed</h3>
+              <p className="muted">Your password has been updated.</p>
+              <button className="primary" onClick={() => setShowChangePassword(false)}>
+                Done
+              </button>
+            </>
+          ) : (
+            <>
+              <h3 id="change-password-title" style={{ marginTop: 0, color: "var(--brand-navy)" }}>
+                Change Password
+              </h3>
+              <ChangePasswordForm
+                onSuccess={() => setPasswordChanged(true)}
+                onCancel={() => setShowChangePassword(false)}
+              />
+            </>
+          )}
+        </Modal>
       )}
     </div>
   );
