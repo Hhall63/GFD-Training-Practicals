@@ -5,6 +5,7 @@ import { db } from "../firebase";
 import { createUserAccountWithoutSigningIn } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { sendWelcomeEmail } from "../lib/notify";
 
 // This page only ever manages staff (Administrator/Evaluator) accounts. Recruit accounts
@@ -24,6 +25,7 @@ export default function AdminsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
   const [showNewUser, setShowNewUser] = useState(searchParams.get("new") === "1");
+  const [pendingDeactivate, setPendingDeactivate] = useState(null); // user awaiting confirmation, or null
   const [roleFilter, setRoleFilter] = useState("all");
   const [resetMsgByUser, setResetMsgByUser] = useState({});
 
@@ -141,7 +143,7 @@ export default function AdminsPage() {
                   <button
                     className="secondary"
                     style={{ width: "auto", padding: "8px 12px", color: "var(--brand-red)" }}
-                    onClick={() => deactivate(user)}
+                    onClick={() => setPendingDeactivate(user)}
                   >
                     Deactivate
                   </button>
@@ -168,6 +170,20 @@ export default function AdminsPage() {
       </div>
 
       {showNewUser && <NewUserModal onClose={closeNewUserModal} />}
+
+      {pendingDeactivate && (
+        <ConfirmDialog
+          titleId="confirm-deactivate-user"
+          title="Deactivate user?"
+          message={`Deactivate ${pendingDeactivate.displayName}? This can't be undone in the app.`}
+          confirmLabel="Deactivate"
+          onConfirm={async () => {
+            await deactivate(pendingDeactivate);
+            setPendingDeactivate(null);
+          }}
+          onCancel={() => setPendingDeactivate(null)}
+        />
+      )}
     </div>
   );
 }
