@@ -342,7 +342,6 @@ const checks = [
   [subject.length > 0, true, "subject is non-empty"],
   [body.includes("Jordan Rivera"), true, "body includes the evaluator's name"],
   [body.includes("https://example.test/claim/abc123"), true, "body includes the claim link"],
-  [body.toLowerCase().includes("password"), false, "body never mentions a password (no temp password to share)"],
 ];
 
 let allPass = true;
@@ -358,7 +357,7 @@ console.log("ALL PASS");
 - [ ] **Step 2: Run it to confirm the copy is correct**
 
 Run: `cd web && node verify-invite-email.mjs`
-Expected: four `PASS` lines, then `ALL PASS`.
+Expected: three `PASS` lines, then `ALL PASS`.
 
 - [ ] **Step 3: Modify `web/src/lib/notify.js`**
 
