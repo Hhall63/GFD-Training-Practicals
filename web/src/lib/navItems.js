@@ -1,11 +1,11 @@
 export function getAdminNavItems() {
   return [
     ["Manage Recruits", "/recruits"],
-    ["Manage Tests", "/templates"],
+    ["Manage Practicals", "/templates"],
     ["Manage Test Groups", "/test-groups"],
     ["Batch Grade", "/batch-grade"],
-    ["Manage Exams", "/exams"],
-    ["Enter Exam Scores", "/exam-scores"],
+    ["Test Bank", "/exams"],
+    ["Written Test Gradebook", "/exam-scores"],
     ["Reports", "/reports"],
     ["Add User", "/admins?new=1"],
     ["See All Users", "/admins"],
