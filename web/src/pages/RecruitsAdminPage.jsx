@@ -341,18 +341,20 @@ function RecruitFormModal({ recruit, existingLogin, onClose, requestPasswordRese
         )}
       </div>
 
-      {showRemoveLoginConfirm && (
-        <ConfirmDialog
-          titleId="confirm-remove-login"
-          title="Remove portal login?"
-          message={`Remove the portal login for ${existingLogin.email}? This can't be undone in the app.`}
-          confirmLabel="Remove Login"
-          onConfirm={async () => {
-            await handleRemoveLogin();
-            setShowRemoveLoginConfirm(false);
-          }}
-          onCancel={() => setShowRemoveLoginConfirm(false)}
-        />
+      {showRemoveLoginConfirm && existingLogin && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ConfirmDialog
+            titleId="confirm-remove-login"
+            title="Remove portal login?"
+            message={`Remove the portal login for ${existingLogin.email}? This can't be undone in the app.`}
+            confirmLabel="Remove Login"
+            onConfirm={async () => {
+              await handleRemoveLogin();
+              setShowRemoveLoginConfirm(false);
+            }}
+            onCancel={() => setShowRemoveLoginConfirm(false)}
+          />
+        </div>
       )}
     </div>
   );
