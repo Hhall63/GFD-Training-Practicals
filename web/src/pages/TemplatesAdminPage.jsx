@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { addDoc, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function TemplatesAdminPage() {
   const navigate = useNavigate();
   const [templates, setTemplates] = useState([]);
   const [showNew, setShowNew] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null); // template awaiting confirmation, or null
 
   useEffect(() => {
     const q = query(collection(db, "templates"), where("isActive", "==", true));
@@ -62,7 +64,7 @@ export default function TemplatesAdminPage() {
                 <button
                   className="secondary"
                   style={{ width: "auto", padding: "6px 12px", color: "var(--brand-red)" }}
-                  onClick={() => retire(template)}
+                  onClick={() => setPendingDelete(template)}
                 >
                   Delete
                 </button>
@@ -94,6 +96,20 @@ export default function TemplatesAdminPage() {
             setShowNew(false);
             navigate(`/templates/${id}`);
           }}
+        />
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          titleId="confirm-delete-template"
+          title="Delete practical?"
+          message={`Delete "${pendingDelete.name}"? This can't be undone in the app.`}
+          confirmLabel="Delete"
+          onConfirm={async () => {
+            await retire(pendingDelete);
+            setPendingDelete(null);
+          }}
+          onCancel={() => setPendingDelete(null)}
         />
       )}
     </div>
