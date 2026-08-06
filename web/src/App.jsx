@@ -38,6 +38,7 @@ import ExportPage from "./pages/reporting/ExportPage";
 import ClassReportsListPage from "./pages/reporting/ClassReportsListPage";
 import ClassReportPage from "./pages/reporting/ClassReportPage";
 import LiveDashboardPage from "./pages/LiveDashboardPage";
+import ClaimInvitePage from "./pages/ClaimInvitePage";
 
 function FullScreenLoading() {
   return <div className="screen center-column" style={{ paddingTop: 80 }}>Loading…</div>;
@@ -110,6 +111,7 @@ export default function App() {
       />
 
       <Route path="/live/:token" element={<LiveDashboardPage />} />
+      <Route path="/claim/:token" element={<ClaimInvitePage />} />
 
       <Route path="/" element={<RequireAuth>{role === "admin" ? <AdminDashboardPage /> : isRecruit ? <RecruitHomePage /> : <HomePage />}</RequireAuth>} />
       <Route path="/start-test" element={<RequireAuth><RequireStaff><HomePage /></RequireStaff></RequireAuth>} />

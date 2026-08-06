@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { collection, doc, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { collection, deleteField, doc, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { createUserAccountWithoutSigningIn } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import TopBar from "../components/TopBar";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { sendWelcomeEmail } from "../lib/notify";
+import AddEvaluatorWizard from "../components/AddEvaluatorWizard";
 
 // This page only ever manages staff (Administrator/Evaluator) accounts. Recruit accounts
 // are created and managed from Manage Recruits instead, alongside the recruit's roster
@@ -25,6 +26,7 @@ export default function AdminsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
   const [showNewUser, setShowNewUser] = useState(searchParams.get("new") === "1");
+  const [showAddEvaluator, setShowAddEvaluator] = useState(false);
   const [pendingDeactivate, setPendingDeactivate] = useState(null); // user awaiting confirmation, or null
   const [roleFilter, setRoleFilter] = useState("all");
   const [resetMsgByUser, setResetMsgByUser] = useState({});
@@ -34,7 +36,20 @@ export default function AdminsPage() {
     return onSnapshot(q, (snap) => {
       // Recruit-role accounts live here too (same collection), but this page never shows
       // or creates them.
-      setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => (u.role ?? "admin") !== "recruit"));
+      const loaded = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => (u.role ?? "admin") !== "recruit");
+      setUsers(loaded);
+      // Lazy auto-deactivate sweep: firestore.rules already blocks all Firestore access
+      // for anyone past their autoDeactivateAt deadline (see isActiveUser() there) — this
+      // just keeps the visible list in sync so nobody LOOKS active when they can't
+      // actually do anything, without needing a scheduled job. Best-effort; a failed write
+      // here just means the list stays stale until the next load, not a security gap (the
+      // rule already blocks the account regardless).
+      const now = new Date();
+      loaded
+        .filter((u) => u.autoDeactivateAt && u.autoDeactivateAt.toDate() < now)
+        .forEach((u) =>
+          updateDoc(doc(db, "admins", u.id), { isActive: false, autoDeactivateAt: deleteField() }).catch(() => {})
+        );
     });
   }, []);
 
@@ -164,12 +179,18 @@ export default function AdminsPage() {
           );
         })}
 
-        <button className="primary" onClick={() => setShowNewUser(true)}>
-          + Add User
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="primary" style={{ width: "auto" }} onClick={() => setShowNewUser(true)}>
+            + Add Administrator
+          </button>
+          <button className="primary" style={{ width: "auto" }} onClick={() => setShowAddEvaluator(true)}>
+            + Add Evaluator
+          </button>
+        </div>
       </div>
 
       {showNewUser && <NewUserModal onClose={closeNewUserModal} />}
+      {showAddEvaluator && <AddEvaluatorWizard onClose={() => setShowAddEvaluator(false)} />}
 
       {pendingDeactivate && (
         <ConfirmDialog
@@ -243,7 +264,6 @@ function NewUserModal({ onClose }) {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("evaluator");
   const [notifyOnFailures, setNotifyOnFailures] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -263,9 +283,9 @@ function NewUserModal({ onClose }) {
       await setDoc(doc(db, "admins", uid), {
         email: trimmedEmail,
         displayName,
-        role,
+        role: "admin",
         isActive: true,
-        notifyOnFailures: role === "admin" ? notifyOnFailures : false,
+        notifyOnFailures,
         createdAt: new Date(),
         mustChangePassword: true,
       });
@@ -314,31 +334,7 @@ function NewUserModal({ onClose }) {
       onClick={onClose}
     >
       <div className="card" style={{ width: 340, background: "white", maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ marginTop: 0 }}>New User</h3>
-
-        <div className="field">
-          <label>Role</label>
-          <div className="segmented">
-            {[
-              ["evaluator", "Evaluator"],
-              ["admin", "Admin"],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={`segment${role === value ? " active" : ""}`}
-                onClick={() => setRole(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>
-            {role === "evaluator"
-              ? "Can run tests and submit results. Cannot edit recruits, tests, or other users."
-              : "Full access: can build tests, manage recruits, run reports, and manage users."}
-          </p>
-        </div>
+        <h3 style={{ marginTop: 0 }}>New Administrator</h3>
 
         <div className="field">
           <label>Full Name</label>
@@ -353,22 +349,20 @@ function NewUserModal({ onClose }) {
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
 
-        {role === "admin" && (
-          <div className="field">
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "var(--text)" }}>
-              <input
-                type="checkbox"
-                checked={notifyOnFailures}
-                onChange={(e) => setNotifyOnFailures(e.target.checked)}
-                style={{ width: "auto", margin: 0 }}
-              />
-              Notify with failures
-            </label>
-            <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
-              Email this admin whenever a recruit fails a test.
-            </p>
-          </div>
-        )}
+        <div className="field">
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "var(--text)" }}>
+            <input
+              type="checkbox"
+              checked={notifyOnFailures}
+              onChange={(e) => setNotifyOnFailures(e.target.checked)}
+              style={{ width: "auto", margin: 0 }}
+            />
+            Notify with failures
+          </label>
+          <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
+            Email this admin whenever a recruit fails a test.
+          </p>
+        </div>
 
         {error && <p style={{ color: "var(--brand-red)", fontSize: 13 }}>{error}</p>}
         <div style={{ display: "flex", gap: 8 }}>
