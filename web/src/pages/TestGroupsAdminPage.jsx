@@ -4,12 +4,14 @@ import { addDoc, collection, doc, onSnapshot, query, updateDoc, where } from "fi
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
 import Modal from "../components/Modal";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function TestGroupsAdminPage() {
   const navigate = useNavigate();
   const [groups, setGroups] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [showNew, setShowNew] = useState(false);
+  const [pendingDeactivate, setPendingDeactivate] = useState(null); // group awaiting confirmation, or null
 
   useEffect(() => {
     const q = query(collection(db, "testGroups"), where("isActive", "==", true));
@@ -65,7 +67,7 @@ export default function TestGroupsAdminPage() {
               <button
                 className="secondary"
                 style={{ width: "auto", padding: "6px 12px", color: "var(--brand-red)" }}
-                onClick={() => deactivate(group)}
+                onClick={() => setPendingDeactivate(group)}
               >
                 Deactivate
               </button>
@@ -86,6 +88,20 @@ export default function TestGroupsAdminPage() {
       </div>
 
       {showNew && <NewTestGroupModal templates={templates} onClose={() => setShowNew(false)} />}
+
+      {pendingDeactivate && (
+        <ConfirmDialog
+          titleId="confirm-deactivate-test-group"
+          title="Deactivate test group?"
+          message={`Deactivate "${pendingDeactivate.name}"? This can't be undone in the app.`}
+          confirmLabel="Deactivate"
+          onConfirm={async () => {
+            await deactivate(pendingDeactivate);
+            setPendingDeactivate(null);
+          }}
+          onCancel={() => setPendingDeactivate(null)}
+        />
+      )}
     </div>
   );
 }
