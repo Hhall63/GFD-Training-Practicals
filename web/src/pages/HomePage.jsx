@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [templates, setTemplates] = useState([]);
   const [testGroups, setTestGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +46,9 @@ export default function HomePage() {
 
   return (
     <div className="app-shell">
-      <TopBar />
+      {/* Admins reach this screen via /start-test from their dashboard and need a way
+            back; evaluators land here directly at "/" — it IS their home, so no button. */}
+      <TopBar onBack={location.pathname === "/start-test" ? () => navigate("/") : undefined} />
       <div className="screen">
         <h3 style={{ marginTop: 16, color: "var(--brand-navy)" }}>Select a Test</h3>
         {!loading && templates.length === 0 && testGroups.length === 0 && (
