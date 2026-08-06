@@ -1,6 +1,14 @@
 import { initializeApp, deleteApp } from "firebase/app";
-import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signInAnonymously, signOut } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import {
+  getAuth,
+  connectAuthEmulator,
+  createUserWithEmailAndPassword,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  updatePassword,
+  signOut,
+} from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator, doc, getDoc, updateDoc } from "firebase/firestore";
 
 // No Firebase Storage here on purpose — Google now requires the paid Blaze plan just to
 // enable it, even though its free quotas are unchanged. Photos are stored as compressed
@@ -79,4 +87,51 @@ export async function signInAnonymouslyOnSecondaryApp() {
   }
 
   return { auth: secondaryAuth, db: secondaryDb, cleanup };
+}
+
+/**
+ * Claims an evaluator invite (docs/superpowers/specs/2026-08-06-evaluator-wizard-design.md):
+ * signs in as the pre-created account using its system-generated temp password (never
+ * exposed to the evaluator), sets it to the password they chose, clears
+ * mustChangePassword, and marks the invite used — all on a throwaway secondary Firebase
+ * App instance, same technique as createUserAccountWithoutSigningIn above, so claiming an
+ * invite can never disrupt an admin's session sharing this browser (e.g. testing a QR they
+ * just generated in another tab).
+ *
+ * Re-reads the invite fresh via the secondary app rather than trusting an earlier read, to
+ * close the gap between a page showing "this invite looks valid" and the moment it's
+ * actually claimed. Throws an Error with `.code` set to "invite/not-found", "invite/used",
+ * or "invite/expired" for those cases; a Firebase Auth failure (e.g. network) passes
+ * through with its own existing `.code`.
+ */
+export async function claimEvaluatorInvite(token, newPassword) {
+  const secondaryApp = initializeApp(firebaseConfig, `claim-${Date.now()}`);
+  const secondaryAuth = getAuth(secondaryApp);
+  const secondaryDb = getFirestore(secondaryApp);
+  if (import.meta.env.VITE_USE_EMULATOR === "1") {
+    connectAuthEmulator(secondaryAuth, "http://127.0.0.1:9099", { disableWarnings: true });
+    connectFirestoreEmulator(secondaryDb, "127.0.0.1", 8080);
+  }
+  try {
+    const inviteRef = doc(secondaryDb, "evaluatorInvites", token);
+    const inviteSnap = await getDoc(inviteRef);
+    if (!inviteSnap.exists()) {
+      throw Object.assign(new Error("Invite not found"), { code: "invite/not-found" });
+    }
+    const invite = inviteSnap.data();
+    if (invite.used) {
+      throw Object.assign(new Error("Invite already used"), { code: "invite/used" });
+    }
+    if (invite.expiresAt.toDate() < new Date()) {
+      throw Object.assign(new Error("Invite expired"), { code: "invite/expired" });
+    }
+
+    await signInWithEmailAndPassword(secondaryAuth, invite.email, invite.tempAuthPassword);
+    await updatePassword(secondaryAuth.currentUser, newPassword);
+    await updateDoc(doc(secondaryDb, "admins", invite.uid), { mustChangePassword: false });
+    await updateDoc(inviteRef, { used: true });
+  } finally {
+    await signOut(secondaryAuth).catch(() => {});
+    await deleteApp(secondaryApp);
+  }
 }
