@@ -90,7 +90,7 @@ export default function TestBankPage() {
 
   return (
     <div className="app-shell">
-      <TopBar title="Test Bank" subtitle={exam?.name} onBack={() => navigate("/exams")} showMenu={false} />
+      <TopBar title="Build from Test Bank" subtitle={exam?.name} onBack={() => navigate("/exams")} showMenu={false} />
       <div className={bankData ? "screen--wide screen--textured" : "screen screen--textured"}>
         {error && (
           <p className="muted" style={{ color: "var(--brand-red)" }}>
