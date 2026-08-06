@@ -5,6 +5,7 @@ import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/f
 import { db } from "../firebase";
 import TopBar from "../components/TopBar";
 import Modal from "../components/Modal";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { createExamTemplate } from "../lib/exams";
 import { categoryTagClass } from "../lib/categoryColor";
 
@@ -12,6 +13,7 @@ export default function ExamsAdminPage() {
   const navigate = useNavigate();
   const [exams, setExams] = useState(null); // null = first snapshot still loading
   const [showNew, setShowNew] = useState(false);
+  const [pendingDeactivate, setPendingDeactivate] = useState(null); // exam awaiting confirmation, or null
   const [categoryFilter, setCategoryFilter] = useState("");
 
   useEffect(() => {
@@ -108,7 +110,7 @@ export default function ExamsAdminPage() {
                     <button
                       className="secondary"
                       style={{ width: "auto", padding: "4px 10px", color: "var(--brand-red)" }}
-                      onClick={() => deactivate(exam)}
+                      onClick={() => setPendingDeactivate(exam)}
                     >
                       Deactivate
                     </button>
@@ -155,6 +157,20 @@ export default function ExamsAdminPage() {
       </div>
 
       {showNew && <NewExamModal categories={categories} onClose={() => setShowNew(false)} />}
+
+      {pendingDeactivate && (
+        <ConfirmDialog
+          titleId="confirm-deactivate-exam"
+          title="Deactivate exam?"
+          message={`Deactivate "${pendingDeactivate.name}"? This can't be undone in the app.`}
+          confirmLabel="Deactivate"
+          onConfirm={async () => {
+            await deactivate(pendingDeactivate);
+            setPendingDeactivate(null);
+          }}
+          onCancel={() => setPendingDeactivate(null)}
+        />
+      )}
     </div>
   );
 }
