@@ -114,6 +114,20 @@ export default function Icon({ name, size = 24 }) {
           <path d="M9 18l6-6-6-6" />
         </svg>
       );
+    case "back":
+      return (
+        <svg {...stroke}>
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      );
+    case "more":
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <circle cx="5" cy="12" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="19" cy="12" r="2" />
+        </svg>
+      );
     case "info":
       return (
         <svg {...stroke}>
