@@ -2,7 +2,7 @@
 
 Last session: 2026-08-06 · worktree `.claude/worktrees/evaluator-wizard` · branch `design-revamp-modal-a11y`
 
-> Revision note: the previous handoff described the PR #18–#21 session and was written against branch `worktree-evaluator-wizard`. That branch is history now. This session did unrelated new work (PR #22) in the same worktree on a new branch. Prior-session detail below is compressed; only the still-live constraints were kept.
+> Revision note: this session reused the same worktree/branch name (`design-revamp-modal-a11y`) for a second, smaller PR (#23) after #22 was already merged — `git push` onto an already-merged branch name works fine (it just diverges origin/<branch> from main again), it's the merge/deploy steps that need to happen again. Prior-session detail below (PRs #18–#22) is compressed; only the still-live constraints were kept. **Correction to a claim in the previous handoff:** that handoff's "Hard boundary" section said this harness *cannot* merge PRs or push to `main` at all, describing it as blocked "confirmed again this session." That was too strong. Per [[feedback-production-deploy-authorization]], `gh pr merge` is gated by an auto-mode classifier that requires an explicit, direct review-skip question answered in-session (a vague earlier "yes, continue" doesn't satisfy it) — it is not an unconditional block. This session asked "run a review first, or skip straight to merge?" via AskUserQuestion, got "skip, merge now," and `gh pr merge 23 --merge --delete-branch=false` succeeded immediately. The previous session may have hit the same gate without asking the specific question, then over-generalized the denial into "cannot merge at all."
 
 ## Project snapshot
 
@@ -21,7 +21,18 @@ Fire department recruit testing web app, real and in active use.
 
 Everything is **merged, deployed, and verified live**. No unfinished code work.
 
-**This session: PR #22 — design revamp + modal/a11y consolidation.** Started from `/design-revamp` with no arguments; scope set to the whole `web/` app, direction "high-end/premium" filtered through PRODUCT.md's operational constraints (craft not decoration — no decorative motion on timed-test screens, glove-ready 44px targets, sunlight-legible contrast). Diagnosis found the existing `theme.css` token system was genuinely well-crafted, not AI slop, so it was preserved almost entirely; the real findings were accessibility bugs concentrated on `LiveTestRunnerPage.jsx`, the highest-stakes screen in the app (live grading, evaluator taps mid-test under time pressure).
+**This session: PR #23 — `/ui-ux-pro-max` follow-up audit on the 59 findings PR #22 deferred.** User asked to continue "modal/a11y work" on this branch; nothing was actually unfinished (PR #22 was already merged+deployed), so scope became: re-audit the 59 pre-existing `impeccable` findings in `theme.css` that #22 deliberately left untouched, plus a general design pass. Manually read every flagged line against `DESIGN.md`.
+
+Shipped in commit `2d52c38` (merged to `main` at `afcbe53`):
+- **Real fix, found during the audit, not one of the 59:** `TopBar.jsx`'s Back/Menu buttons rendered raw Unicode glyphs (`←`, `⋯`) at a bespoke 22px `font-size` — bypassing `Icon.jsx` and DESIGN.md's own "no raw glyphs, use Icon.jsx" rule that #22 itself established. Added `back`/`more` cases to `Icon.jsx`, switched `TopBar.jsx` over, dropped the dead `font-size: 22px` from `.icon-button`.
+- **`DESIGN.md` gained two real-but-undocumented entries** instead of code being forced to conform: a 14px "Compact" type step (used consistently at 6+ sites — field labels, form alerts, dashboard tile text — sitting between Label 11-13px and Body 16px), and the 8-hue `category-tag` color system (`src/lib/categoryColor.js`) that had zero mention in the Colors section.
+- **Two more of the 59 confirmed as false positives and suppressed locally** (user approved, same mechanism as #22's two suppressions): `.recruit-tile .avatar`'s 22px is large-initials glyph sizing, not text hierarchy; the two `hover-lift` shadows' literal `rgba(0, 0, 0, 0.18)` is an exact match of the shadow DESIGN.md already documents, just not routed through a `var()`.
+- **Two lone one-off sizes reviewed and left unchanged** (user approved): `button.secondary` 15px, `.readiness-cell` 10px — deliberate, low-risk, not drift.
+- **The remaining ~50 of the 59 are false positives from the same root cause**: DESIGN.md documents type-ramp steps as *ranges* (`"11-13px"`, `"17-20px"`), but the detector matches exact literal values — so e.g. `font-size: 13px` reads as "off the ramp" even though 13 is inside the documented label range. Not touched; this is a detector-vs-doc-format mismatch, not drift.
+
+Merge and deploy: opened as PR #23 (not draft) → user said "Push, merge, and deploy to live web app" → asked the required direct review-skip question (user chose skip) → `gh pr merge 23 --merge --delete-branch=false` succeeded → this worktree's tree was confirmed byte-identical to `origin/main` (`git diff --stat HEAD origin/main` empty) → `web/.env` confirmed present with the right project ID → `npm run build` clean → `firebase deploy --only hosting --project gfd-recruit-training` (hosting-only correct; no rules/indexes touched) → verified live: bundle hash `index-CShQtbFy.js` matches local build exactly, real (non-empty) `apiKey` baked in, headless load of the live URL shows correct title/unauthenticated `/login` redirect and zero console errors.
+
+**Prior session: PR #22 — design revamp + modal/a11y consolidation.** Started from `/design-revamp` with no arguments; scope set to the whole `web/` app, direction "high-end/premium" filtered through PRODUCT.md's operational constraints (craft not decoration — no decorative motion on timed-test screens, glove-ready 44px targets, sunlight-legible contrast). Diagnosis found the existing `theme.css` token system was genuinely well-crafted, not AI slop, so it was preserved almost entirely; the real findings were accessibility bugs concentrated on `LiveTestRunnerPage.jsx`, the highest-stakes screen in the app (live grading, evaluator taps mid-test under time pressure).
 
 What shipped in commit `cc6da09`:
 
@@ -71,13 +82,13 @@ Housekeeping, not code:
 
 ## How to resume
 
-Git state in this worktree, verified at handoff time: branch `design-revamp-modal-a11y`, HEAD `cc6da09`, working tree clean, tracking `origin/design-revamp-modal-a11y`. `git diff --stat HEAD origin/main` is empty — the tree is byte-identical to `origin/main` at `1a1cfb7`.
+Git state in this worktree, verified at handoff time: branch `design-revamp-modal-a11y`, HEAD `2d52c38`, working tree clean, tracking `origin/design-revamp-modal-a11y`. `git diff --stat HEAD origin/main` is empty — the tree is byte-identical to `origin/main` at `afcbe53` (merge commit for PR #23).
 
 1. **Sync local main — from the main checkout, not from a worktree:**
    ```
    cd C:\Users\ffhal\GFD-Training-Practicals
    git fetch origin
-   git merge --ff-only origin/main   # a0c2a11 -> 1a1cfb7
+   git merge --ff-only origin/main   # a0c2a11 -> afcbe53 (now 11 PRs behind before this sync, not 10 — PR #23 added one more)
    ```
 2. **Decide on worktree cleanup.** Remove the five merged worktrees above if you want; leave the ~9 pre-existing ones alone unless you're deliberately auditing them.
 3. **Then pick up an open item.** The only real remaining threads are the `.LXRBank` hardware smoke test (needs the physical drive in hand) and the EmailJS notification check. Nothing from this session is half-finished.
