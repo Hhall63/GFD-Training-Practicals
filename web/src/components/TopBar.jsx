@@ -4,6 +4,7 @@ import badge from "../assets/gfd-badge.png";
 import { useAuth } from "../context/AuthContext";
 import { getAdminNavItems } from "../lib/navItems";
 import ChangePasswordForm from "./ChangePasswordForm";
+import Icon from "./Icon";
 import Modal from "./Modal";
 
 export default function TopBar({ title = "GFD Recruit Testing", subtitle, showMenu = true, onBack }) {
@@ -21,7 +22,7 @@ export default function TopBar({ title = "GFD Recruit Testing", subtitle, showMe
     <div className="top-bar">
       {onBack && (
         <button className="icon-button" onClick={onBack} aria-label="Back">
-          ←
+          <Icon name="back" size={22} />
         </button>
       )}
       <img src={badge} alt="GFD Badge" />
@@ -32,7 +33,7 @@ export default function TopBar({ title = "GFD Recruit Testing", subtitle, showMe
       {showMenu && (
         <div style={{ position: "relative" }}>
           <button className="icon-button" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
-            ⋯
+            <Icon name="more" size={22} />
           </button>
           {menuOpen && (
             <div

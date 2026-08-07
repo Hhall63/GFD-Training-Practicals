@@ -43,6 +43,11 @@ typography:
     fontSize: "11-13px"
     fontWeight: 700
     letterSpacing: "0.04-0.1em"
+  compact:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    fontWeight: 500-700
+    lineHeight: 1.2-1.4
 rounded:
   sm: "8px"
   md: "10px"
@@ -107,6 +112,9 @@ Institutional navy/gold/red, kept restrained: navy carries authority and structu
 - **Slate Strong** (#4a4a54): the outdoor-legibility escape hatch — used wherever secondary-weight text must clear a stronger contrast floor (~7-8:1) for bright-sun reading (form hints, badge text on tinted backgrounds).
 - **Hairline** (#e1e1e8): borders, dividers.
 
+### Category Tags
+Eight deterministic hues (`.category-tag--0` through `--7`, assigned by `src/lib/categoryColor.js`), each a saturated text color over a 10%-alpha tint of itself: `#1d4ed8` blue, `#0e7490` cyan, `#0f766e` teal, `#4338ca` indigo, `#6d28d9` violet, `#a21caf` magenta, `#334155` slate, `#0369a1` sky. A scanning aid across a long question list in the Test Bank builder, not decoration — deliberately kept out of the green/red family already claimed by pass/fail semantics.
+
 ### Named Rules
 **The One Accent Rule.** Signal Gold appears only as a thin rule, tick, or ring — never as a fill or a large surface. Its scarcity is what makes it read as a signature rather than a third primary color.
 
@@ -123,6 +131,7 @@ Institutional navy/gold/red, kept restrained: navy carries authority and structu
 - **KPI Value** (800, 32px, 1, tabular-nums): dashboard/reporting numbers — the one place a number needs to read like a gauge readout.
 - **Title** (700-800, 17-20px, 1.15): page/section/dashboard-tile titles.
 - **Body** (400, 16px, 1.4): form inputs, running text. 16px minimum on inputs specifically prevents iOS auto-zoom.
+- **Compact** (500-700, 14px, 1.2-1.4): the step between Label and Body — field labels, form-alert text, dashboard tile/subtitle text, segmented-control text. Not in the original ramp; documented here because it's used consistently (6+ sites) rather than drifted into.
 - **Label** (700, 11-13px, letter-spacing 0.04-0.1em, often uppercase): eyebrows, section labels, badges — the small-caps instrument-panel caption voice.
 
 ### Named Rules

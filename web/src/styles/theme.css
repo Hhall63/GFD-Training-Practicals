@@ -128,10 +128,9 @@ body {
   background: none;
   border: none;
   color: white;
-  font-size: 22px;
   cursor: pointer;
   /* Glove-ready per PRODUCT.md: a comfortable 44x44px minimum hit area, not just whatever
-     the 22px glyph's own box happens to render at. */
+     the icon's own box happens to render at. */
   min-width: 44px;
   min-height: 44px;
   display: inline-flex;
