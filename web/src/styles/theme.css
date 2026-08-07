@@ -508,6 +508,9 @@ h4 {
   border-radius: 8px;
   padding: 8px 14px;
   font-weight: 600;
+  /* Glove-ready 44px floor per DESIGN.md — this Stop button previously had no explicit
+     min-height and rendered ~36-38px tall. */
+  min-height: 44px;
 }
 
 .overall-timer-banner {
